@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Search, Mail, Building2, Calendar, Clock, FileText, Edit2, X, Check } from 'lucide-react';
+import { Search, Mail, Building2, Calendar, Clock, FileText, Edit2, X, Check, RefreshCw } from 'lucide-react';
 import type { Person } from '@shared/types';
 import { formatDuration, getAvatarColor, getInitials, formatLastMeeting } from '../lib/formatters';
 import { PersonListSkeleton } from './Skeleton';
@@ -9,6 +9,7 @@ export default function PeopleView() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [editingField, setEditingField] = useState<'name' | 'organization' | 'notes' | null>(null);
   const [editValue, setEditValue] = useState('');
 
@@ -21,6 +22,19 @@ export default function PeopleView() {
       setIsLoading(false);
     }
   }, []);
+
+  const syncFromCalendar = async () => {
+    setIsSyncing(true);
+    try {
+      const result = await window.kakarot.people.syncFromCalendar();
+      console.log('Synced contacts from calendar:', result);
+      await loadPeople(); // Refresh the list after sync
+    } catch (error) {
+      console.error('Failed to sync contacts from calendar:', error);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   useEffect(() => {
     loadPeople();
@@ -91,7 +105,18 @@ export default function PeopleView() {
         {/* Search */}
         <div className="p-4 border-b border-[#1A1A1A]">
           <div className="mb-3">
-            <h2 className="text-lg font-semibold text-white">Contacts</h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-white">Contacts</h2>
+              <button
+                onClick={syncFromCalendar}
+                disabled={isSyncing}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-slate-400 hover:text-slate-200 hover:bg-[#1A1A1A] rounded-lg transition-colors disabled:opacity-50"
+                title="Sync contacts from calendar events"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+                {isSyncing ? 'Syncing...' : 'Sync'}
+              </button>
+            </div>
             <p className="text-xs text-slate-500 mt-1">
               {people.length} {people.length === 1 ? 'contact' : 'contacts'}
             </p>

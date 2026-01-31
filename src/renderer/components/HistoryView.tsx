@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useAppStore } from '../stores/appStore';
 import type { Meeting } from '@shared/types';
-import { Search, Trash2, Folder, Calendar as CalendarIcon, Users, Share2, Copy, Link, Mail, MessageCircle, Send, X } from 'lucide-react';
+import { Search, Trash2, Folder, Calendar as CalendarIcon, Users, Share2, Copy, Link, Mail, MessageCircle, Send, X, Plus } from 'lucide-react';
 import { formatDuration, formatTimestamp, getSpeakerLabel, getAvatarColor, getInitials } from '../lib/formatters';
 import { MeetingListSkeleton } from './Skeleton';
 import { ConfirmDialog } from './ConfirmDialog';
@@ -23,6 +23,15 @@ export default function HistoryView() {
     isOpen: false,
     meetingId: null,
   });
+
+  // Manual notes state
+  const [manualNotes, setManualNotes] = useState('');
+  const [isNoteSaving, setIsNoteSaving] = useState(false);
+  const [noteLastSaved, setNoteLastSaved] = useState<Date | null>(null);
+  const [showManualNotesInput, setShowManualNotesInput] = useState(false);
+  const saveNoteTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const notesInitialLoadRef = useRef(false);
+
   const shareRef = useRef<HTMLDivElement | null>(null);
   const chatInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -158,6 +167,76 @@ export default function HistoryView() {
   useEffect(() => {
     loadMeetings();
   }, [loadMeetings]);
+
+  // Load existing manual notes when meeting is selected
+  useEffect(() => {
+    if (!selectedMeeting) {
+      setManualNotes('');
+      setNoteLastSaved(null);
+      setShowManualNotesInput(false);
+      notesInitialLoadRef.current = false;
+      return;
+    }
+
+    // Load manual notes from noteEntries
+    const manualNoteEntries = selectedMeeting.noteEntries
+      ?.filter(entry => entry.type === 'manual')
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    if (manualNoteEntries && manualNoteEntries.length > 0) {
+      setManualNotes(manualNoteEntries[0].content);
+      setNoteLastSaved(new Date(manualNoteEntries[0].createdAt));
+      setShowManualNotesInput(true);
+    } else {
+      setManualNotes('');
+      setNoteLastSaved(null);
+      // Show input if meeting has no generated notes
+      setShowManualNotesInput(!selectedMeeting.notesMarkdown && !selectedMeeting.summary);
+    }
+    notesInitialLoadRef.current = true;
+  }, [selectedMeeting]);
+
+  // Autosave manual notes
+  const saveManualNotes = useCallback(async (content: string) => {
+    if (!selectedMeeting?.id || !content.trim()) return;
+
+    setIsNoteSaving(true);
+    try {
+      await window.kakarot.meetings.saveManualNotes(selectedMeeting.id, content);
+      setNoteLastSaved(new Date());
+      // Refresh the meeting to get updated noteEntries
+      const updatedMeeting = await window.kakarot.meetings.get(selectedMeeting.id);
+      if (updatedMeeting) {
+        setSelectedMeeting(updatedMeeting);
+      }
+    } catch (error) {
+      console.error('Failed to save manual notes:', error);
+    } finally {
+      setIsNoteSaving(false);
+    }
+  }, [selectedMeeting?.id, setSelectedMeeting]);
+
+  // Debounced autosave on notes change
+  useEffect(() => {
+    if (saveNoteTimerRef.current) {
+      clearTimeout(saveNoteTimerRef.current);
+    }
+
+    // Don't save if not initialized or no content
+    if (!notesInitialLoadRef.current) return;
+
+    if (manualNotes.trim()) {
+      saveNoteTimerRef.current = setTimeout(() => {
+        saveManualNotes(manualNotes);
+      }, 1000);
+    }
+
+    return () => {
+      if (saveNoteTimerRef.current) {
+        clearTimeout(saveNoteTimerRef.current);
+      }
+    };
+  }, [manualNotes, saveManualNotes]);
 
   const handleCopyText = async () => {
     if (!selectedMeeting) return;
@@ -434,10 +513,46 @@ export default function HistoryView() {
                 </div>
               )}
 
-              {/* Notes */}
+              {/* Manual Notes */}
+              <div className="bg-[#121212] rounded-xl p-4 border border-[#1A1A1A]">
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-sm font-medium text-slate-200">My Notes</h2>
+                  <div className="flex items-center gap-2 text-xs">
+                    {isNoteSaving && (
+                      <span className="text-amber-400">Saving...</span>
+                    )}
+                    {!isNoteSaving && noteLastSaved && (
+                      <span className="text-emerald-400">
+                        Saved {noteLastSaved.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    )}
+                    {!showManualNotesInput && (
+                      <button
+                        onClick={() => setShowManualNotesInput(true)}
+                        className="flex items-center gap-1 px-2 py-1 rounded-md bg-[#1A1A1A] hover:bg-[#222222] text-slate-300 transition-colors"
+                      >
+                        <Plus className="w-3 h-3" />
+                        Add
+                      </button>
+                    )}
+                  </div>
+                </div>
+                {showManualNotesInput ? (
+                  <textarea
+                    value={manualNotes}
+                    onChange={(e) => setManualNotes(e.target.value)}
+                    placeholder="Write your notes here..."
+                    className="w-full min-h-[120px] bg-[#0F0F10] border border-[#1A1A1A] text-slate-100 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#7C3AED]/50 placeholder:text-slate-500 resize-y"
+                  />
+                ) : (
+                  <p className="text-sm text-slate-500 italic">No manual notes yet. Click "Add" to start writing.</p>
+                )}
+              </div>
+
+              {/* Generated Notes */}
               {selectedMeeting.notesMarkdown && (
                 <div className="bg-[#121212] rounded-xl p-4 border border-[#1A1A1A]">
-                  <h2 className="text-sm font-medium text-slate-200 mb-2">Notes</h2>
+                  <h2 className="text-sm font-medium text-slate-200 mb-2">Generated Notes</h2>
                   <div className="text-sm text-slate-100 whitespace-pre-wrap prose prose-invert prose-sm max-w-none">
                     {selectedMeeting.notesMarkdown}
                   </div>

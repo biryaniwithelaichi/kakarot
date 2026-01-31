@@ -31,26 +31,24 @@ export function registerCRMHandlers(): void {
       let result;
 
       if (provider === 'salesforce') {
-        // Use OAuth credentials from environment or settings
+        // Use OAuth client ID from environment or settings (secret is on backend)
         const clientId = process.env.SALESFORCE_CLIENT_ID || settings.crmOAuthSalesforceClientId || '';
-        const clientSecret = process.env.SALESFORCE_CLIENT_SECRET || settings.crmOAuthSalesforceClientSecret || '';
 
-        if (!clientId || !clientSecret) {
-          throw new Error('Salesforce OAuth credentials not configured');
+        if (!clientId) {
+          throw new Error('Salesforce OAuth client ID not configured');
         }
 
-        const oauthProvider = new SalesforceOAuthProvider(clientId, clientSecret);
+        const oauthProvider = new SalesforceOAuthProvider(clientId);
         result = await oauthProvider.authenticate(mainWindowRef);
       } else {
-        // HubSpot OAuth
+        // HubSpot OAuth - client ID only (secret is on backend)
         const clientId = process.env.HUBSPOT_CLIENT_ID || settings.crmOAuthHubSpotClientId || '';
-        const clientSecret = process.env.HUBSPOT_CLIENT_SECRET || settings.crmOAuthHubSpotClientSecret || '';
 
-        if (!clientId || !clientSecret) {
-          throw new Error('HubSpot OAuth credentials not configured');
+        if (!clientId) {
+          throw new Error('HubSpot OAuth client ID not configured');
         }
 
-        const oauthProvider = new HubSpotOAuthProvider(clientId, clientSecret);
+        const oauthProvider = new HubSpotOAuthProvider(clientId);
         result = await oauthProvider.authenticate(mainWindowRef);
       }
 

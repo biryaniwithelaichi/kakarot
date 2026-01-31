@@ -1,6 +1,10 @@
 import { getContainer } from '../core/container';
 import { createLogger } from '../core/logger';
-import { Meeting } from '@shared/types';
+import { CRMEmailMatcher } from './CRMEmailMatcher';
+import type { Meeting, HubSpotOAuthToken, TaskCommitment, CompanyInfo } from '@shared/types';
+import type { ContactSearchResult } from './HubSpotService';
+
+const CONFIDENCE_THRESHOLD = 70;
 
 const logger = createLogger('PrepService');
 
@@ -23,6 +27,12 @@ export interface ParticipantPrepSection {
   name: string;
   email: string | null;
   history_strength: 'strong' | 'weak' | 'org-only' | 'none';
+  is_first_meeting: boolean;
+  org_has_met_before: boolean;
+  confidence_score: number; // 0-100
+  data_gaps: string[];
+  pending_task_commitments: TaskCommitment[];
+  company_info?: CompanyInfo;
   context: {
     last_meeting_date: string | null;
     meeting_count: number;
@@ -72,12 +82,12 @@ export class PrepService {
     // Prepare agent prompt with context
     const agentPrompt = this.buildAgentPrompt(input, participantContexts);
 
-    // Call OpenAI with structured output
+    // Call OpenAI with structured output (lower temperature for determinism)
     const prepContent = await aiProvider.chat(
       [{ role: 'user', content: agentPrompt }],
       {
         model: 'gpt-4o',
-        temperature: 0.7,
+        temperature: 0.35,
         maxTokens: 2000,
         responseFormat: 'json',
       }
@@ -92,8 +102,69 @@ export class PrepService {
       throw new Error('Invalid AI response format');
     }
 
-    // Ensure response matches output contract
-    return this.validateAndFormatOutput(prepData, input);
+    // Validate output structure
+    const validatedOutput = this.validateAndFormatOutput(prepData, input);
+
+    // Enrich with additional data and apply confidence filtering
+    const enrichedOutput = await this.enrichWithAdditionalData(validatedOutput, participantContexts);
+
+    // Filter low confidence content
+    return this.filterLowConfidenceContent(enrichedOutput, participantContexts);
+  }
+
+  async collectMeetingData(contactEmail: string): Promise<{
+    contact: ContactSearchResult | null;
+    pastMeetings: Meeting[];
+    jiraTickets: unknown[];
+  } | null> {
+    try {
+      const { hubSpotService, meetingRepo, settingsRepo } = getContainer();
+
+      if (!contactEmail) {
+        throw new Error('Contact email is required');
+      }
+
+      const settings = settingsRepo.getSettings();
+      let hubspotToken = settings.crmConnections?.hubspot as HubSpotOAuthToken | undefined;
+
+      if (hubspotToken && hubSpotService.isTokenExpired(hubspotToken) && hubspotToken.refreshToken) {
+        hubspotToken = await hubSpotService.refreshAccessToken(hubspotToken.refreshToken);
+        settingsRepo.updateSettings({
+          crmConnections: {
+            ...(settings.crmConnections || {}),
+            hubspot: hubspotToken,
+          },
+        });
+      }
+
+      let contact: ContactSearchResult | null = null;
+      if (hubspotToken?.accessToken) {
+        const emailMatcher = new CRMEmailMatcher();
+        const matches = await emailMatcher.findHubSpotContacts([contactEmail], hubspotToken);
+        if (matches.length > 0) {
+          const match = matches[0];
+          contact = {
+            id: match.crmId,
+            email: match.email,
+            name: match.crmName,
+          };
+        }
+      }
+
+      const pastMeetings = meetingRepo.findAll().filter((meeting) => {
+        const attendees = meeting.attendeeEmails?.length ? meeting.attendeeEmails : meeting.participants;
+        return attendees?.includes(contactEmail);
+      });
+
+      return {
+        contact,
+        jiraTickets: [],
+        pastMeetings,
+      };
+    } catch (error) {
+      logger.error('Error collecting meeting data', { error });
+      return null;
+    }
   }
 
   private async retrieveParticipantContexts(
@@ -247,18 +318,30 @@ export class PrepService {
   ): string {
     const contextStrings = Object.entries(contexts)
       .map(([_key, context]) => {
-        const { participant, strength, recentTopics, keyPoints } = context;
+        const { participant, strength, recentTopics, keyPoints, meetings } = context;
+        const isFirstMeeting = meetings.length === 0;
         return `
 **${participant.name} (${participant.email || 'no-email'}) [${strength}]**
 - Organization: ${participant.company || 'Unknown'}
 - Domain: ${participant.domain || 'N/A'}
-- Recent Topics: ${recentTopics.join(', ') || 'None'}
-- Key Points: ${keyPoints.join(', ') || 'None'}
+- First meeting: ${isFirstMeeting ? 'YES - No prior history' : 'NO'}
+- Meeting history: ${meetings.length} meetings
+- Recent Topics: ${recentTopics.length > 0 ? recentTopics.join(', ') : 'None available'}
+- Key Points: ${keyPoints.length > 0 ? keyPoints.join(', ') : 'None available'}
 `;
       })
       .join('\n');
 
-    return `You are an expert meeting preparation agent. Generate a deterministic 5-minute meeting briefing in strict JSON format.
+    return `You are a meeting preparation assistant. Generate a factual briefing based ONLY on provided data.
+
+CRITICAL RULES:
+- ONLY include information you are highly confident about (70%+ certainty)
+- If you lack sufficient context about a participant, mark their history_strength as "none" or "weak"
+- DO NOT make assumptions about topics, relationships, or context that aren't clearly evident
+- When uncertain, use neutral language like "Consider discussing..." instead of definitive statements
+- If there's NO past meeting data, keep talking_points generic and professional
+- Default to "No recent context available" rather than inventing details
+- For first-time meetings, explicitly state "This is your first meeting with [name]" in background
 
 MEETING DETAILS:
 - Type: ${input.meeting.meeting_type}
@@ -270,13 +353,14 @@ ${contextStrings}
 
 INSTRUCTIONS:
 1. Return VALID JSON only - no markdown, no extra text
-2. For each participant, generate 2-3 talking points and 1-2 questions based on their history
-3. Use "none" for relationships with no history
-4. Generate 3-4 key agenda topics
-5. Include 2-3 success metrics
-6. Include 2-3 risk mitigation strategies
-7. Keep all fields concise (15-25 words per field)
-8. Duration is always exactly 5 minutes
+2. For each participant with history, generate 2-3 specific talking points and 1-2 questions
+3. For participants with NO history, use generic professional talking points
+4. Use "none" for history_strength when no data exists - DO NOT invent context
+5. Generate 3-4 key agenda topics based on actual meeting objective
+6. Include 2-3 measurable success metrics
+7. Include 2-3 risk mitigation strategies
+8. Keep all fields concise (15-25 words per field)
+9. Duration is always exactly 5 minutes
 
 RESPONSE FORMAT:
 {
@@ -291,6 +375,7 @@ RESPONSE FORMAT:
       "name": "string",
       "email": "string or null",
       "history_strength": "strong|weak|org-only|none",
+      "is_first_meeting": boolean,
       "context": {
         "last_meeting_date": "ISO8601 or null",
         "meeting_count": number,
@@ -299,7 +384,7 @@ RESPONSE FORMAT:
       },
       "talking_points": ["string"],
       "questions_to_ask": ["string"],
-      "background": "string (1-2 sentences)"
+      "background": "string (1-2 sentences, state if first meeting)"
     }
   ],
   "agenda": {
@@ -336,6 +421,11 @@ RESPONSE FORMAT:
         history_strength: (['strong', 'weak', 'org-only', 'none'].includes(p.history_strength)
           ? p.history_strength
           : 'none') as 'strong' | 'weak' | 'org-only' | 'none',
+        is_first_meeting: p.is_first_meeting ?? (p.context?.meeting_count === 0),
+        org_has_met_before: false, // Will be enriched later
+        confidence_score: 0, // Will be calculated later
+        data_gaps: [], // Will be populated later
+        pending_task_commitments: [], // Will be populated later
         context: {
           last_meeting_date: p.context?.last_meeting_date || null,
           meeting_count: p.context?.meeting_count || 0,
@@ -370,6 +460,244 @@ RESPONSE FORMAT:
       risk_mitigation,
     };
   }
+
+  /**
+   * Enrich the prep output with additional data:
+   * - First meeting detection
+   * - Org-wide history check
+   * - Task commitments from past meetings
+   * - Confidence scoring
+   */
+  private async enrichWithAdditionalData(
+    prepData: MeetingPrepOutput,
+    contexts: Record<string, ParticipantContext>
+  ): Promise<MeetingPrepOutput> {
+    const enrichedParticipants = await Promise.all(
+      prepData.participants.map(async (p) => {
+        const ctx = contexts[p.email || p.name];
+        const meetingCount = ctx?.meetings.length || 0;
+
+        // Check if this is a first meeting
+        const isFirstMeeting = meetingCount === 0;
+
+        // Check org-wide history
+        const orgHistory = await this.checkOrgWideHistory(
+          p.email || '',
+          ctx?.participant.domain || null
+        );
+
+        // Get task commitments from past meetings
+        const taskCommitments = p.email
+          ? await this.getTaskCommitmentsForParticipant(p.email)
+          : [];
+
+        // Calculate confidence score
+        let confidenceScore = 0;
+        if (meetingCount >= 3) confidenceScore = 90;
+        else if (meetingCount >= 1) confidenceScore = 60;
+        else if (orgHistory.anyOrgMeetings) confidenceScore = 40;
+        else confidenceScore = 20;
+
+        // Identify data gaps
+        const dataGaps: string[] = [];
+        if (meetingCount === 0) dataGaps.push('No direct meeting history');
+        if (!p.email) dataGaps.push('Email not available');
+        if (ctx?.recentTopics.length === 0) dataGaps.push('No recent topics');
+        if (ctx?.keyPoints.length === 0) dataGaps.push('No key points from past meetings');
+
+        return {
+          ...p,
+          is_first_meeting: isFirstMeeting,
+          org_has_met_before: orgHistory.anyOrgMeetings,
+          confidence_score: confidenceScore,
+          data_gaps: dataGaps,
+          pending_task_commitments: taskCommitments,
+        };
+      })
+    );
+
+    return {
+      ...prepData,
+      participants: enrichedParticipants,
+    };
+  }
+
+  /**
+   * Filter and sanitize low confidence content
+   * Ensures we don't present made-up information as fact
+   */
+  private filterLowConfidenceContent(
+    prepData: MeetingPrepOutput,
+    contexts: Record<string, ParticipantContext>
+  ): MeetingPrepOutput {
+    return {
+      ...prepData,
+      participants: prepData.participants.map((p) => {
+        // If below confidence threshold, sanitize talking points
+        if (p.confidence_score < CONFIDENCE_THRESHOLD) {
+          return {
+            ...p,
+            talking_points: p.talking_points.map(tp =>
+              tp.startsWith('Consider') ? tp : `Consider discussing: ${tp.replace(/^(Discuss|Talk about|Mention)\s*/i, '')}`
+            ),
+            background: p.is_first_meeting
+              ? `This is your first meeting with ${p.name}. ${p.org_has_met_before ? 'Others in your organization have met with them before.' : 'No prior organizational history available.'}`
+              : p.background,
+          };
+        }
+        return p;
+      }),
+    };
+  }
+
+  /**
+   * Check if anyone in the organization has met this person
+   */
+  private async checkOrgWideHistory(
+    participantEmail: string,
+    participantDomain: string | null
+  ): Promise<OrgHistoryResult> {
+    const { meetingRepo } = getContainer();
+    if (!meetingRepo) {
+      return { anyOrgMeetings: false, meetingCount: 0 };
+    }
+
+    const allMeetings = meetingRepo.findAll();
+
+    // Find any meeting where this person attended (by email or domain)
+    const relevantMeetings = allMeetings.filter((m) => {
+      if (participantEmail && m.attendeeEmails?.includes(participantEmail)) {
+        return true;
+      }
+      if (participantDomain && m.attendeeEmails?.some(e => e.endsWith(`@${participantDomain}`))) {
+        return true;
+      }
+      return false;
+    });
+
+    if (relevantMeetings.length === 0) {
+      return { anyOrgMeetings: false, meetingCount: 0 };
+    }
+
+    // Sort by date to get most recent
+    const sorted = relevantMeetings.sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+
+    return {
+      anyOrgMeetings: true,
+      lastOrgMeeting: new Date(sorted[0].createdAt),
+      meetingCount: relevantMeetings.length,
+    };
+  }
+
+  /**
+   * Get task commitments for a participant from past meetings
+   */
+  async getTaskCommitmentsForParticipant(participantEmail: string): Promise<TaskCommitment[]> {
+    const { meetingRepo } = getContainer();
+    if (!meetingRepo || !participantEmail) {
+      return [];
+    }
+
+    const meetings = meetingRepo.findAll();
+    const commitments: TaskCommitment[] = [];
+
+    for (const meeting of meetings) {
+      if (!meeting.attendeeEmails?.includes(participantEmail)) continue;
+
+      // Extract from action items
+      if (meeting.actionItems && meeting.actionItems.length > 0) {
+        meeting.actionItems.forEach((item, idx) => {
+          commitments.push({
+            id: `${meeting.id}-action-${idx}`,
+            meetingId: meeting.id,
+            meetingTitle: meeting.title,
+            meetingDate: meeting.createdAt,
+            participantEmail,
+            description: item,
+            completed: false, // Default to not completed
+            source: 'action_item',
+          });
+        });
+      }
+    }
+
+    // Sort by date (most recent first) and limit
+    return commitments
+      .sort((a, b) => new Date(b.meetingDate).getTime() - new Date(a.meetingDate).getTime())
+      .slice(0, 10);
+  }
+
+  /**
+   * Extract task commitments from transcript using AI
+   */
+  async extractTasksFromTranscript(
+    meetingId: string,
+    participantEmail: string
+  ): Promise<TaskCommitment[]> {
+    const { meetingRepo, aiProvider } = getContainer();
+    if (!meetingRepo || !aiProvider) {
+      return [];
+    }
+
+    const meeting = meetingRepo.findById(meetingId);
+    if (!meeting || !meeting.transcript || meeting.transcript.length === 0) {
+      return [];
+    }
+
+    // Build transcript text
+    const transcriptText = meeting.transcript
+      .map(s => `[${s.source}]: ${s.text}`)
+      .join('\n');
+
+    const prompt = `Analyze this meeting transcript and extract any commitments, promises, or action items made.
+
+TRANSCRIPT:
+${transcriptText}
+
+RULES:
+- Only extract CLEAR commitments (e.g., "I will...", "We'll follow up...", "Let me send you...")
+- Do NOT invent or assume commitments
+- If no clear commitments are found, return an empty array
+- Keep descriptions concise (under 100 characters)
+
+Return JSON only:
+{
+  "commitments": [
+    { "description": "string", "speaker": "mic|system" }
+  ]
+}`;
+
+    try {
+      const response = await aiProvider.chat(
+        [{ role: 'user', content: prompt }],
+        {
+          model: 'gpt-4o',
+          temperature: 0.2, // Very low for consistency
+          maxTokens: 500,
+          responseFormat: 'json',
+        }
+      );
+
+      const parsed = JSON.parse(response);
+      const commitments = parsed.commitments || [];
+
+      return commitments.map((c: { description: string; speaker: string }, idx: number) => ({
+        id: `${meetingId}-extracted-${idx}`,
+        meetingId,
+        meetingTitle: meeting.title,
+        meetingDate: meeting.createdAt,
+        participantEmail,
+        description: c.description,
+        completed: false,
+        source: 'transcript_extraction' as const,
+      }));
+    } catch (error) {
+      logger.error('Failed to extract tasks from transcript', { error, meetingId });
+      return [];
+    }
+  }
 }
 
 interface ParticipantContext {
@@ -378,4 +706,10 @@ interface ParticipantContext {
   strength: 'strong' | 'weak' | 'org-only' | 'none';
   recentTopics: string[];
   keyPoints: string[];
+}
+
+interface OrgHistoryResult {
+  anyOrgMeetings: boolean;
+  lastOrgMeeting?: Date;
+  meetingCount: number;
 }

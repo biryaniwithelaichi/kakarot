@@ -4,6 +4,7 @@ import { SalesforceService } from '../services/SalesforceService';
 import { createLogger } from '../core/logger';
 
 const logger = createLogger('SalesforceOAuthProvider');
+const CLOSE_URL = 'kakarot://close-oauth';
 
 export type { SalesforceOAuthToken };
 
@@ -13,11 +14,10 @@ export class SalesforceOAuthProvider {
 
   constructor(
     clientId: string,
-    clientSecret: string,
     redirectUri = 'http://localhost:3000/oauth/salesforce'
   ) {
     this.redirectUri = redirectUri;
-    this.salesforceService = new SalesforceService(clientId, clientSecret, redirectUri);
+    this.salesforceService = new SalesforceService(clientId, redirectUri);
   }
 
   async authenticate(mainWindow: BrowserWindow): Promise<SalesforceOAuthToken> {
@@ -33,6 +33,40 @@ export class SalesforceOAuthProvider {
           contextIsolation: true,
         },
       });
+
+      const injectCloseButton = () => {
+        const js = `
+          (function() {
+            if (document.getElementById('kakarot-oauth-close')) return;
+            const btn = document.createElement('button');
+            btn.id = 'kakarot-oauth-close';
+            btn.setAttribute('aria-label', 'Close');
+            btn.textContent = '\u00D7';
+            btn.style.position = 'fixed';
+            btn.style.top = '12px';
+            btn.style.right = '12px';
+            btn.style.zIndex = '2147483647';
+            btn.style.width = '28px';
+            btn.style.height = '28px';
+            btn.style.borderRadius = '14px';
+            btn.style.border = '1px solid rgba(0,0,0,0.2)';
+            btn.style.background = 'rgba(255,255,255,0.92)';
+            btn.style.color = '#111';
+            btn.style.fontSize = '18px';
+            btn.style.lineHeight = '26px';
+            btn.style.cursor = 'pointer';
+            btn.style.boxShadow = '0 2px 8px rgba(0,0,0,0.2)';
+            btn.onmouseenter = () => { btn.style.opacity = '0.9'; };
+            btn.onmouseleave = () => { btn.style.opacity = '1'; };
+            btn.onclick = () => { window.location.href = '${CLOSE_URL}'; };
+            (document.body || document.documentElement).appendChild(btn);
+          })();
+        `;
+
+        authWindow.webContents.executeJavaScript(js).catch(() => {
+          // Ignore injection errors on restrictive pages
+        });
+      };
 
       const authUrl = this.salesforceService.getAuthorizationUrl();
 
@@ -96,11 +130,17 @@ export class SalesforceOAuthProvider {
       authWindow.webContents.on('did-finish-load', () => {
         const currentUrl = authWindow.webContents.getURL();
         logger.debug('Page finished loading', { url: currentUrl });
+        injectCloseButton();
         checkUrlForCode(currentUrl);
       });
 
       authWindow.webContents.on('will-redirect', (event, url) => {
         logger.debug('OAuth redirect detected', { url });
+        if (url.startsWith(CLOSE_URL)) {
+          event.preventDefault();
+          authWindow.close();
+          return;
+        }
         if (checkUrlForCode(url)) {
           event.preventDefault();
         }
@@ -108,6 +148,11 @@ export class SalesforceOAuthProvider {
 
       authWindow.webContents.on('will-navigate', (event, url) => {
         logger.debug('OAuth navigation detected', { url });
+        if (url.startsWith(CLOSE_URL)) {
+          event.preventDefault();
+          authWindow.close();
+          return;
+        }
         if (checkUrlForCode(url)) {
           event.preventDefault();
         }

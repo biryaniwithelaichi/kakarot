@@ -1,6 +1,7 @@
 import * as jsforce from 'jsforce';
 import crypto from 'crypto';
 import { createLogger } from '../core/logger';
+import { BACKEND_BASE_URL } from '../providers/BackendAPIProvider';
 
 const logger = createLogger('SalesforceService');
 
@@ -22,33 +23,19 @@ export interface ContactSearchResult {
 }
 
 export class SalesforceService {
-  private oauth2: jsforce.OAuth2;
   private clientId: string;
-  private clientSecret: string;
   private redirectUri: string;
   private codeVerifier: string | null = null;
 
   constructor(
     clientId: string = process.env.SALESFORCE_CLIENT_ID || '',
-    clientSecret: string = process.env.SALESFORCE_CLIENT_SECRET || '',
     redirectUri: string = 'http://localhost:3000/oauth/salesforce'
   ) {
     this.clientId = clientId;
-    this.clientSecret = clientSecret;
     this.redirectUri = redirectUri;
 
-    // Initialize jsforce OAuth2
-    this.oauth2 = new jsforce.OAuth2({
-      clientId: this.clientId,
-      clientSecret: this.clientSecret,
-      redirectUri: this.redirectUri,
-    });
-
-    if (!this.clientId || !this.clientSecret) {
-      logger.warn('Salesforce credentials not configured', {
-        clientIdPresent: !!this.clientId,
-        clientSecretPresent: !!this.clientSecret,
-      });
+    if (!this.clientId) {
+      logger.warn('Salesforce client ID not configured');
     }
   }
 
@@ -58,7 +45,7 @@ export class SalesforceService {
   private generatePKCE(): { codeVerifier: string; codeChallenge: string } {
     // Generate a random code verifier (43-128 characters)
     const codeVerifier = crypto.randomBytes(32).toString('base64url');
-    
+
     // Generate code challenge (SHA256 hash of verifier)
     const codeChallenge = crypto
       .createHash('sha256')
@@ -102,46 +89,43 @@ export class SalesforceService {
   }
 
   /**
-   * Exchange authorization code for access token
+   * Exchange authorization code for access token via backend
    * Called after user authorizes in browser and redirects back with 'code'
    */
   public async exchangeCodeForToken(code: string): Promise<SalesforceOAuthToken> {
     try {
-      if (!this.clientId || !this.clientSecret) {
-        throw new Error('Salesforce OAuth credentials not configured');
+      if (!this.clientId) {
+        throw new Error('Salesforce client ID not configured');
       }
 
       if (!this.codeVerifier) {
         throw new Error('Code verifier not found - authorization flow not started properly');
       }
 
-      logger.info('Exchanging authorization code for access token with PKCE');
+      // Exchange code for token via backend (keeps client_secret secure on server)
+      const backendEndpoint = `${BACKEND_BASE_URL}/api/auth/salesforce`;
+      logger.info('Exchanging code via backend', { endpoint: backendEndpoint });
 
-      // Use axios to manually exchange the code with PKCE
-      const axios = (await import('axios')).default;
-      const params = new URLSearchParams({
-        grant_type: 'authorization_code',
-        code,
-        client_id: this.clientId,
-        client_secret: this.clientSecret,
-        redirect_uri: this.redirectUri,
-        code_verifier: this.codeVerifier,
+      const response = await fetch(backendEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          code,
+          redirect_uri: this.redirectUri,
+          code_verifier: this.codeVerifier,
+        }),
       });
 
-      const response = await axios.post(
-        'https://login.salesforce.com/services/oauth2/token',
-        params.toString(),
-        {
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-          },
-        }
-      );
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Token exchange failed: ${errorText}`);
+      }
 
-      const { access_token, refresh_token, instance_url } = response.data;
+      const data = await response.json();
+      const { access_token, refresh_token, instance_url } = data;
 
       if (!access_token) {
-        throw new Error('No access token received from Salesforce');
+        throw new Error('No access token received from backend');
       }
 
       const token: SalesforceOAuthToken = {
@@ -154,7 +138,7 @@ export class SalesforceService {
       // Clear the code verifier after use
       this.codeVerifier = null;
 
-      logger.info('Successfully exchanged code for token', {
+      logger.info('Successfully exchanged code for token via backend', {
         instanceUrl: instance_url,
         hasRefreshToken: !!refresh_token,
       });
@@ -169,40 +153,46 @@ export class SalesforceService {
   }
 
   /**
-   * Refresh an expired access token using refresh token
+   * Refresh an expired access token using refresh token via backend
    */
   public async refreshAccessToken(
     refreshToken: string,
     instanceUrl: string
   ): Promise<SalesforceOAuthToken> {
     try {
-      if (!this.clientId || !this.clientSecret) {
-        throw new Error('Salesforce OAuth credentials not configured');
-      }
+      // Refresh token via backend (keeps client_secret secure on server)
+      const backendEndpoint = `${BACKEND_BASE_URL}/api/auth/salesforce`;
+      logger.info('Refreshing token via backend');
 
-      logger.info('Refreshing Salesforce access token');
-
-      const conn = new jsforce.Connection({
-        oauth2: this.oauth2,
-        instanceUrl,
-        refreshToken,
+      const response = await fetch(backendEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          grant_type: 'refresh_token',
+          refresh_token: refreshToken,
+        }),
       });
 
-      // Refresh the token
-      await conn.oauth2.refreshToken(refreshToken);
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Token refresh failed: ${errorText}`);
+      }
 
-      if (!conn.accessToken) {
+      const data = await response.json();
+      const { access_token, refresh_token, instance_url } = data;
+
+      if (!access_token) {
         throw new Error('No access token received after refresh');
       }
 
       const token: SalesforceOAuthToken = {
-        accessToken: conn.accessToken,
-        refreshToken: conn.refreshToken || refreshToken,
-        instanceUrl: conn.instanceUrl,
+        accessToken: access_token,
+        refreshToken: refresh_token || refreshToken,
+        instanceUrl: instance_url || instanceUrl,
         connectedAt: Date.now(),
       };
 
-      logger.info('Successfully refreshed access token');
+      logger.info('Successfully refreshed access token via backend');
 
       return token;
     } catch (error) {

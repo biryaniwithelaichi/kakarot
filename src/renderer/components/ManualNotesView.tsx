@@ -254,9 +254,10 @@ export default function ManualNotesView({ meetingId, onSelectTab, onSaveNotes, o
   const endTime = meeting ? new Date(meeting.end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
 
   return (
-    <div className="h-[calc(100vh-12rem)] bg-studio text-slate-ink dark:bg-onyx dark:text-gray-100 flex flex-col">
+    <div className="h-[calc(100vh-12rem)] bg-studio text-slate-ink dark:bg-onyx dark:text-gray-100 flex flex-col w-full">
+      <div className="flex-1 flex flex-col justify-center mx-auto w-full max-w-2xl px-4 sm:px-6 py-4">
       {/* Header Section */}
-      <div className="flex-shrink-0 px-6 py-4 border-b border-slate-200 dark:border-slate-700">
+      <div className="flex-shrink-0 border-b border-slate-200 dark:border-slate-700 pb-4 mb-4">
         {/* Meeting Title */}
         <h1 className="text-2xl font-semibold text-slate-900 dark:text-white mb-3">
           {meetingTitle}
@@ -366,7 +367,7 @@ export default function ManualNotesView({ meetingId, onSelectTab, onSaveNotes, o
       </div>
 
       {/* Notes Editor */}
-      <div className="flex-1 min-h-0 px-6 py-4 overflow-y-auto">
+      <div className="flex-1 min-h-0 py-4 overflow-y-auto">
         <textarea
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
@@ -376,7 +377,7 @@ export default function ManualNotesView({ meetingId, onSelectTab, onSaveNotes, o
       </div>
 
       {/* Bottom Bar */}
-      <div className="flex-shrink-0 px-6 py-4 border-t border-slate-200 dark:border-slate-700 bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm flex items-center justify-between">
+      <div className="flex-shrink-0 py-4 border-t border-slate-200 dark:border-slate-700 bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm flex items-center justify-between">
         <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
           <span>{notes.length} characters</span>
           {isSaving && (
@@ -406,6 +407,7 @@ export default function ManualNotesView({ meetingId, onSelectTab, onSaveNotes, o
             Prep
           </button>
         </div>
+      </div>
       </div>
     </div>
   );

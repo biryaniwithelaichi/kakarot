@@ -52,13 +52,13 @@ setAECProcessor(processor: AECProcessor | null): void {
 
     let chunkCount = 0;
     this.backend.on('data', (chunk: AudioChunk) => {
+      if (!this.capturing || !this.transcriptionProvider) {
+        return;
+      }
+
       chunkCount++;
       if (chunkCount <= 3 || chunkCount % 50 === 0) {
         logger.debug('Audio chunk received', { chunk: chunkCount, bytes: chunk.data.length });
-      }
-
-      if (!this.capturing || !this.transcriptionProvider) {
-        return;
       }
 
       // Convert Node.js Buffer to Float32Array for AEC processing

@@ -11,6 +11,9 @@ import type {
   CalendarAttendee,
   CalendarConnections,
   Person,
+  TaskCommitment,
+  CompanyInfo,
+  MeetingPrepResult,
 } from '@shared/types';
 
 // Expose protected methods to the renderer process
@@ -114,8 +117,14 @@ contextBridge.exposeInMainWorld('kakarot', {
 
   // Meeting Prep
   prep: {
-    generateBriefing: (input: any): Promise<any> =>
+    generateBriefing: (input: any): Promise<MeetingPrepResult> =>
       ipcRenderer.invoke(IPC_CHANNELS.PREP_GENERATE_BRIEFING, input),
+    getTaskCommitments: (participantEmail: string): Promise<TaskCommitment[]> =>
+      ipcRenderer.invoke(IPC_CHANNELS.PREP_GET_TASK_COMMITMENTS, participantEmail),
+    toggleTaskCommitment: (taskId: string, completed: boolean): Promise<void> =>
+      ipcRenderer.invoke(IPC_CHANNELS.PREP_TOGGLE_TASK_COMMITMENT, taskId, completed),
+    fetchCompanyInfo: (email: string): Promise<CompanyInfo | null> =>
+      ipcRenderer.invoke(IPC_CHANNELS.PREP_FETCH_COMPANY_INFO, email),
   },
 
   // Settings
@@ -155,6 +164,8 @@ contextBridge.exposeInMainWorld('kakarot', {
       ipcRenderer.invoke(IPC_CHANNELS.PEOPLE_STATS),
     getCompanies: (): Promise<{ name: string; domain: string; contactCount: number }[]> =>
       ipcRenderer.invoke(IPC_CHANNELS.PEOPLE_GET_COMPANIES),
+    syncFromCalendar: (): Promise<{ synced: number; total: number }> =>
+      ipcRenderer.invoke(IPC_CHANNELS.PEOPLE_SYNC_FROM_CALENDAR),
   },
 
   // Calendar
@@ -260,7 +271,10 @@ declare global {
         sendMessage: (message: string, context?: any) => Promise<string>;
       };
       prep: {
-        generateBriefing: (input: any) => Promise<any>;
+        generateBriefing: (input: any) => Promise<MeetingPrepResult>;
+        getTaskCommitments: (participantEmail: string) => Promise<TaskCommitment[]>;
+        toggleTaskCommitment: (taskId: string, completed: boolean) => Promise<void>;
+        fetchCompanyInfo: (email: string) => Promise<CompanyInfo | null>;
       };
       settings: {
         get: () => Promise<AppSettings>;
@@ -281,6 +295,7 @@ declare global {
         getByMeeting: (meetingId: string) => Promise<Person[]>;
         getStats: () => Promise<{ totalPeople: number; totalMeetings: number; avgMeetingsPerPerson: number }>;
         getCompanies: () => Promise<{ name: string; domain: string; contactCount: number }[]>;
+        syncFromCalendar: () => Promise<{ synced: number; total: number }>;
       };
       calendar: {
         connect: (

@@ -11,27 +11,33 @@ export interface BackendConfig {
   };
 }
 
+export interface ChatMessage {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+}
+
 export interface ChatRequest {
-  contents: Array<{
-    role: string;
-    parts: Array<{ text: string }>;
-  }>;
-  generationConfig?: {
-    temperature?: number;
-    maxOutputTokens?: number;
-    responseMimeType?: string;
-  };
+  messages: ChatMessage[];
+  model?: string;
+  temperature?: number;
+  max_tokens?: number;
+  response_format?: 'json' | { type: 'json_object' };
 }
 
 export interface ChatResponse {
-  candidates?: Array<{
-    content?: {
-      parts?: Array<{ text: string }>;
+  id?: string;
+  choices?: Array<{
+    index?: number;
+    message?: {
+      role: string;
+      content: string;
     };
+    finish_reason?: string;
   }>;
-  usageMetadata?: {
-    promptTokenCount?: number;
-    candidatesTokenCount?: number;
+  usage?: {
+    prompt_tokens?: number;
+    completion_tokens?: number;
+    total_tokens?: number;
   };
 }
 
@@ -129,8 +135,8 @@ export class BackendAPIProvider {
 
       const result = await response.json() as ChatResponse;
       logger.debug('Chat response received', {
-        promptTokens: result.usageMetadata?.promptTokenCount,
-        outputTokens: result.usageMetadata?.candidatesTokenCount,
+        promptTokens: result.usage?.prompt_tokens,
+        outputTokens: result.usage?.completion_tokens,
       });
       return result;
     } catch (error) {

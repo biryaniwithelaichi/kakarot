@@ -128,7 +128,7 @@ export interface SalesforceOAuthToken {
 
 export interface HubSpotOAuthToken {
   accessToken: string;
-  refreshToken: string;
+  refreshToken?: string;
   expiresAt: number;
   connectedAt: number;
 }
@@ -185,11 +185,21 @@ export interface AppSettings {
   crmOAuthSalesforceClientSecret?: string;
   crmOAuthHubSpotClientId?: string;
   crmOAuthHubSpotClientSecret?: string;
-  // Custom meeting types for PrepView
+  // Custom meeting objectives for PrepView (legacy - string array)
   customMeetingTypes?: string[];
+  // Custom meeting objectives v2 (structured)
+  customMeetingTypesV2?: CustomMeetingType[];
+  // Standard meeting objective overrides (user modifications)
+  standardMeetingTypeOverrides?: StandardMeetingTypeOverride[];
+  // Migration flag
+  customMeetingTypesMigrated?: boolean;
+  // Meeting objective usage tracking (for sorting by last used)
+  meetingObjectiveUsage?: MeetingObjectiveUsage[];
   // UI preferences
   showLiveMeetingIndicator?: boolean;
   openOnLogin?: boolean;
+  // Auto-sync timestamps
+  lastCalendarContactsSync?: number; // epoch ms of last auto/manual sync
 }
 
 // Default settings for renderer (without process.env dependencies)
@@ -245,5 +255,98 @@ export interface CalendarEvent {
   location?: string;
   attendees?: CalendarAttendee[];
   description?: string;
+}
+
+// Structured custom meeting objective (for Interact section)
+export interface CustomMeetingType {
+  id: string;
+  name: string;
+  description?: string;
+  attendeeRoles: string[]; // e.g., ["Engineering Lead", "Product Manager"]
+  isExternal: boolean; // internal vs external meeting
+  objectives: string[]; // expected outcomes
+  customPrompt?: string; // user-defined AI focus areas
+  createdAt: number;
+  updatedAt: number;
+  lastUsedAt?: number; // timestamp of last use
+}
+
+// Tracks last used time for standard meeting objectives
+export interface MeetingObjectiveUsage {
+  id: string; // standard type id or custom type id
+  lastUsedAt: number;
+}
+
+// Standard meeting type with user modifications
+export interface StandardMeetingTypeOverride {
+  id: string; // matches predefined type id
+  description?: string;
+  attendeeRoles?: string[];
+  objectives?: string[];
+  customPrompt?: string;
+  updatedAt: number;
+}
+
+// Task commitment from past meetings
+export interface TaskCommitment {
+  id: string;
+  meetingId: string;
+  meetingTitle: string;
+  meetingDate: Date;
+  participantEmail: string; // who the task involves
+  description: string;
+  completed: boolean;
+  completedAt?: Date;
+  source: 'action_item' | 'transcript_extraction';
+}
+
+// Company info from website fetch
+export interface CompanyInfo {
+  domain: string;
+  name?: string;
+  description?: string;
+  website: string;
+  industry?: string;
+  fetchedAt: number;
+}
+
+// Enhanced participant prep output with confidence
+export interface ParticipantPrepData {
+  name: string;
+  email: string | null;
+  history_strength: 'strong' | 'weak' | 'org-only' | 'none';
+  is_first_meeting: boolean;
+  org_has_met_before: boolean;
+  confidence_score: number; // 0-100
+  data_gaps: string[];
+  pending_task_commitments: TaskCommitment[];
+  company_info?: CompanyInfo;
+  context: {
+    last_meeting_date: string | null;
+    meeting_count: number;
+    recent_topics: string[];
+    key_points: string[];
+  };
+  talking_points: string[];
+  questions_to_ask: string[];
+  background: string;
+}
+
+// Meeting prep result structure
+export interface MeetingPrepResult {
+  meeting: {
+    type: string;
+    objective?: string;
+    duration_minutes: number;
+  };
+  generated_at: string;
+  participants: ParticipantPrepData[];
+  agenda: {
+    opening: string;
+    key_topics: string[];
+    closing: string;
+  };
+  success_metrics: string[];
+  risk_mitigation: string[];
 }
 

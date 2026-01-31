@@ -132,16 +132,10 @@ export default function RecordingView({ onSelectTab }: RecordingViewProps) {
               console.log('[RecordingView] Using existing notes meeting for upcoming event:', existing.notesId);
               return null; // signal no creation needed
             }
-            // Otherwise, create a new meeting entry for upcoming calendar event notes and link it
-            return window.kakarot.recording.start({
-              calendarEventId: meeting.id,
-              calendarEventTitle: meeting.title,
-              calendarEventAttendees: meeting.attendees,
-              calendarEventStart: meeting.start.toISOString(),
-              calendarEventEnd: meeting.end.toISOString(),
-              calendarProvider: meeting.provider,
-            })
-              .then(async (meetingId) => {
+            // Create a new meeting entry for upcoming calendar event notes (without starting recording)
+            const attendeeEmails = meeting.attendees?.map((a: any) => typeof a === 'string' ? a : a.email) || [];
+            return window.kakarot.meetings.createDismissed(meeting.title, attendeeEmails)
+              .then(async (meetingId: string) => {
                 setUpcomingMeetingId(meetingId);
                 console.log('[RecordingView] Created meeting for upcoming notes:', meetingId);
                 try {
@@ -520,10 +514,10 @@ export default function RecordingView({ onSelectTab }: RecordingViewProps) {
         />
       )}
 
-      <div className="mx-auto w-full px-4 sm:px-6 py-4 flex flex-col gap-4 flex-1 min-h-0 overflow-hidden">
+      <div className="w-full py-4 flex flex-col gap-4 flex-1 min-h-0 overflow-hidden">
         {/* Greeting + Unified Action Row - Only show when truly idle (not viewing completed notes) */}
         {showHomeHero && (
-          <div className="space-y-3">
+          <div className="mx-auto w-full max-w-2xl px-4 sm:px-6 space-y-3">
             {/* Greeting */}
             <div>
               <h1 className="text-3xl font-medium text-slate-900 dark:text-white">
@@ -532,27 +526,27 @@ export default function RecordingView({ onSelectTab }: RecordingViewProps) {
             </div>
 
             {/* Unified Action Row (Search + Take Notes) */}
-            <div className="flex items-center gap-3">
-              {/* Search Bar */}
+            <div className="flex items-center gap-2">
+              {/* Search Bar - 75% width */}
               <div className="flex-1 relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500" />
                 <input
                   type="text"
                   placeholder="Search meetings or notes"
-                  className="w-full pl-10 pr-4 py-2 bg-white/70 dark:bg-graphite/80 border border-white/30 dark:border-white/10 rounded-lg text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-[#8B5CF6]/50 backdrop-blur-md transition cursor-pointer"
+                  className="w-full pl-10 pr-4 py-1.5 bg-white/70 dark:bg-graphite/80 border border-white/30 dark:border-white/10 rounded-lg text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-[#8B5CF6]/50 backdrop-blur-md transition cursor-pointer"
                   onClick={() => setShowSearchPopup(true)}
                   onFocus={() => setShowSearchPopup(true)}
                   readOnly
                 />
               </div>
 
-              {/* Take Notes Button */}
+              {/* Take Notes Button - 25% width, compact size */}
               <button
                 onClick={() => handleStartRecording()}
                 disabled={isRecording || isPaused || isGenerating}
-                className="px-4 py-2 bg-[#8B5CF6] text-white font-semibold rounded-lg flex items-center gap-2 shadow-soft-card transition hover:opacity-95 disabled:opacity-60 disabled:cursor-not-allowed flex-shrink-0"
+                className="px-3 py-1.5 bg-[#8B5CF6] text-white font-semibold rounded-lg flex items-center gap-1 shadow-soft-card transition hover:opacity-95 disabled:opacity-60 disabled:cursor-not-allowed flex-shrink-0 text-sm"
               >
-                <FileText className="w-4 h-4" />
+                <FileText className="w-3.5 h-3.5" />
                 + Take Notes
               </button>
             </div>
@@ -561,7 +555,7 @@ export default function RecordingView({ onSelectTab }: RecordingViewProps) {
 
         {/* Recording controls and titles - Show when recording, paused, or generating notes */}
         {!isIdle && !showBentoWhileLive && (
-          <div className="space-y-3">
+          <div className="mx-auto w-full max-w-2xl px-4 sm:px-6 space-y-3">
             {/* Recording Status with Visual Indicator */}
             <div className="space-y-2">
               <div className="flex items-center gap-2">
@@ -708,12 +702,12 @@ export default function RecordingView({ onSelectTab }: RecordingViewProps) {
         {/* Compact audio meters moved into transcript header */}
 
         {/* Dashboard or meeting content; transcript now lives in floating pill popover */}
-        <div className="flex gap-4 items-stretch flex-1 min-h-0 h-full overflow-hidden">
-          <div className="flex-1 min-w-0 h-full overflow-hidden flex flex-col min-h-0">
+        <div className="w-full flex justify-center flex-1 min-h-0 h-full overflow-hidden">
+          <div className="w-full max-w-2xl h-full overflow-hidden flex flex-col min-h-0 px-4 sm:px-6">
             {showBentoWhileLive ? (
               <div className="h-full flex flex-col overflow-hidden">
                 {/* Amber banner with back button */}
-                <div className="flex-shrink-0 px-4 sm:px-6 pt-4 sm:pt-6 pb-2">
+                <div className="flex-shrink-0 pt-4 sm:pt-6 pb-2">
                   <div className="flex items-center justify-between p-3 rounded-xl border border-amber-200/60 dark:border-amber-500/40 bg-amber-50/70 dark:bg-amber-900/30 text-amber-800 dark:text-amber-100">
                     <div className="text-sm font-medium">{recordingTitle || 'Meeting'} - Transcription in Progress</div>
                     <button
@@ -725,7 +719,7 @@ export default function RecordingView({ onSelectTab }: RecordingViewProps) {
                   </div>
                 </div>
                 {/* BentoDashboard below the banner */}
-                <div className="flex-1 min-h-0 overflow-auto px-4 sm:px-6 pb-4 sm:pb-6">
+                <div className="flex-1 min-h-0 overflow-auto pb-4 sm:pb-6">
                   <BentoDashboard isRecording={isRecording || isPaused} hideCompactBarWhenNoEvents={true} onStartNotes={handleStartRecording} onSelectTab={handleSelectTab} />
                 </div>
               </div>
@@ -752,7 +746,7 @@ export default function RecordingView({ onSelectTab }: RecordingViewProps) {
                     </div>
                   </div>
                 ) : (
-                  <div className="h-full flex flex-col p-4 sm:p-6 flex-1 min-h-0 gap-4">
+                  <div className="h-full flex flex-col flex-1 min-h-0 gap-4 p-4 sm:p-6">
                     <div className="mb-4 flex items-center justify-between flex-shrink-0">
                       <div>
                         <p className="text-xs uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">

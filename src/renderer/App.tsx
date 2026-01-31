@@ -201,7 +201,14 @@ export default function App() {
                 {(['notes','prep','interact'] as const).map((tab) => (
                   <button
                     key={tab}
-                    onClick={() => setPillarTab(tab)}
+                    onClick={() => {
+                      setPillarTab(tab);
+                      const state = useAppStore.getState();
+                      // Switch to recording view when clicking any tab
+                      if (state.view !== 'recording') {
+                        state.setView('recording');
+                      }
+                    }}
                     className={`px-4 py-2 rounded-full text-sm font-semibold transition ${
                       pillarTab === tab
                         ? 'bg-[#7C3AED] text-white shadow-soft-card'
@@ -228,7 +235,7 @@ export default function App() {
                   pillarTab === 'notes' ? (
                     <RecordingView onSelectTab={setPillarTab} />
                   ) : pillarTab === 'prep' ? (
-                    <PrepView />
+                    <PrepView onSelectTab={setPillarTab} />
                   ) : (
                     <InteractView />
                   )

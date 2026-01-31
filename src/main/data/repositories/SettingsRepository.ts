@@ -1,5 +1,5 @@
 import { getDatabase, saveDatabase } from '../database';
-import type { AppSettings } from '@shared/types';
+import type { AppSettings, CustomMeetingType } from '@shared/types';
 import { DEFAULT_SETTINGS } from '../../config/constants';
 import { createLogger } from '../../core/logger';
 
@@ -36,6 +36,32 @@ export class SettingsRepository {
 
     // API keys are now managed server-side via the Treeto backend.
     // No local API key loading is needed.
+
+    // Migrate legacy customMeetingTypes (string[]) to customMeetingTypesV2 (CustomMeetingType[])
+    if (merged.customMeetingTypes && merged.customMeetingTypes.length > 0 && !merged.customMeetingTypesMigrated) {
+      const migrated: CustomMeetingType[] = merged.customMeetingTypes.map((name, idx) => ({
+        id: `migrated-${Date.now()}-${idx}`,
+        name,
+        description: '',
+        attendeeRoles: [],
+        isExternal: false,
+        objectives: [],
+        customPrompt: '',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      }));
+
+      // Save migrated types
+      this.updateSettings({
+        customMeetingTypesV2: migrated,
+        customMeetingTypesMigrated: true,
+      });
+
+      merged.customMeetingTypesV2 = migrated;
+      merged.customMeetingTypesMigrated = true;
+
+      logger.info('Migrated legacy custom meeting types', { count: migrated.length });
+    }
 
     return merged;
   }

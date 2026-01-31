@@ -2,10 +2,10 @@ import { shell } from 'electron';
 import { createServer } from 'http';
 import { randomBytes, createHash } from 'crypto';
 import type { AddressInfo } from 'net';
-import { URLSearchParams } from 'url';
 import type { CalendarConnections, CalendarEvent, OAuthTokens } from '@shared/types';
 import { SettingsRepository } from '../data/repositories/SettingsRepository';
 import { createLogger } from '../core/logger';
+import { BACKEND_BASE_URL } from '../providers/BackendAPIProvider';
 
 const logger = createLogger('CalendarService');
 
@@ -36,9 +36,8 @@ export class CalendarService {
     switch (provider) {
       case 'google': {
         const clientId = process.env.GOOGLE_CLIENT_ID;
-        const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-        if (!clientId || !clientSecret) {
-          throw new Error('Google Calendar is not configured. Missing GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET.');
+        if (!clientId) {
+          throw new Error('Google Calendar is not configured. Missing GOOGLE_CLIENT_ID.');
         }
 
         const tokens = await this.runOAuthFlow({
@@ -46,7 +45,6 @@ export class CalendarService {
           authUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
           tokenUrl: 'https://oauth2.googleapis.com/token',
           clientId,
-          clientSecret,
           scope: 'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/contacts.readonly',
           extraAuthParams: {
             access_type: 'offline',
@@ -95,8 +93,7 @@ export class CalendarService {
       }
       case 'outlook': {
         const clientId = process.env.OUTLOOK_CLIENT_ID || process.env.MICROSOFT_CLIENT_ID;
-        const clientSecret = process.env.OUTLOOK_CLIENT_SECRET || process.env.MICROSOFT_CLIENT_SECRET;
-        if (!clientId || !clientSecret) {
+        if (!clientId) {
           throw new Error('Microsoft Calendar is not configured. Missing OUTLOOK_CLIENT_ID or MICROSOFT_CLIENT_ID.');
         }
 
@@ -105,7 +102,6 @@ export class CalendarService {
           authUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize',
           tokenUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/token',
           clientId,
-          clientSecret,
           scope: 'offline_access Calendars.Read User.Read',
         });
 
@@ -258,21 +254,18 @@ export class CalendarService {
       logger.info(`[OAuth ${config.provider}] Received authorization code`);
     }
 
-    const body = new URLSearchParams({
-      grant_type: 'authorization_code',
-      code,
-      redirect_uri: redirectUri,
-      client_id: config.clientId,
-      code_verifier: codeVerifier,
-    });
-    if (config.clientSecret) {
-      body.set('client_secret', config.clientSecret);
-    }
+    // Exchange code for token via backend (keeps client_secret secure on server)
+    const backendEndpoint = this.getBackendAuthEndpoint(config.provider);
+    logger.info(`[OAuth ${config.provider}] Exchanging code via backend`, { endpoint: backendEndpoint });
 
-    const tokenResponse = await fetch(config.tokenUrl, {
+    const tokenResponse = await fetch(backendEndpoint, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        code,
+        redirect_uri: redirectUri,
+        code_verifier: codeVerifier,
+      }),
     });
 
     if (!tokenResponse.ok) {
@@ -295,11 +288,20 @@ export class CalendarService {
 
     // Dev logging
     if (process.env.NODE_ENV === 'development') {
-      logger.info(`[OAuth ${config.provider}] ✓ Tokens received successfully`);
+      logger.info(`[OAuth ${config.provider}] ✓ Tokens received successfully via backend`);
       logger.info(`[OAuth ${config.provider}] Expires in: ${tokenJson.expires_in}s`);
     }
 
     return tokens;
+  }
+
+  private getBackendAuthEndpoint(provider: Provider): string {
+    const endpoints: Record<Provider, string> = {
+      google: `${BACKEND_BASE_URL}/api/auth/google`,
+      outlook: `${BACKEND_BASE_URL}/api/auth/outlook`,
+      icloud: `${BACKEND_BASE_URL}/api/auth/icloud`,
+    };
+    return endpoints[provider];
   }
 
   private async startRedirectListener(provider: Provider, expectedState: string): Promise<{
@@ -360,25 +362,22 @@ export class CalendarService {
 
   private async ensureFreshToken(
     provider: 'google' | 'outlook',
-    tokens: OAuthTokens,
-    config: { tokenUrl: string; clientId: string; clientSecret?: string }
+    tokens: OAuthTokens
   ): Promise<OAuthTokens> {
     const needsRefresh = tokens.expiresAt !== undefined && tokens.expiresAt - Date.now() < 60_000;
     if (!needsRefresh || !tokens.refreshToken) return tokens;
 
-    const body = new URLSearchParams({
-      grant_type: 'refresh_token',
-      refresh_token: tokens.refreshToken,
-      client_id: config.clientId,
-    });
-    if (config.clientSecret) {
-      body.set('client_secret', config.clientSecret);
-    }
+    // Refresh token via backend (keeps client_secret secure on server)
+    const backendEndpoint = this.getBackendAuthEndpoint(provider);
+    logger.info(`[OAuth ${provider}] Refreshing token via backend`);
 
-    const response = await fetch(config.tokenUrl, {
+    const response = await fetch(backendEndpoint, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        grant_type: 'refresh_token',
+        refresh_token: tokens.refreshToken,
+      }),
     });
 
     if (!response.ok) {
@@ -400,20 +399,12 @@ export class CalendarService {
   }
 
   private async fetchGoogleEvents(tokens: OAuthTokens, start: Date, end: Date, calendarId: string = 'primary'): Promise<CalendarEvent[]> {
-    const clientId = process.env.GOOGLE_CLIENT_ID;
-    const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-    if (!clientId || !clientSecret) return [];
-
     // Perma-remove Birthdays calendar events
     if (calendarId && calendarId.includes('addressbook#contacts@group.v.calendar.google.com')) {
       return [];
     }
 
-    const freshTokens = await this.ensureFreshToken('google', tokens, {
-      tokenUrl: 'https://oauth2.googleapis.com/token',
-      clientId,
-      clientSecret,
-    });
+    const freshTokens = await this.ensureFreshToken('google', tokens);
 
     const url = new URL(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`);
     url.searchParams.set('timeMin', start.toISOString());
@@ -483,15 +474,7 @@ export class CalendarService {
   }
 
   private async fetchOutlookEvents(tokens: OAuthTokens, start: Date, end: Date): Promise<CalendarEvent[]> {
-    const clientId = process.env.OUTLOOK_CLIENT_ID || process.env.MICROSOFT_CLIENT_ID;
-    const clientSecret = process.env.OUTLOOK_CLIENT_SECRET || process.env.MICROSOFT_CLIENT_SECRET;
-    if (!clientId || !clientSecret) return [];
-
-    const freshTokens = await this.ensureFreshToken('outlook', tokens, {
-      tokenUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/token',
-      clientId,
-      clientSecret,
-    });
+    const freshTokens = await this.ensureFreshToken('outlook', tokens);
 
     const url = new URL('https://graph.microsoft.com/v1.0/me/calendarview');
     url.searchParams.set('startdatetime', start.toISOString());
@@ -573,7 +556,7 @@ export class CalendarService {
           results.push(...events);
         }
       } catch (err) {
-        logger.error('Failed to fetch Google upcoming events', { error: (err as Error).message });
+        logger.error('Failed to fetch Google upcoming events', err as Error, { provider: 'google' });
       }
     }
 
@@ -582,7 +565,7 @@ export class CalendarService {
         const events = await this.fetchOutlookEvents(settings.calendarConnections.outlook, now, oneWeekFromNow);
         results.push(...events);
       } catch (err) {
-        logger.error('Failed to fetch Outlook upcoming events', { error: (err as Error).message });
+        logger.error('Failed to fetch Outlook upcoming events', err as Error, { provider: 'outlook' });
       }
     }
 
@@ -592,14 +575,7 @@ export class CalendarService {
   async listCalendars(provider: Provider): Promise<Array<{ id: string; name: string }>> {
     const settings = this.settingsRepo.getSettings();
     if (provider === 'google' && settings.calendarConnections.google) {
-      const clientId = process.env.GOOGLE_CLIENT_ID;
-      const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-      if (!clientId || !clientSecret) return [];
-      const tokens = await this.ensureFreshToken('google', settings.calendarConnections.google, {
-        tokenUrl: 'https://oauth2.googleapis.com/token',
-        clientId,
-        clientSecret,
-      });
+      const tokens = await this.ensureFreshToken('google', settings.calendarConnections.google);
       const url = new URL('https://www.googleapis.com/calendar/v3/users/me/calendarList');
       const resp = await fetch(url, { headers: { Authorization: `Bearer ${tokens.accessToken}` } });
       if (!resp.ok) {
@@ -738,15 +714,7 @@ export class CalendarService {
     if (!settings.calendarConnections.google) return null;
 
     try {
-      const clientId = process.env.GOOGLE_CLIENT_ID;
-      const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-      if (!clientId || !clientSecret) return null;
-
-      const tokens = await this.ensureFreshToken('google', settings.calendarConnections.google, {
-        tokenUrl: 'https://oauth2.googleapis.com/token',
-        clientId,
-        clientSecret,
-      });
+      const tokens = await this.ensureFreshToken('google', settings.calendarConnections.google);
 
       // Search for person by email using People API
       const url = new URL('https://people.googleapis.com/v1/people:searchContacts');
@@ -810,6 +778,44 @@ export class CalendarService {
     }
 
     return null;
+  }
+
+  /**
+   * Fetch all events within a date range for contact syncing
+   * Used to populate People from calendar attendees (past and future events)
+   */
+  async fetchEventsInRange(start: Date, end: Date): Promise<CalendarEvent[]> {
+    const settings = this.settingsRepo.getSettings();
+    const results: CalendarEvent[] = [];
+
+    if (settings.calendarConnections.google) {
+      try {
+        const visible = settings.visibleCalendars?.google;
+        if (visible && visible.length > 0) {
+          for (const calId of visible) {
+            if (calId.includes('addressbook#contacts@group.v.calendar.google.com')) continue;
+            const events = await this.fetchGoogleEvents(settings.calendarConnections.google, start, end, calId);
+            results.push(...events);
+          }
+        } else {
+          const events = await this.fetchGoogleEvents(settings.calendarConnections.google, start, end);
+          results.push(...events);
+        }
+      } catch (err) {
+        logger.error('Failed to fetch Google events for range', { error: (err as Error).message });
+      }
+    }
+
+    if (settings.calendarConnections.outlook) {
+      try {
+        const events = await this.fetchOutlookEvents(settings.calendarConnections.outlook, start, end);
+        results.push(...events);
+      } catch (err) {
+        logger.error('Failed to fetch Outlook events for range', { error: (err as Error).message });
+      }
+    }
+
+    return results;
   }
 
   /**

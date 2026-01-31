@@ -2,6 +2,7 @@ import axios from 'axios';
 import { Client } from '@hubspot/api-client';
 import { createLogger } from '../core/logger';
 import type { HubSpotOAuthToken } from '../providers/HubSpotOAuthProvider';
+import { BACKEND_BASE_URL } from '../providers/BackendAPIProvider';
 
 const logger = createLogger('HubSpotService');
 
@@ -15,25 +16,18 @@ export interface ContactSearchResult {
 
 export class HubSpotService {
   private clientId: string;
-  private clientSecret: string;
   private redirectUri: string;
   private authorizationUrl = 'https://app.hubspot.com/oauth/authorize';
-  private tokenUrl = 'https://api.hubapi.com/oauth/v1/token';
 
   constructor(
     clientId: string = process.env.HUBSPOT_CLIENT_ID || '',
-    clientSecret: string = process.env.HUBSPOT_CLIENT_SECRET || '',
     redirectUri: string = 'http://localhost:3000/oauth/hubspot'
   ) {
     this.clientId = clientId;
-    this.clientSecret = clientSecret;
     this.redirectUri = redirectUri;
 
-    if (!this.clientId || !this.clientSecret) {
-      logger.warn('HubSpot credentials not configured', {
-        clientIdPresent: !!this.clientId,
-        clientSecretPresent: !!this.clientSecret,
-      });
+    if (!this.clientId) {
+      logger.warn('HubSpot client ID not configured');
     }
   }
 
@@ -66,35 +60,38 @@ export class HubSpotService {
   }
 
   /**
-   * Exchange authorization code for access token
+   * Exchange authorization code for access token via backend
    * Called after user authorizes in browser and redirects back with 'code'
    */
   public async exchangeCodeForToken(code: string): Promise<HubSpotOAuthToken> {
     try {
-      if (!this.clientId || !this.clientSecret) {
-        throw new Error('HubSpot OAuth credentials not configured');
+      if (!this.clientId) {
+        throw new Error('HubSpot client ID not configured');
       }
 
-      logger.info('Exchanging authorization code for access token');
+      // Exchange code for token via backend (keeps client_secret secure on server)
+      const backendEndpoint = `${BACKEND_BASE_URL}/api/auth/hubspot`;
+      logger.info('Exchanging code via backend', { endpoint: backendEndpoint });
 
-      const params = new URLSearchParams({
-        grant_type: 'authorization_code',
-        client_id: this.clientId,
-        client_secret: this.clientSecret,
-        redirect_uri: this.redirectUri,
-        code,
+      const response = await fetch(backendEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          code,
+          redirect_uri: this.redirectUri,
+        }),
       });
 
-      const response = await axios.post(this.tokenUrl, params.toString(), {
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Token exchange failed: ${errorText}`);
+      }
 
-      const { access_token, refresh_token, expires_in } = response.data;
+      const data = await response.json();
+      const { access_token, refresh_token, expires_in } = data;
 
       if (!access_token) {
-        throw new Error('No access token in response from HubSpot');
+        throw new Error('No access token in response from backend');
       }
 
       const token: HubSpotOAuthToken = {
@@ -104,7 +101,7 @@ export class HubSpotService {
         connectedAt: Date.now(),
       };
 
-      logger.info('Successfully exchanged code for token', {
+      logger.info('Successfully exchanged code for token via backend', {
         expiresIn: expires_in,
         hasRefreshToken: !!refresh_token,
       });
@@ -118,30 +115,30 @@ export class HubSpotService {
   }
 
   /**
-   * Refresh an expired access token using refresh token
+   * Refresh an expired access token using refresh token via backend
    */
   public async refreshAccessToken(refreshToken: string): Promise<HubSpotOAuthToken> {
     try {
-      if (!this.clientId || !this.clientSecret) {
-        throw new Error('HubSpot OAuth credentials not configured');
+      // Refresh token via backend (keeps client_secret secure on server)
+      const backendEndpoint = `${BACKEND_BASE_URL}/api/auth/hubspot`;
+      logger.info('Refreshing token via backend');
+
+      const response = await fetch(backendEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          grant_type: 'refresh_token',
+          refresh_token: refreshToken,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Token refresh failed: ${errorText}`);
       }
 
-      logger.info('Refreshing HubSpot access token');
-
-      const params = new URLSearchParams({
-        grant_type: 'refresh_token',
-        client_id: this.clientId,
-        client_secret: this.clientSecret,
-        refresh_token: refreshToken,
-      });
-
-      const response = await axios.post(this.tokenUrl, params.toString(), {
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-      });
-
-      const { access_token, refresh_token, expires_in } = response.data;
+      const data = await response.json();
+      const { access_token, refresh_token, expires_in } = data;
 
       const token: HubSpotOAuthToken = {
         accessToken: access_token,
@@ -150,7 +147,7 @@ export class HubSpotService {
         connectedAt: Date.now(),
       };
 
-      logger.info('Successfully refreshed access token', { expiresIn: expires_in });
+      logger.info('Successfully refreshed access token via backend', { expiresIn: expires_in });
 
       return token;
     } catch (error) {

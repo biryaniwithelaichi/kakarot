@@ -1,12 +1,11 @@
 import { useAppStore } from '../stores/appStore';
-import { Mic, History, Users, Settings } from 'lucide-react';
+import { History, Users, Settings } from 'lucide-react';
 import logoImage from '../assets/logo transparent copy.png';
 
 export default function Sidebar() {
   const { view, setView, recordingState, settings } = useAppStore();
 
   const navItems = [
-    { id: 'recording' as const, label: 'Record', icon: Mic },
     { id: 'history' as const, label: 'History', icon: History },
     { id: 'people' as const, label: 'People', icon: Users },
     { id: 'settings' as const, label: 'Settings', icon: Settings },

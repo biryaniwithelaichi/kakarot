@@ -10,6 +10,7 @@ import { HubSpotService } from '../services/HubSpotService';
 import { SalesforceService } from '../services/SalesforceService';
 import { MeetingNotificationService } from '../services/MeetingNotificationService';
 import { PrepService } from '../services/PrepService';
+import { CompanyInfoService } from '../services/CompanyInfoService';
 
 const logger = createLogger('Container');
 
@@ -26,6 +27,7 @@ export interface AppContainer {
   salesforceService: SalesforceService;
   meetingNotificationService: MeetingNotificationService;
   prepService: PrepService;
+  companyInfoService: CompanyInfoService;
   backendConfig: BackendConfig | null;
 }
 
@@ -113,6 +115,9 @@ export async function initializeContainer(): Promise<AppContainer> {
   // Initialize prep service
   const prepService = new PrepService();
 
+  // Initialize company info service
+  const companyInfoService = new CompanyInfoService();
+
   container = {
     meetingRepo,
     calloutRepo,
@@ -126,6 +131,7 @@ export async function initializeContainer(): Promise<AppContainer> {
     salesforceService,
     meetingNotificationService,
     prepService,
+    companyInfoService,
     backendConfig,
   };
 

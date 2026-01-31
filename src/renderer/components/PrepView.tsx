@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { useAppStore } from '../stores/appStore';
 import {
   Users,
@@ -14,8 +14,19 @@ import {
   Target,
   ListChecks,
   Plus,
+  Info,
+  Building2,
+  Linkedin,
+  ExternalLink,
+  MoreHorizontal,
+  Globe,
+  FileText,
 } from 'lucide-react';
-import type { Person } from '@shared/types';
+import type { Person, TaskCommitment, CompanyInfo, CustomMeetingType, MeetingObjectiveUsage } from '@shared/types';
+
+interface PrepViewProps {
+  onSelectTab?: (tab: 'notes' | 'prep' | 'interact') => void;
+}
 
 interface MeetingPrepResult {
   meeting: {
@@ -27,6 +38,12 @@ interface MeetingPrepResult {
     name: string;
     email: string | null;
     history_strength: 'strong' | 'weak' | 'org-only' | 'none';
+    is_first_meeting: boolean;
+    org_has_met_before: boolean;
+    confidence_score: number;
+    data_gaps: string[];
+    pending_task_commitments: TaskCommitment[];
+    company_info?: CompanyInfo;
     context: {
       last_meeting_date: string | null;
       meeting_count: number;
@@ -46,32 +63,240 @@ interface MeetingPrepResult {
   risk_mitigation: string[];
 }
 
-const PREDEFINED_MEETING_TYPES = [
-  { id: '1-1', label: '1:1 Meeting', icon: Users },
-  { id: 'kickoff', label: 'Kick-Off', icon: Rocket },
-  { id: 'technical', label: 'Technical Sync', icon: Code },
-  { id: 'status', label: 'Status Update', icon: ListChecks },
+// Standard meeting objectives (matches InteractView's DEFAULT_STANDARD_TYPES)
+const STANDARD_MEETING_OBJECTIVES = [
+  { id: '1-on-1', label: '1:1 Meeting', icon: Users },
+  { id: 'kick-off', label: 'Kick-Off', icon: Rocket },
+  { id: 'technical-sync', label: 'Technical Sync', icon: Code },
+  { id: 'status-update', label: 'Status Update', icon: FileText },
+  { id: 'planning', label: 'Planning Session', icon: Target },
+  { id: 'retrospective', label: 'Retrospective', icon: Calendar },
   { id: 'brainstorm', label: 'Brainstorming', icon: Lightbulb },
   { id: 'client', label: 'Client Sync', icon: Briefcase },
-  { id: 'planning', label: 'Planning', icon: Target },
-  { id: 'retro', label: 'Retrospective', icon: Calendar },
 ];
 
-export default function PrepView() {
-  const { settings } = useAppStore();
+// Form data for creating custom objectives
+interface MeetingObjectiveFormData {
+  name: string;
+  description: string;
+  attendeeRoles: string[];
+  isExternal: boolean;
+  objectives: string[];
+  customPrompt: string;
+}
+
+const emptyFormData: MeetingObjectiveFormData = {
+  name: '',
+  description: '',
+  attendeeRoles: [],
+  isExternal: false,
+  objectives: [],
+  customPrompt: ''
+};
+
+// Generate unique ID
+const generateId = () => `custom-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+
+export default function PrepView({ onSelectTab }: PrepViewProps) {
+  const { settings, setSettings } = useAppStore();
   const [people, setPeople] = useState<Person[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPeople, setSelectedPeople] = useState<Person[]>([]);
   const [, setIsLoadingPeople] = useState(true);
-  const [selectedMeetingType, setSelectedMeetingType] = useState('');
-  const [customMeetingType, setCustomMeetingType] = useState('');
+  const [selectedObjectiveId, setSelectedObjectiveId] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatingError, setGeneratingError] = useState<string | null>(null);
   const [briefingResult, setBriefingResult] = useState<MeetingPrepResult | null>(null);
+  const [completedTasks, setCompletedTasks] = useState<Set<string>>(new Set());
+  const [fetchingCompanyInfo, setFetchingCompanyInfo] = useState<string | null>(null);
+  const [companyInfoCache, setCompanyInfoCache] = useState<Record<string, CompanyInfo | null>>({});
 
-  const customTypes = settings?.customMeetingTypes || [];
-  // Combine custom meeting types with predefined ones for the dropdown
-  void customTypes; // Reserved for future custom meeting type support
+  // Modal state for creating custom objectives
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [formData, setFormData] = useState<MeetingObjectiveFormData>(emptyFormData);
+  const [newRole, setNewRole] = useState('');
+  const [newObjective, setNewObjective] = useState('');
+
+  // Get custom meeting objectives from settings
+  const customObjectives = settings?.customMeetingTypesV2 || [];
+  const objectiveUsage = settings?.meetingObjectiveUsage || [];
+
+  // Combine and sort meeting objectives by last used
+  const sortedObjectives = useMemo(() => {
+    // Create a unified list of all objectives
+    const allObjectives: Array<{
+      id: string;
+      label: string;
+      icon: React.ComponentType<any>;
+      isCustom: boolean;
+      lastUsedAt: number;
+    }> = [];
+
+    // Add standard objectives
+    STANDARD_MEETING_OBJECTIVES.forEach(obj => {
+      const usage = objectiveUsage.find(u => u.id === obj.id);
+      allObjectives.push({
+        ...obj,
+        isCustom: false,
+        lastUsedAt: usage?.lastUsedAt || 0
+      });
+    });
+
+    // Add custom objectives
+    customObjectives.forEach(obj => {
+      allObjectives.push({
+        id: obj.id,
+        label: obj.name,
+        icon: Sparkles,
+        isCustom: true,
+        lastUsedAt: obj.lastUsedAt || 0
+      });
+    });
+
+    // Sort by last used (most recent first), then alphabetically for unused
+    return allObjectives.sort((a, b) => {
+      if (a.lastUsedAt === 0 && b.lastUsedAt === 0) {
+        return a.label.localeCompare(b.label);
+      }
+      return b.lastUsedAt - a.lastUsedAt;
+    });
+  }, [customObjectives, objectiveUsage]);
+
+  // Get the selected objective's label for display
+  const selectedObjectiveLabel = useMemo(() => {
+    if (!selectedObjectiveId) return '';
+    const obj = sortedObjectives.find(o => o.id === selectedObjectiveId);
+    return obj?.label || selectedObjectiveId;
+  }, [selectedObjectiveId, sortedObjectives]);
+
+  // Handle task completion toggle
+  const handleToggleTask = useCallback(async (taskId: string) => {
+    const newCompleted = !completedTasks.has(taskId);
+    setCompletedTasks(prev => {
+      const next = new Set(prev);
+      if (newCompleted) {
+        next.add(taskId);
+      } else {
+        next.delete(taskId);
+      }
+      return next;
+    });
+    // Persist to backend
+    try {
+      await window.kakarot.prep.toggleTaskCommitment(taskId, newCompleted);
+    } catch (error) {
+      console.error('Failed to toggle task:', error);
+    }
+  }, [completedTasks]);
+
+  // Fetch company info for a participant
+  const handleFetchCompanyInfo = useCallback(async (email: string) => {
+    if (!email || fetchingCompanyInfo === email) return;
+    setFetchingCompanyInfo(email);
+    try {
+      const info = await window.kakarot.prep.fetchCompanyInfo(email);
+      setCompanyInfoCache(prev => ({ ...prev, [email]: info }));
+    } catch (error) {
+      console.error('Failed to fetch company info:', error);
+      setCompanyInfoCache(prev => ({ ...prev, [email]: null }));
+    } finally {
+      setFetchingCompanyInfo(null);
+    }
+  }, [fetchingCompanyInfo]);
+
+  // Show LinkedIn coming soon toast
+  const handleLinkedInClick = useCallback(() => {
+    alert('LinkedIn integration coming soon!');
+  }, []);
+
+  // Update meeting objective usage when generating briefing
+  const updateObjectiveUsage = useCallback(async (objectiveId: string) => {
+    const now = Date.now();
+    const updatedUsage = [...objectiveUsage];
+    const existingIndex = updatedUsage.findIndex(u => u.id === objectiveId);
+
+    if (existingIndex >= 0) {
+      updatedUsage[existingIndex] = { ...updatedUsage[existingIndex], lastUsedAt: now };
+    } else {
+      updatedUsage.push({ id: objectiveId, lastUsedAt: now });
+    }
+
+    // Also update lastUsedAt for custom objectives
+    const customIndex = customObjectives.findIndex(c => c.id === objectiveId);
+    if (customIndex >= 0) {
+      const updatedCustom = [...customObjectives];
+      updatedCustom[customIndex] = { ...updatedCustom[customIndex], lastUsedAt: now };
+      await window.kakarot.settings.update({
+        meetingObjectiveUsage: updatedUsage,
+        customMeetingTypesV2: updatedCustom
+      });
+      setSettings({ ...settings!, meetingObjectiveUsage: updatedUsage, customMeetingTypesV2: updatedCustom });
+    } else {
+      await window.kakarot.settings.update({ meetingObjectiveUsage: updatedUsage });
+      setSettings({ ...settings!, meetingObjectiveUsage: updatedUsage });
+    }
+  }, [objectiveUsage, customObjectives, settings, setSettings]);
+
+  // Modal handlers
+  const openCreateModal = useCallback(() => {
+    setFormData(emptyFormData);
+    setShowCreateModal(true);
+  }, []);
+
+  const closeModal = useCallback(() => {
+    setShowCreateModal(false);
+    setFormData(emptyFormData);
+    setNewRole('');
+    setNewObjective('');
+  }, []);
+
+  const addRole = useCallback(() => {
+    if (newRole.trim() && !formData.attendeeRoles.includes(newRole.trim())) {
+      setFormData(prev => ({
+        ...prev,
+        attendeeRoles: [...prev.attendeeRoles, newRole.trim()]
+      }));
+      setNewRole('');
+    }
+  }, [newRole, formData.attendeeRoles]);
+
+  const addObjectiveItem = useCallback(() => {
+    if (newObjective.trim() && !formData.objectives.includes(newObjective.trim())) {
+      setFormData(prev => ({
+        ...prev,
+        objectives: [...prev.objectives, newObjective.trim()]
+      }));
+      setNewObjective('');
+    }
+  }, [newObjective, formData.objectives]);
+
+  const saveCustomObjective = useCallback(async () => {
+    if (!formData.name.trim()) return;
+
+    const now = Date.now();
+    const newObjective: CustomMeetingType = {
+      id: generateId(),
+      name: formData.name.trim(),
+      description: formData.description.trim() || undefined,
+      attendeeRoles: formData.attendeeRoles,
+      isExternal: formData.isExternal,
+      objectives: formData.objectives,
+      customPrompt: formData.customPrompt.trim() || undefined,
+      createdAt: now,
+      updatedAt: now,
+      lastUsedAt: undefined
+    };
+
+    const updatedCustom = [...customObjectives, newObjective];
+    await window.kakarot.settings.update({ customMeetingTypesV2: updatedCustom });
+    setSettings({ ...settings!, customMeetingTypesV2: updatedCustom });
+    closeModal();
+  }, [formData, customObjectives, settings, setSettings, closeModal]);
+
+  // Navigate to Interact tab
+  const handleViewMore = useCallback(() => {
+    onSelectTab?.('interact');
+  }, [onSelectTab]);
 
   useEffect(() => {
     loadPeople();
@@ -150,10 +375,8 @@ export default function PrepView() {
     setSearchQuery('');
   };
 
-  const meetingTypeValue = selectedMeetingType === 'custom' ? customMeetingType.trim() : selectedMeetingType;
-
   const handleGenerateBriefing = async () => {
-    if (!meetingTypeValue || selectedPeople.length === 0) {
+    if (!selectedObjectiveId || selectedPeople.length === 0) {
       setGeneratingError('Please pick at least one participant and a meeting objective');
       return;
     }
@@ -165,8 +388,8 @@ export default function PrepView() {
     try {
       const payload = {
         meeting: {
-          meeting_type: meetingTypeValue,
-          objective: meetingTypeValue,
+          meeting_type: selectedObjectiveLabel,
+          objective: selectedObjectiveLabel,
         },
         participants: selectedPeople.map((person) => ({
           name: getDisplayName(person),
@@ -178,6 +401,9 @@ export default function PrepView() {
 
       const result = await window.kakarot.prep.generateBriefing(payload);
       setBriefingResult(result);
+
+      // Update usage tracking
+      await updateObjectiveUsage(selectedObjectiveId);
     } catch (error) {
       setGeneratingError(error instanceof Error ? error.message : 'Failed to generate briefing');
       console.error('Failed to generate briefing:', error);
@@ -271,12 +497,6 @@ export default function PrepView() {
               </button>             
             ))}
           </div>
-          <button
-            className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl border border-white/10 bg-white/5 hover:border-purple-400/60 transition mt-4 flex-shrink-0"
-          >
-            <Users className="w-4 h-4 text-purple-300" />
-            <span className="text-sm text-white">View All Contacts</span>
-          </button>
         </div>
       </div>
 
@@ -291,71 +511,48 @@ export default function PrepView() {
         </div>
 
         <div className="flex-1 overflow-y-auto">
-        <div className="grid grid-cols-2 gap-3 mb-4">
-          {PREDEFINED_MEETING_TYPES.slice(0, 7).map((type) => {
-            const Icon = type.icon;
-            const isActive = selectedMeetingType === type.label;
-            return (
-              <button
-                key={type.id}
-                onClick={() => {
-                  setSelectedMeetingType(type.label);
-                  setCustomMeetingType('');
-                }}
-                className={`flex items-center gap-2.5 px-4 py-3 rounded-xl border transition ${
-                  isActive
-                    ? 'border-purple-500 bg-purple-600/20 shadow-[0_10px_30px_rgba(124,58,237,0.35)]'
-                    : 'border-white/10 bg-white/5 hover:border-purple-400/60'
-                }`}
-              >
-                <span className="p-2 rounded-lg bg-white/10">
-                  <Icon className="w-4 h-4 text-purple-200" />
-                </span>
-                <span className="text-sm text-white text-left">{type.label}</span>
-              </button>
-            );
-          })}
-          <button
-            className="flex items-center gap-2.5 px-4 py-3 rounded-xl border border-white/10 bg-white/5 hover:border-purple-400/60"
-          >
-            <span className="p-2 rounded-lg bg-white/10">
-              <span className="text-purple-200 text-lg">...</span>
-            </span>
-            <span className="text-sm text-white text-left">View More</span>
-          </button>
-        </div>
-
-        {customTypes.length > 0 && (
-          <div className="space-y-2 mt-3">
-            <p className="text-sm text-purple-200 uppercase tracking-wide">Custom Types</p>
-            <div className="grid grid-cols-2 gap-2">
-              {customTypes.map((type) => {
-                const isActive = selectedMeetingType === type;
-                return (
-                  <button
-                    key={type}
-                    onClick={() => {
-                      setSelectedMeetingType(type);
-                      setCustomMeetingType('');
-                    }}
-                    className={`px-3 py-2 rounded-lg border text-sm transition text-left ${
-                      isActive
-                        ? 'border-purple-500 bg-purple-600/20 text-white'
-                        : 'border-white/10 bg-white/5 text-slate-200 hover:border-purple-400/60'
-                    }`}
-                  >
-                    {type}
-                  </button>
-                );
-              })}
-            </div>
+          {/* Show top 7 objectives sorted by last used + View More */}
+          <div className="grid grid-cols-2 gap-3 mb-4">
+            {sortedObjectives.slice(0, 7).map((objective) => {
+              const Icon = objective.icon;
+              const isActive = selectedObjectiveId === objective.id;
+              return (
+                <button
+                  key={objective.id}
+                  onClick={() => setSelectedObjectiveId(objective.id)}
+                  className={`flex items-center gap-2.5 px-4 py-3 rounded-xl border transition ${
+                    isActive
+                      ? 'border-purple-500 bg-purple-600/20 shadow-[0_10px_30px_rgba(124,58,237,0.35)]'
+                      : 'border-white/10 bg-white/5 hover:border-purple-400/60'
+                  }`}
+                >
+                  <span className="p-2 rounded-lg bg-white/10">
+                    <Icon className="w-4 h-4 text-purple-200" />
+                  </span>
+                  <div className="flex-1 min-w-0 text-left">
+                    <span className="text-sm text-white block truncate">{objective.label}</span>
+                    {objective.isCustom && (
+                      <span className="text-xs text-purple-400">Custom</span>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
+            {/* View More button */}
+            <button
+              onClick={handleViewMore}
+              className="flex items-center gap-2.5 px-4 py-3 rounded-xl border border-white/10 bg-white/5 hover:border-purple-400/60 transition"
+            >
+              <span className="p-2 rounded-lg bg-white/10">
+                <MoreHorizontal className="w-4 h-4 text-purple-200" />
+              </span>
+              <span className="text-sm text-white text-left">View More</span>
+            </button>
           </div>
-        )
-        }
         </div>
 
         <button
-          onClick={() => setSelectedMeetingType('custom')}
+          onClick={openCreateModal}
           className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl border border-white/10 bg-white/5 hover:border-purple-400/60 transition mt-4 flex-shrink-0"
         >
           <Plus className="w-4 h-4 text-purple-300" />
@@ -380,8 +577,7 @@ export default function PrepView() {
             <button
               onClick={() => {
                 setBriefingResult(null);
-                setSelectedMeetingType('');
-                setCustomMeetingType('');
+                setSelectedObjectiveId('');
                 setSelectedPeople([]);
               }}
               className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
@@ -460,21 +656,114 @@ export default function PrepView() {
                       <h4 className="text-lg font-semibold text-gray-900 dark:text-white">{participant.name}</h4>
                       {participant.email && <p className="text-sm text-gray-500 dark:text-gray-400">{participant.email}</p>}
                     </div>
-                    <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
-                      participant.history_strength === 'strong'
-                        ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
-                        : participant.history_strength === 'weak'
-                        ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'
-                        : participant.history_strength === 'org-only'
-                        ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
-                        : 'bg-gray-100 text-gray-800 dark:bg-gray-700/30 dark:text-gray-300'
-                    }`}>
-                      {participant.history_strength === 'strong' && 'Strong History'}
-                      {participant.history_strength === 'weak' && 'Weak History'}
-                      {participant.history_strength === 'org-only' && 'Same Org'}
-                      {participant.history_strength === 'none' && 'No History'}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
+                        participant.history_strength === 'strong'
+                          ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
+                          : participant.history_strength === 'weak'
+                          ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'
+                          : participant.history_strength === 'org-only'
+                          ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
+                          : 'bg-gray-100 text-gray-800 dark:bg-gray-700/30 dark:text-gray-300'
+                      }`}>
+                        {participant.history_strength === 'strong' && 'Strong History'}
+                        {participant.history_strength === 'weak' && 'Weak History'}
+                        {participant.history_strength === 'org-only' && 'Same Org'}
+                        {participant.history_strength === 'none' && 'No History'}
+                      </span>
+                      {participant.confidence_score > 0 && (
+                        <span className={`text-xs px-2 py-1 rounded-full ${
+                          participant.confidence_score >= 70
+                            ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
+                            : participant.confidence_score >= 40
+                            ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300'
+                            : 'bg-gray-100 text-gray-600 dark:bg-gray-700/30 dark:text-gray-400'
+                        }`}>
+                          {participant.confidence_score}% confidence
+                        </span>
+                      )}
+                    </div>
                   </div>
+
+                  {/* First-time meeting banner */}
+                  {participant.is_first_meeting && (
+                    <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-700">
+                      <div className="flex items-start gap-2">
+                        <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                            First meeting with {participant.name}
+                          </p>
+                          {participant.org_has_met_before ? (
+                            <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
+                              Others in your organization have met with them before.
+                            </p>
+                          ) : (
+                            <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
+                              No one in your organization has met them yet.
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Data fetch options */}
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <button
+                          onClick={handleLinkedInClick}
+                          className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-900/50 transition"
+                        >
+                          <Linkedin className="w-3 h-3" />
+                          Fetch from LinkedIn
+                        </button>
+                        {participant.email && (
+                          <button
+                            onClick={() => handleFetchCompanyInfo(participant.email!)}
+                            disabled={fetchingCompanyInfo === participant.email}
+                            className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-lg hover:bg-green-200 dark:hover:bg-green-900/50 transition disabled:opacity-50"
+                          >
+                            <Building2 className="w-3 h-3" />
+                            {fetchingCompanyInfo === participant.email ? 'Fetching...' : 'Check Company Website'}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Company info display */}
+                  {participant.email && companyInfoCache[participant.email] && (
+                    <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                            {companyInfoCache[participant.email]!.name || companyInfoCache[participant.email]!.domain}
+                          </p>
+                          {companyInfoCache[participant.email]!.description && (
+                            <p className="text-xs text-blue-700 dark:text-blue-300 mt-1 line-clamp-2">
+                              {companyInfoCache[participant.email]!.description}
+                            </p>
+                          )}
+                        </div>
+                        <a
+                          href={companyInfoCache[participant.email]!.website}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 dark:text-blue-400 hover:text-blue-800"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                        </a>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Data gaps warning */}
+                  {participant.data_gaps && participant.data_gaps.length > 0 && (
+                    <div className="mb-4 p-2 bg-gray-50 dark:bg-slate-700/30 rounded-lg border border-gray-200 dark:border-slate-600">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                        <Info className="w-3 h-3" />
+                        Limited data: {participant.data_gaps.join(', ')}
+                      </p>
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-3 gap-3 mb-4 text-sm">
                     <div className="bg-gray-50 dark:bg-slate-700/50 rounded-lg p-2">
@@ -497,6 +786,36 @@ export default function PrepView() {
                     <div className="mb-4 p-3 bg-gray-50 dark:bg-slate-700/50 rounded-lg">
                       <p className="text-xs text-gray-600 dark:text-gray-400 mb-1 font-medium">Background</p>
                       <p className="text-sm text-gray-700 dark:text-gray-300">{participant.background}</p>
+                    </div>
+                  )}
+
+                  {/* Task Commitments Section */}
+                  {participant.pending_task_commitments && participant.pending_task_commitments.length > 0 && (
+                    <div className="mb-4">
+                      <p className="text-sm font-medium text-gray-900 dark:text-white mb-2 flex items-center gap-2">
+                        <ListChecks className="w-4 h-4 text-purple-500" />
+                        Previous Commitments
+                      </p>
+                      <ul className="space-y-2">
+                        {participant.pending_task_commitments.slice(0, 5).map((task) => (
+                          <li key={task.id} className="flex items-start gap-2 text-sm">
+                            <input
+                              type="checkbox"
+                              checked={completedTasks.has(task.id) || task.completed}
+                              onChange={() => handleToggleTask(task.id)}
+                              className="mt-1 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                            />
+                            <div className="flex-1">
+                              <span className={`${completedTasks.has(task.id) || task.completed ? 'line-through text-gray-400' : 'text-gray-700 dark:text-gray-300'}`}>
+                                {task.description}
+                              </span>
+                              <span className="text-xs text-gray-400 ml-2">
+                                from {new Date(task.meetingDate).toLocaleDateString()}
+                              </span>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
                     </div>
                   )}
 
@@ -555,14 +874,14 @@ export default function PrepView() {
           <div>
             <p className="text-sm text-slate-400">Summary</p>
             <p className="text-sm text-white">
-              {selectedPeople.length} participant{selectedPeople.length === 1 ? '' : 's'} · {meetingTypeValue || 'No objective yet'}
+              {selectedPeople.length} participant{selectedPeople.length === 1 ? '' : 's'} · {selectedObjectiveLabel || 'No objective yet'}
             </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={handleGenerateBriefing}
-            disabled={isGenerating || selectedPeople.length === 0 || !meetingTypeValue}
+            disabled={isGenerating || selectedPeople.length === 0 || !selectedObjectiveId}
             className="px-4 py-2 rounded-lg bg-gradient-to-r from-purple-500 to-indigo-500 text-white font-semibold shadow-[0_12px_30px_rgba(124,58,237,0.35)] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isGenerating ? 'Generating...' : 'Generate'}
@@ -572,6 +891,177 @@ export default function PrepView() {
 
       {generatingError && (
         <p className="mt-2 text-sm text-amber-300">{generatingError}</p>
+      )}
+
+      {/* Create Custom Objective Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-[#1A1A1A] border border-white/10 rounded-2xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-semibold text-white">Create Meeting Objective</h3>
+              <button onClick={closeModal} className="p-2 hover:bg-white/5 rounded-lg">
+                <X className="w-5 h-5 text-slate-400" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {/* Name */}
+              <div>
+                <label className="block text-sm text-slate-400 mb-1">Name *</label>
+                <input
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="e.g., Customer Discovery Call"
+                  className="w-full px-4 py-2 bg-[#0D0D0D] border border-white/10 rounded-lg text-white placeholder:text-slate-500 focus:border-[#7C3AED] focus:outline-none"
+                />
+              </div>
+
+              {/* Description */}
+              <div>
+                <label className="block text-sm text-slate-400 mb-1">Description</label>
+                <textarea
+                  value={formData.description}
+                  onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                  placeholder="What is this meeting objective for?"
+                  rows={2}
+                  className="w-full px-4 py-2 bg-[#0D0D0D] border border-white/10 rounded-lg text-white placeholder:text-slate-500 focus:border-[#7C3AED] focus:outline-none resize-none"
+                />
+              </div>
+
+              {/* Internal/External Toggle */}
+              <div>
+                <label className="block text-sm text-slate-400 mb-2">Meeting Context</label>
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setFormData(prev => ({ ...prev, isExternal: false }))}
+                    className={`flex-1 px-4 py-3 rounded-lg border flex items-center justify-center gap-2 transition-colors ${
+                      !formData.isExternal
+                        ? 'border-[#7C3AED] bg-[#7C3AED]/20 text-white'
+                        : 'border-white/10 text-slate-400 hover:border-white/20'
+                    }`}
+                  >
+                    <Building2 className="w-4 h-4" />
+                    Internal
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFormData(prev => ({ ...prev, isExternal: true }))}
+                    className={`flex-1 px-4 py-3 rounded-lg border flex items-center justify-center gap-2 transition-colors ${
+                      formData.isExternal
+                        ? 'border-[#7C3AED] bg-[#7C3AED]/20 text-white'
+                        : 'border-white/10 text-slate-400 hover:border-white/20'
+                    }`}
+                  >
+                    <Globe className="w-4 h-4" />
+                    External
+                  </button>
+                </div>
+              </div>
+
+              {/* Attendee Roles */}
+              <div>
+                <label className="block text-sm text-slate-400 mb-2">Typical Attendee Roles</label>
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {formData.attendeeRoles.map((role, idx) => (
+                    <span key={idx} className="px-3 py-1 bg-purple-600/20 text-purple-200 rounded-full text-sm flex items-center gap-1">
+                      {role}
+                      <button onClick={() => setFormData(prev => ({
+                        ...prev,
+                        attendeeRoles: prev.attendeeRoles.filter((_, i) => i !== idx)
+                      }))}>
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={newRole}
+                    onChange={(e) => setNewRole(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addRole())}
+                    placeholder="Add role (e.g., Product Manager)"
+                    className="flex-1 px-3 py-2 bg-[#0D0D0D] border border-white/10 rounded-lg text-white placeholder:text-slate-500 text-sm focus:border-[#7C3AED] focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={addRole}
+                    className="px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Objectives */}
+              <div>
+                <label className="block text-sm text-slate-400 mb-2">Key Objectives</label>
+                <div className="space-y-2 mb-2">
+                  {formData.objectives.map((obj, idx) => (
+                    <div key={idx} className="flex items-center gap-2">
+                      <Target className="w-4 h-4 text-green-400 flex-shrink-0" />
+                      <span className="flex-1 text-sm text-white">{obj}</span>
+                      <button onClick={() => setFormData(prev => ({
+                        ...prev,
+                        objectives: prev.objectives.filter((_, i) => i !== idx)
+                      }))}>
+                        <X className="w-4 h-4 text-slate-400 hover:text-red-400" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={newObjective}
+                    onChange={(e) => setNewObjective(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addObjectiveItem())}
+                    placeholder="Add objective (e.g., Identify pain points)"
+                    className="flex-1 px-3 py-2 bg-[#0D0D0D] border border-white/10 rounded-lg text-white placeholder:text-slate-500 text-sm focus:border-[#7C3AED] focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={addObjectiveItem}
+                    className="px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Custom Prompt */}
+              <div>
+                <label className="block text-sm text-slate-400 mb-1">AI Preparation Prompt</label>
+                <textarea
+                  value={formData.customPrompt}
+                  onChange={(e) => setFormData(prev => ({ ...prev, customPrompt: e.target.value }))}
+                  placeholder="Instructions for AI when preparing for this meeting..."
+                  rows={3}
+                  className="w-full px-4 py-2 bg-[#0D0D0D] border border-white/10 rounded-lg text-white placeholder:text-slate-500 focus:border-[#7C3AED] focus:outline-none resize-none"
+                />
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-white/5">
+              <button
+                onClick={closeModal}
+                className="px-4 py-2 text-slate-400 hover:text-white transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={saveCustomObjective}
+                disabled={!formData.name.trim()}
+                className="px-4 py-2 bg-[#7C3AED] hover:bg-[#6D28D9] text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Create
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -53,6 +53,9 @@ export const IPC_CHANNELS = {
 
   // Meeting Prep
   PREP_GENERATE_BRIEFING: 'prep:generateBriefing',
+  PREP_GET_TASK_COMMITMENTS: 'prep:getTaskCommitments',
+  PREP_TOGGLE_TASK_COMMITMENT: 'prep:toggleTaskCommitment',
+  PREP_FETCH_COMPANY_INFO: 'prep:fetchCompanyInfo',
 
   // Knowledge base
   KNOWLEDGE_INDEX: 'knowledge:index',
@@ -68,6 +71,7 @@ export const IPC_CHANNELS = {
   PEOPLE_GET_BY_MEETING: 'people:getByMeeting',
   PEOPLE_STATS: 'people:stats',
   PEOPLE_GET_COMPANIES: 'people:getCompanies',
+  PEOPLE_SYNC_FROM_CALENDAR: 'people:syncFromCalendar',
 
   // Calendar
   CALENDAR_CONNECT: 'calendar:connect',

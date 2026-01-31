@@ -24,6 +24,90 @@ const logger = createLogger('Main');
 let mainWindow: BrowserWindow | null = null;
 let calloutWindow: BrowserWindow | null = null;
 
+// Auto-sync interval: 5 days in milliseconds
+const CALENDAR_CONTACTS_SYNC_INTERVAL = 5 * 24 * 60 * 60 * 1000;
+
+/**
+ * Check if calendar contacts should be auto-synced and run if needed.
+ * Runs on app startup if last sync was more than 5 days ago.
+ */
+async function checkAndRunCalendarContactsSync(): Promise<void> {
+  try {
+    const container = getContainer();
+    const settings = container.settingsRepo.getSettings();
+
+    // Check if any calendar is connected
+    const hasCalendar = settings.calendarConnections?.google || settings.calendarConnections?.outlook;
+    if (!hasCalendar) {
+      logger.debug('No calendar connected, skipping auto-sync');
+      return;
+    }
+
+    // Check if sync is needed (never synced or older than 5 days)
+    const lastSync = settings.lastCalendarContactsSync || 0;
+    const timeSinceLastSync = Date.now() - lastSync;
+
+    if (timeSinceLastSync < CALENDAR_CONTACTS_SYNC_INTERVAL) {
+      const daysUntilNextSync = Math.ceil((CALENDAR_CONTACTS_SYNC_INTERVAL - timeSinceLastSync) / (24 * 60 * 60 * 1000));
+      logger.debug('Calendar contacts sync not needed yet', { daysUntilNextSync });
+      return;
+    }
+
+    logger.info('Running auto-sync of calendar contacts', {
+      lastSync: lastSync ? new Date(lastSync).toISOString() : 'never',
+      daysSinceLastSync: Math.floor(timeSinceLastSync / (24 * 60 * 60 * 1000)),
+    });
+
+    // Fetch events from 6 months ago to 6 months in the future
+    const now = new Date();
+    const sixMonthsAgo = new Date(now.getTime() - 6 * 30 * 24 * 60 * 60 * 1000);
+    const sixMonthsFromNow = new Date(now.getTime() + 6 * 30 * 24 * 60 * 60 * 1000);
+
+    const events = await container.calendarService.fetchEventsInRange(sixMonthsAgo, sixMonthsFromNow);
+    logger.info('Fetched calendar events for auto-sync', { count: events.length });
+
+    // Extract unique attendees
+    const attendeeMap = new Map<string, { email: string; name?: string }>();
+    for (const event of events) {
+      if (event.attendees) {
+        for (const attendee of event.attendees) {
+          if (attendee.email && !attendeeMap.has(attendee.email.toLowerCase())) {
+            attendeeMap.set(attendee.email.toLowerCase(), {
+              email: attendee.email.toLowerCase(),
+              name: attendee.name,
+            });
+          }
+        }
+      }
+    }
+
+    const uniqueAttendees = Array.from(attendeeMap.values());
+    logger.info('Found unique attendees for auto-sync', { count: uniqueAttendees.length });
+
+    // Create People API fetcher for name resolution
+    const peopleApiFetcher = (email: string) => container.calendarService.fetchPersonNameFromGoogle(email);
+
+    // Upsert each attendee
+    let synced = 0;
+    for (const attendee of uniqueAttendees) {
+      await container.peopleRepo.upsertFromCalendarAttendee(
+        attendee.email,
+        attendee.name,
+        undefined,
+        peopleApiFetcher
+      );
+      synced++;
+    }
+
+    // Store the last sync timestamp
+    container.settingsRepo.updateSettings({ lastCalendarContactsSync: Date.now() });
+
+    logger.info('Calendar contacts auto-sync complete', { synced, total: uniqueAttendees.length });
+  } catch (error) {
+    logger.error('Failed to auto-sync calendar contacts', { error: (error as Error).message });
+  }
+}
+
 // Make mainWindow globally accessible for notifications
 declare global {
   var mainWindow: BrowserWindow | null;
@@ -59,6 +143,9 @@ async function createWindows() {
   // Start meeting notification service
   const container = getContainer();
   container.meetingNotificationService.start();
+
+  // Check and run auto-sync of contacts from calendar (every 5 days)
+  checkAndRunCalendarContactsSync();
 
   // Dev-only: Start performance logging and register keyboard shortcuts
   if (process.env.NODE_ENV === 'development' || !app.isPackaged) {

@@ -130,5 +130,63 @@ export function registerPeopleHandlers(): void {
     }
   });
 
+  // Sync contacts from calendar events (past and upcoming)
+  ipcMain.handle(IPC_CHANNELS.PEOPLE_SYNC_FROM_CALENDAR, async () => {
+    logger.info('Starting calendar contacts sync');
+    const { calendarService, settingsRepo } = getContainer();
+
+    try {
+      // Fetch events from 6 months ago to 6 months in the future
+      const now = new Date();
+      const sixMonthsAgo = new Date(now.getTime() - 6 * 30 * 24 * 60 * 60 * 1000);
+      const sixMonthsFromNow = new Date(now.getTime() + 6 * 30 * 24 * 60 * 60 * 1000);
+
+      const events = await calendarService.fetchEventsInRange(sixMonthsAgo, sixMonthsFromNow);
+      logger.info('Fetched calendar events for sync', { count: events.length });
+
+      // Extract unique attendees from all events
+      const attendeeMap = new Map<string, { email: string; name?: string }>();
+      for (const event of events) {
+        if (event.attendees) {
+          for (const attendee of event.attendees) {
+            if (attendee.email && !attendeeMap.has(attendee.email.toLowerCase())) {
+              attendeeMap.set(attendee.email.toLowerCase(), {
+                email: attendee.email.toLowerCase(),
+                name: attendee.name,
+              });
+            }
+          }
+        }
+      }
+
+      const uniqueAttendees = Array.from(attendeeMap.values());
+      logger.info('Found unique attendees', { count: uniqueAttendees.length });
+
+      // Create People API fetcher for name resolution
+      const peopleApiFetcher = (email: string) => calendarService.fetchPersonNameFromGoogle(email);
+
+      // Upsert each attendee into the people database
+      let synced = 0;
+      for (const attendee of uniqueAttendees) {
+        await peopleRepo.upsertFromCalendarAttendee(
+          attendee.email,
+          attendee.name,
+          undefined,
+          peopleApiFetcher
+        );
+        synced++;
+      }
+
+      // Store the last sync timestamp
+      settingsRepo.updateSettings({ lastCalendarContactsSync: Date.now() });
+
+      logger.info('Calendar contacts sync complete', { synced, total: uniqueAttendees.length });
+      return { synced, total: uniqueAttendees.length };
+    } catch (error) {
+      logger.error('Failed to sync contacts from calendar', { error: (error as Error).message });
+      throw error;
+    }
+  });
+
   logger.info('People handlers registered');
 }

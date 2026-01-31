@@ -6,13 +6,12 @@ const logger = createLogger('BackendAIProvider');
 
 /**
  * AI provider that routes all requests through the Treeto backend.
- * The backend handles authentication and routing to the appropriate
- * AI service (Gemini, OpenAI, etc.).
+ * The backend handles authentication and routing to OpenAI.
  */
 export class BackendAIProvider implements AIProvider {
   private model: string;
 
-  constructor(model: string = 'gemini-2.0-flash') {
+  constructor(model: string = 'gpt-4o') {
     this.model = model;
     logger.info('Backend AI provider initialized', { model: this.model });
   }
@@ -21,52 +20,32 @@ export class BackendAIProvider implements AIProvider {
     const backendAPI = getBackendAPI();
     const model = options.model || this.model;
 
-    // Convert messages to Gemini-compatible format
-    const contents = this.convertMessages(messages);
-
+    // Convert to backend API format (OpenAI-compatible)
     const request = {
-      contents,
-      generationConfig: {
-        temperature: options.temperature ?? 0.3,
-        maxOutputTokens: options.maxTokens ?? 1000,
-        ...(options.responseFormat === 'json' && {
-          responseMimeType: 'application/json',
-        }),
-      },
+      messages: messages.map(msg => ({
+        role: msg.role as 'system' | 'user' | 'assistant',
+        content: msg.content,
+      })),
+      model,
+      temperature: options.temperature ?? 0.7,
+      max_tokens: options.maxTokens ?? 2000,
+      ...(options.responseFormat === 'json' && {
+        response_format: { type: 'json_object' as const },
+      }),
     };
 
     logger.debug('Sending chat request via backend', { model, messageCount: messages.length });
 
     const response = await backendAPI.chat(request);
-    const content = response.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const content = response.choices?.[0]?.message?.content || '';
 
     logger.debug('Chat completion via backend', {
       model,
-      promptTokens: response.usageMetadata?.promptTokenCount,
-      outputTokens: response.usageMetadata?.candidatesTokenCount,
+      promptTokens: response.usage?.prompt_tokens,
+      outputTokens: response.usage?.completion_tokens,
     });
 
     return content;
-  }
-
-  private convertMessages(messages: ChatMessage[]): Array<{ role: string; parts: Array<{ text: string }> }> {
-    // Gemini uses 'user' and 'model' roles, and system prompts go in the first user message
-    const contents: Array<{ role: string; parts: Array<{ text: string }> }> = [];
-    let systemPrompt = '';
-
-    for (const msg of messages) {
-      if (msg.role === 'system') {
-        systemPrompt += msg.content + '\n\n';
-      } else if (msg.role === 'user') {
-        const text = systemPrompt ? systemPrompt + msg.content : msg.content;
-        contents.push({ role: 'user', parts: [{ text }] });
-        systemPrompt = '';
-      } else if (msg.role === 'assistant') {
-        contents.push({ role: 'model', parts: [{ text: msg.content }] });
-      }
-    }
-
-    return contents;
   }
 
   async complete(prompt: string, model?: string): Promise<string> {
