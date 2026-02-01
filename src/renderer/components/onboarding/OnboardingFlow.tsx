@@ -26,6 +26,15 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   };
   void _goToStep; // Reserved for step navigation
 
+  const previousStep = () => {
+    const prevIndex = currentStepIndex - 1;
+    if (prevIndex >= 0) {
+      // Reset user data when going back to allow OAuth to start fresh
+      setUserData(null);
+      setCurrentStep(steps[prevIndex]);
+    }
+  };
+
   const nextStep = () => {
     const nextIndex = currentStepIndex + 1;
     if (nextIndex < steps.length) {
@@ -46,7 +55,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                 key={step}
                 className={`h-2 rounded-full transition-all ${
                   steps.indexOf(step) <= currentStepIndex
-                    ? 'w-8 bg-primary-500'
+                    ? 'w-8 bg-[#4ea8dd]'
                     : 'w-2 bg-gray-700'
                 }`}
               />
@@ -65,6 +74,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                 setUserData(data);
                 nextStep();
               }}
+              onBack={previousStep}
             />
           )}
           {currentStep === 'audio' && (

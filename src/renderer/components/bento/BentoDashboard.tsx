@@ -9,7 +9,7 @@ interface BentoDashboardProps {
   isRecording: boolean;
   hideCompactBarWhenNoEvents?: boolean;
   onStartNotes: (event?: CalendarEvent) => void;
-  onSelectTab?: (tab: 'notes' | 'prep' | 'interact') => void;
+  onSelectTab?: (tab: 'notes' | 'prep') => void;
 }
 
 export default function BentoDashboard({ isRecording, hideCompactBarWhenNoEvents, onStartNotes, onSelectTab }: BentoDashboardProps): JSX.Element {
@@ -25,7 +25,15 @@ export default function BentoDashboard({ isRecording, hideCompactBarWhenNoEvents
     calendarMappings,
     addDismissedEventId,
     setPreviousMeetings,
+    settings,
   } = useAppStore();
+
+  // Check if any calendar is connected
+  const isCalendarConnected = !!(
+    settings?.calendarConnections?.google ||
+    settings?.calendarConnections?.outlook ||
+    settings?.calendarConnections?.icloud
+  );
 
   const handleViewNotes = async (meetingId: string) => {
     try {
@@ -137,10 +145,11 @@ export default function BentoDashboard({ isRecording, hideCompactBarWhenNoEvents
         {/* Upcoming meetings */}
         <UpcomingMeetingsList
           meetings={upcomingCalendarEvents}
+          isCalendarConnected={isCalendarConnected}
           onNavigateSettings={handleNavigateSettings}
           onSelectMeeting={handleSelectUpcomingMeeting}
           onTakeNotes={handleTakeManualNotes}
-          onNavigateInteract={() => onSelectTab?.('interact')}
+          onViewMore={() => onSelectTab?.('prep')}
         />
 
         {/* Previous meetings */}

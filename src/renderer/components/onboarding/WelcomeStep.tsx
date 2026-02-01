@@ -1,4 +1,5 @@
 import React from 'react';
+import logoImage from '../../assets/logo transparent copy.png';
 
 interface WelcomeStepProps {
   onContinue: () => void;
@@ -7,27 +8,33 @@ interface WelcomeStepProps {
 export default function WelcomeStep({ onContinue }: WelcomeStepProps) {
   return (
     <div className="text-center space-y-6">
-      {/* Logo placeholder */}
+      {/* Treeto Logo */}
       <div className="flex justify-center mb-8">
-        <div className="w-20 h-20 rounded-2xl bg-primary-600 flex items-center justify-center">
-          <span className="text-4xl font-bold text-white">K</span>
+        <div className="flex flex-col items-center">
+          <div className="w-48 h-48">
+            <img
+              src={logoImage}
+              alt="Treeto"
+              className="w-full h-full object-contain"
+            />
+          </div>
+          <span className="text-lg font-medium tracking-wide uppercase text-slate-300 -mt-16">Treeto.</span>
         </div>
       </div>
 
       <div className="space-y-3">
         <h1 className="text-4xl font-semibold text-white">
-          Your meetings, finally handled.
+          Never blank out in a meeting again.
         </h1>
         <p className="text-lg text-gray-400 max-w-xl mx-auto">
-          Automatic transcription, real-time notes, and intelligent prep for every call.
-          Never miss context again.
+          Finally a meeting copilot that stays out of the participant list and surfaces relevant context exactly when you need it.
         </p>
       </div>
 
       <div className="pt-8">
         <button
           onClick={onContinue}
-          className="w-full py-3 px-6 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium transition-colors"
+          className="w-full py-3 px-6 bg-[#4ea8dd] hover:bg-[#3d96cb] text-white rounded-lg font-medium transition-colors"
         >
           Get Started
         </button>

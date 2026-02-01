@@ -53,7 +53,7 @@ export function formatDateTimeContext(date: Date): string {
 const AVATAR_COLORS = [
   'bg-blue-500',
   'bg-green-500',
-  'bg-purple-500',
+  'bg-[#4ea8dd]',
   'bg-pink-500',
   'bg-indigo-500',
   'bg-yellow-500',

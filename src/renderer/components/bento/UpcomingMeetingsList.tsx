@@ -4,13 +4,14 @@ import { Calendar, Settings } from 'lucide-react';
 
 interface UpcomingMeetingsListProps {
   meetings: CalendarEvent[];
+  isCalendarConnected?: boolean;
   onNavigateSettings?: () => void;
   onSelectMeeting?: (meeting: CalendarEvent) => void;
   onTakeNotes?: (meeting: CalendarEvent) => void;
-  onNavigateInteract?: () => void;
+  onViewMore?: () => void;
 }
 
-export default function UpcomingMeetingsList({ meetings, onNavigateSettings, onSelectMeeting: _onSelectMeeting, onTakeNotes, onNavigateInteract }: UpcomingMeetingsListProps) {
+export default function UpcomingMeetingsList({ meetings, isCalendarConnected = false, onNavigateSettings, onSelectMeeting: _onSelectMeeting, onTakeNotes, onViewMore }: UpcomingMeetingsListProps) {
   const formatDate = (date: Date): string => {
     const d = new Date(date);
     return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase();
@@ -87,7 +88,7 @@ export default function UpcomingMeetingsList({ meetings, onNavigateSettings, onS
   const displayedLater = displayedMeetings.filter(m => !isToday(m.start) && !isTomorrow(m.start));
 
   return (
-    <div className="h-full rounded-xl border border-purple-700/40 dark:border-purple-700/40 bg-[#0C0C0F] backdrop-blur-md shadow-[0_10px_50px_rgba(124,58,237,0.25)] p-3 flex flex-col opacity-90">
+    <div className="h-full rounded-xl border border-[#4ea8dd]/40 dark:border-[#4ea8dd]/40 bg-[#0C0C0F] backdrop-blur-md shadow-[0_10px_50px_rgba(78,168,221,0.25)] p-3 flex flex-col opacity-90">
       <h3 className="text-xs uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400 mb-3 px-1">
         Upcoming Meetings
       </h3>
@@ -96,16 +97,25 @@ export default function UpcomingMeetingsList({ meetings, onNavigateSettings, onS
         {meetings.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center py-8">
             <Calendar className="w-8 h-8 text-slate-400 dark:text-slate-600 mb-2 opacity-50" />
-            <p className="text-sm text-slate-500 dark:text-slate-500">No calendar connected</p>
-            <p className="text-xs text-slate-500 dark:text-slate-500 mt-1 mb-3">Connect your calendar to see upcoming meetings</p>
-            {onNavigateSettings && (
-              <button
-                onClick={onNavigateSettings}
-                className="px-3 py-1.5 bg-[#8B5CF6] hover:bg-[#7C3AED] text-white text-xs font-medium rounded-lg flex items-center gap-1.5 transition-colors"
-              >
-                <Settings className="w-3 h-3" />
-                Connect Calendar
-              </button>
+            {isCalendarConnected ? (
+              <>
+                <p className="text-sm text-slate-500 dark:text-slate-500">No upcoming meetings</p>
+                <p className="text-xs text-slate-500 dark:text-slate-500 mt-1">Your calendar is connected but there are no events scheduled</p>
+              </>
+            ) : (
+              <>
+                <p className="text-sm text-slate-500 dark:text-slate-500">No calendar connected</p>
+                <p className="text-xs text-slate-500 dark:text-slate-500 mt-1 mb-3">Connect your calendar to see upcoming meetings</p>
+                {onNavigateSettings && (
+                  <button
+                    onClick={onNavigateSettings}
+                    className="px-3 py-1.5 bg-[#4ea8dd] hover:bg-[#3d96cb] text-white text-xs font-medium rounded-lg flex items-center gap-1.5 transition-colors"
+                  >
+                    <Settings className="w-3 h-3" />
+                    Connect Calendar
+                  </button>
+                )}
+              </>
             )}
           </div>
         ) : (
@@ -138,11 +148,11 @@ export default function UpcomingMeetingsList({ meetings, onNavigateSettings, onS
         )}
       </div>
       
-      {hasMore && onNavigateInteract && (
+      {hasMore && onViewMore && (
         <div className="mt-2 pt-2 border-t border-slate-200/50 dark:border-slate-700/50">
           <button
-            onClick={onNavigateInteract}
-            className="w-full text-xs text-[#8B5CF6] dark:text-[#A78BFA] hover:text-[#7C3AED] dark:hover:text-[#8B5CF6] font-medium text-center transition-colors"
+            onClick={onViewMore}
+            className="w-full text-xs text-[#4ea8dd] dark:text-[#4ea8dd] hover:text-[#3d96cb] dark:hover:text-[#3d96cb] font-medium text-center transition-colors"
           >
             ...More
           </button>

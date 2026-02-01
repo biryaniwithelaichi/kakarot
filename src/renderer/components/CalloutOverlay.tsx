@@ -43,7 +43,7 @@ export default function CalloutOverlay() {
       `}</style>
       <div className={`bg-gray-800/95 backdrop-blur-sm rounded-xl shadow-2xl border border-gray-700 flex flex-col flex-1 overflow-hidden ${isShaking ? 'animate-shake' : ''}`}>
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-2 bg-primary-600/20 border-b border-gray-700">
+        <div className="flex items-center justify-between px-4 py-2 bg-[#4ea8dd]/20 border-b border-gray-700">
           <div className="flex items-center gap-2">
             <Lightbulb className="w-4 h-4 text-yellow-400" />
             <span className="text-xs font-medium text-gray-300">Question Detected</span>

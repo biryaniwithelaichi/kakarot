@@ -2,9 +2,10 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useAppStore } from '../stores/appStore';
 import type { AppSettings, CustomMeetingType, StandardMeetingTypeOverride } from '@shared/types';
 import {
-  Plus, X, Settings, Sparkles, Check, Users, Rocket, Code, FileText, Target, Calendar,
+  Plus, X, Settings, Sparkles, Users, Rocket, Code, FileText, Target, Calendar,
   Edit, RotateCcw, Building2, Globe, ChevronDown, ChevronUp
 } from 'lucide-react';
+import { toast } from '../stores/toastStore';
 
 // Standard meeting objectives with default values
 const DEFAULT_STANDARD_TYPES = [
@@ -90,8 +91,6 @@ const emptyFormData: MeetingTypeFormData = {
 export default function InteractView() {
   const { settings, setSettings } = useAppStore();
   const [localSettings, setLocalSettings] = useState<AppSettings | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveMessage, setSaveMessage] = useState('');
   const [activeTab, setActiveTab] = useState<TabType>('standard');
 
   // Form state
@@ -109,25 +108,6 @@ export default function InteractView() {
     }
   }, [settings]);
 
-  const handleSave = async () => {
-    if (!localSettings) return;
-
-    setIsSaving(true);
-    setSaveMessage('');
-
-    try {
-      await window.kakarot.settings.update(localSettings);
-      setSettings(localSettings);
-      setSaveMessage('Settings saved successfully!');
-      setTimeout(() => setSaveMessage(''), 3000);
-    } catch (error) {
-      console.error('Failed to save settings:', error);
-      setSaveMessage('Failed to save settings');
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
   // Custom meeting objectives (v2 structured)
   const customMeetingTypes = localSettings?.customMeetingTypesV2 || [];
   const standardOverrides = localSettings?.standardMeetingTypeOverrides || [];
@@ -143,10 +123,11 @@ export default function InteractView() {
   };
 
   // Save custom meeting objective
-  const saveCustomType = useCallback(() => {
+  const saveCustomType = useCallback(async () => {
     if (!localSettings || !formData.name.trim()) return;
 
     const now = Date.now();
+    let nextSettings: AppSettings;
 
     if (editingType) {
       // Update existing
@@ -161,10 +142,10 @@ export default function InteractView() {
         updatedAt: now
       };
 
-      setLocalSettings({
+      nextSettings = {
         ...localSettings,
         customMeetingTypesV2: customMeetingTypes.map(t => t.id === editingType.id ? updated : t)
-      });
+      };
     } else {
       // Create new
       const newType: CustomMeetingType = {
@@ -179,17 +160,27 @@ export default function InteractView() {
         updatedAt: now
       };
 
-      setLocalSettings({
+      nextSettings = {
         ...localSettings,
         customMeetingTypesV2: [...customMeetingTypes, newType]
-      });
+      };
     }
 
+    setLocalSettings(nextSettings);
     closeModal();
-  }, [localSettings, formData, editingType, customMeetingTypes]);
+
+    try {
+      await window.kakarot.settings.update(nextSettings);
+      setSettings(nextSettings);
+      toast.success(editingType ? 'Meeting objective updated' : 'Meeting objective created');
+    } catch (error) {
+      console.error('Failed to save settings:', error);
+      toast.error('Failed to save changes');
+    }
+  }, [localSettings, formData, editingType, customMeetingTypes, setSettings]);
 
   // Save standard type override
-  const saveStandardOverride = useCallback(() => {
+  const saveStandardOverride = useCallback(async () => {
     if (!localSettings || !editingStandardId) return;
 
     const override: StandardMeetingTypeOverride = {
@@ -206,33 +197,65 @@ export default function InteractView() {
       ? standardOverrides.map(o => o.id === editingStandardId ? override : o)
       : [...standardOverrides, override];
 
-    setLocalSettings({
+    const nextSettings = {
       ...localSettings,
       standardMeetingTypeOverrides: newOverrides
-    });
+    };
 
+    setLocalSettings(nextSettings);
     closeModal();
-  }, [localSettings, editingStandardId, formData, standardOverrides]);
+
+    try {
+      await window.kakarot.settings.update(nextSettings);
+      setSettings(nextSettings);
+      toast.success('Meeting objective updated');
+    } catch (error) {
+      console.error('Failed to save settings:', error);
+      toast.error('Failed to save changes');
+    }
+  }, [localSettings, editingStandardId, formData, standardOverrides, setSettings]);
 
   // Reset standard type to default
-  const resetStandardToDefault = useCallback((id: string) => {
+  const resetStandardToDefault = useCallback(async (id: string) => {
     if (!localSettings) return;
 
-    setLocalSettings({
+    const nextSettings = {
       ...localSettings,
       standardMeetingTypeOverrides: standardOverrides.filter(o => o.id !== id)
-    });
-  }, [localSettings, standardOverrides]);
+    };
+
+    setLocalSettings(nextSettings);
+
+    try {
+      await window.kakarot.settings.update(nextSettings);
+      setSettings(nextSettings);
+      toast.success('Reset to default');
+    } catch (error) {
+      console.error('Failed to save settings:', error);
+      toast.error('Failed to reset');
+    }
+  }, [localSettings, standardOverrides, setSettings]);
 
   // Delete custom type
-  const deleteCustomType = useCallback((id: string) => {
+  const deleteCustomType = useCallback(async (id: string) => {
     if (!localSettings) return;
 
-    setLocalSettings({
+    const nextSettings = {
       ...localSettings,
       customMeetingTypesV2: customMeetingTypes.filter(t => t.id !== id)
-    });
-  }, [localSettings, customMeetingTypes]);
+    };
+
+    setLocalSettings(nextSettings);
+
+    try {
+      await window.kakarot.settings.update(nextSettings);
+      setSettings(nextSettings);
+      toast.success('Meeting objective deleted');
+    } catch (error) {
+      console.error('Failed to save settings:', error);
+      toast.error('Failed to delete');
+    }
+  }, [localSettings, customMeetingTypes, setSettings]);
 
   // Open modal for editing standard type
   const openStandardEdit = (id: string) => {
@@ -311,7 +334,7 @@ export default function InteractView() {
     return (
       <div className="h-full flex items-center justify-center">
         <div className="animate-spin">
-          <Sparkles className="w-8 h-8 text-purple-500" />
+          <Sparkles className="w-8 h-8 text-[#4ea8dd]" />
         </div>
       </div>
     );
@@ -331,32 +354,6 @@ export default function InteractView() {
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          {saveMessage && (
-            <span className={`text-sm ${saveMessage.includes('successfully') ? 'text-green-400' : 'text-red-400'}`}>
-              {saveMessage}
-            </span>
-          )}
-          <button
-            onClick={handleSave}
-            disabled={isSaving}
-            className="px-4 py-2 bg-[#7C3AED] hover:bg-[#6D28D9] disabled:bg-slate-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
-          >
-            {isSaving ? (
-              <>
-                <div className="animate-spin">
-                  <Sparkles className="w-4 h-4" />
-                </div>
-                Saving...
-              </>
-            ) : (
-              <>
-                <Check className="w-4 h-4" />
-                Save Changes
-              </>
-            )}
-          </button>
-        </div>
       </div>
 
       {/* Tab Navigation */}
@@ -389,94 +386,98 @@ export default function InteractView() {
       <div className="flex-1 px-8 pb-8 overflow-y-auto">
         {activeTab === 'standard' ? (
           // Standard Meeting Objectives
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {DEFAULT_STANDARD_TYPES.map((type) => {
-              const IconComponent = type.icon;
-              const override = getStandardOverride(type.id);
-              const isModified = isStandardModified(type.id);
-              const isExpanded = expandedStandardType === type.id;
+          <div className="max-w-5xl mx-auto">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {DEFAULT_STANDARD_TYPES.map((type) => {
+                const IconComponent = type.icon;
+                const override = getStandardOverride(type.id);
+                const isModified = isStandardModified(type.id);
+                const isExpanded = expandedStandardType === type.id;
 
-              return (
-                <div
-                  key={type.id}
-                  className="bg-[#1A1A1A] border border-white/5 rounded-2xl p-6 hover:border-white/10 transition-all"
-                >
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="p-3 bg-[#7C3AED]/10 rounded-xl">
-                      <IconComponent className="w-6 h-6 text-[#7C3AED]" />
-                    </div>
-                    <div className="flex gap-1">
-                      <button
-                        onClick={() => openStandardEdit(type.id)}
-                        className="p-2 hover:bg-white/5 rounded-lg transition-colors"
-                        title="Edit"
-                      >
-                        <Edit className="w-4 h-4 text-slate-400" />
-                      </button>
-                      {isModified && (
+                return (
+                  <div
+                    key={type.id}
+                    className="bg-[#1A1A1A] border border-white/5 rounded-2xl p-6 hover:border-white/10 transition-all flex flex-col"
+                  >
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="p-3 bg-[#7C3AED]/10 rounded-xl">
+                        <IconComponent className="w-6 h-6 text-[#7C3AED]" />
+                      </div>
+                      <div className="flex gap-1">
                         <button
-                          onClick={() => resetStandardToDefault(type.id)}
-                          className="p-2 hover:bg-amber-500/10 rounded-lg transition-colors"
-                          title="Reset to default"
+                          onClick={() => openStandardEdit(type.id)}
+                          className="p-2 hover:bg-white/5 rounded-lg transition-colors"
+                          title="Edit"
                         >
-                          <RotateCcw className="w-4 h-4 text-amber-400" />
+                          <Edit className="w-4 h-4 text-slate-400" />
                         </button>
+                        {isModified && (
+                          <button
+                            onClick={() => resetStandardToDefault(type.id)}
+                            className="p-2 hover:bg-amber-500/10 rounded-lg transition-colors"
+                            title="Reset to default"
+                          >
+                            <RotateCcw className="w-4 h-4 text-amber-400" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    <h3 className="text-white font-semibold mb-1 flex items-center gap-2">
+                      {type.title}
+                      {isModified && (
+                        <span className="text-xs px-2 py-0.5 bg-amber-500/20 text-amber-300 rounded">Modified</span>
+                      )}
+                    </h3>
+
+                    <p className="text-slate-400 text-sm leading-relaxed flex-grow">
+                      {override?.description || type.description}
+                    </p>
+
+                    {/* Expandable details - pushed to bottom */}
+                    <div className="mt-4">
+                      <button
+                        onClick={() => setExpandedStandardType(isExpanded ? null : type.id)}
+                        className="w-full flex items-center justify-between px-3 py-2 bg-[#0D0D0D] rounded-lg text-sm text-slate-400 hover:text-white transition-colors"
+                      >
+                        <span>View details</span>
+                        {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                      </button>
+
+                      {isExpanded && (
+                        <div className="mt-3 space-y-3 text-sm">
+                          <div>
+                            <p className="text-xs text-slate-500 mb-1">Roles</p>
+                            <div className="flex flex-wrap gap-1">
+                              {(override?.attendeeRoles || type.defaultRoles).map((role, i) => (
+                                <span key={i} className="px-2 py-0.5 bg-[#4ea8dd]/20 text-[#4ea8dd] rounded text-xs">
+                                  {role}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                          <div>
+                            <p className="text-xs text-slate-500 mb-1">Objectives</p>
+                            <ul className="space-y-1">
+                              {(override?.objectives || type.defaultObjectives).map((obj, i) => (
+                                <li key={i} className="text-slate-300 text-xs flex items-center gap-1">
+                                  <Target className="w-3 h-3 text-green-400" />
+                                  {obj}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        </div>
                       )}
                     </div>
                   </div>
-
-                  <h3 className="text-white font-semibold mb-1 flex items-center gap-2">
-                    {type.title}
-                    {isModified && (
-                      <span className="text-xs px-2 py-0.5 bg-amber-500/20 text-amber-300 rounded">Modified</span>
-                    )}
-                  </h3>
-
-                  <p className="text-slate-400 text-sm mb-4 leading-relaxed">
-                    {override?.description || type.description}
-                  </p>
-
-                  {/* Expandable details */}
-                  <button
-                    onClick={() => setExpandedStandardType(isExpanded ? null : type.id)}
-                    className="w-full flex items-center justify-between px-3 py-2 bg-[#0D0D0D] rounded-lg text-sm text-slate-400 hover:text-white transition-colors"
-                  >
-                    <span>View details</span>
-                    {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                  </button>
-
-                  {isExpanded && (
-                    <div className="mt-3 space-y-3 text-sm">
-                      <div>
-                        <p className="text-xs text-slate-500 mb-1">Roles</p>
-                        <div className="flex flex-wrap gap-1">
-                          {(override?.attendeeRoles || type.defaultRoles).map((role, i) => (
-                            <span key={i} className="px-2 py-0.5 bg-purple-500/20 text-purple-300 rounded text-xs">
-                              {role}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                      <div>
-                        <p className="text-xs text-slate-500 mb-1">Objectives</p>
-                        <ul className="space-y-1">
-                          {(override?.objectives || type.defaultObjectives).map((obj, i) => (
-                            <li key={i} className="text-slate-300 text-xs flex items-center gap-1">
-                              <Target className="w-3 h-3 text-green-400" />
-                              {obj}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         ) : (
           // Custom Meeting Objectives
-          <div>
+          <div className="max-w-5xl mx-auto">
             <div className="flex justify-end mb-6">
               <button
                 onClick={openNewCustom}
@@ -500,7 +501,7 @@ export default function InteractView() {
                 {customMeetingTypes.map((type) => (
                   <div
                     key={type.id}
-                    className="bg-[#1A1A1A] border border-white/5 rounded-2xl p-6 hover:border-white/10 transition-all"
+                    className="bg-[#1A1A1A] border border-white/5 rounded-2xl p-6 hover:border-white/10 transition-all flex flex-col"
                   >
                     <div className="flex items-start justify-between mb-4">
                       <div className="p-3 bg-[#7C3AED]/10 rounded-xl">
@@ -517,52 +518,54 @@ export default function InteractView() {
                           onClick={() => deleteCustomType(type.id)}
                           className="p-2 hover:bg-red-500/10 rounded-lg transition-colors"
                         >
-                          <X className="w-4 h-4 text-red-400" />
+                          <X className="w-4 h-4" />
                         </button>
                       </div>
                     </div>
 
                     <h3 className="text-white font-semibold mb-1">{type.name}</h3>
-                    {type.description && (
-                      <p className="text-slate-400 text-sm mb-3">{type.description}</p>
-                    )}
+                    <p className="text-slate-400 text-sm flex-grow">
+                      {type.description || 'No description'}
+                    </p>
 
-                    {/* Badges */}
-                    <div className="flex flex-wrap gap-2 mb-3">
-                      <span className={`text-xs px-2 py-1 rounded-full ${
-                        type.isExternal
-                          ? 'bg-blue-500/20 text-blue-300'
-                          : 'bg-green-500/20 text-green-300'
-                      }`}>
-                        {type.isExternal ? (
-                          <span className="inline-flex items-center gap-1">
-                            <Globe className="w-3 h-3" /> External
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1">
-                            <Building2 className="w-3 h-3" /> Internal
+                    {/* Badges - pushed to bottom */}
+                    <div className="mt-4">
+                      <div className="flex flex-wrap gap-2 mb-3">
+                        <span className={`text-xs px-2 py-1 rounded-full ${
+                          type.isExternal
+                            ? 'bg-blue-500/20 text-blue-300'
+                            : 'bg-green-500/20 text-green-300'
+                        }`}>
+                          {type.isExternal ? (
+                            <span className="inline-flex items-center gap-1">
+                              <Globe className="w-3 h-3" /> External
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1">
+                              <Building2 className="w-3 h-3" /> Internal
+                            </span>
+                          )}
+                        </span>
+                        {type.attendeeRoles.length > 0 && (
+                          <span className="text-xs px-2 py-1 bg-[#4ea8dd]/20 text-[#4ea8dd] rounded-full">
+                            {type.attendeeRoles.length} roles
                           </span>
                         )}
-                      </span>
+                        {type.objectives.length > 0 && (
+                          <span className="text-xs px-2 py-1 bg-amber-500/20 text-amber-300 rounded-full">
+                            {type.objectives.length} objectives
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Preview roles */}
                       {type.attendeeRoles.length > 0 && (
-                        <span className="text-xs px-2 py-1 bg-purple-500/20 text-purple-300 rounded-full">
-                          {type.attendeeRoles.length} roles
-                        </span>
-                      )}
-                      {type.objectives.length > 0 && (
-                        <span className="text-xs px-2 py-1 bg-amber-500/20 text-amber-300 rounded-full">
-                          {type.objectives.length} objectives
-                        </span>
+                        <div className="text-xs text-slate-500">
+                          Roles: {type.attendeeRoles.slice(0, 2).join(', ')}
+                          {type.attendeeRoles.length > 2 && ` +${type.attendeeRoles.length - 2}`}
+                        </div>
                       )}
                     </div>
-
-                    {/* Preview roles */}
-                    {type.attendeeRoles.length > 0 && (
-                      <div className="text-xs text-slate-500">
-                        Roles: {type.attendeeRoles.slice(0, 2).join(', ')}
-                        {type.attendeeRoles.length > 2 && ` +${type.attendeeRoles.length - 2}`}
-                      </div>
-                    )}
                   </div>
                 ))}
               </div>
@@ -653,7 +656,7 @@ export default function InteractView() {
                 <label className="block text-sm text-slate-400 mb-2">Typical Attendee Roles</label>
                 <div className="flex flex-wrap gap-2 mb-2">
                   {formData.attendeeRoles.map((role, idx) => (
-                    <span key={idx} className="px-3 py-1 bg-purple-600/20 text-purple-200 rounded-full text-sm flex items-center gap-1">
+                    <span key={idx} className="px-3 py-1 bg-[#4ea8dd]/20 text-[#4ea8dd] rounded-full text-sm flex items-center gap-1">
                       {role}
                       <button onClick={() => setFormData(prev => ({
                         ...prev,
@@ -676,7 +679,7 @@ export default function InteractView() {
                   <button
                     type="button"
                     onClick={addRole}
-                    className="px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                    className="px-3 py-2 bg-[#4ea8dd] text-white rounded-lg hover:bg-[#3d96cb] transition-colors"
                   >
                     <Plus className="w-4 h-4" />
                   </button>

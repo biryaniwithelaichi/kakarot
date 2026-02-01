@@ -97,7 +97,7 @@ export default function AudioPermissionsStep({ onSuccess }: AudioPermissionsStep
             {micStatus === 'pending' && (
               <button
                 onClick={requestMicPermission}
-                className="px-4 py-1.5 bg-primary-600 hover:bg-primary-700 text-white rounded text-sm font-medium transition-colors"
+                className="px-4 py-1.5 bg-[#4ea8dd] hover:bg-[#3d96cb] text-white rounded text-sm font-medium transition-colors"
               >
                 Enable
               </button>
@@ -135,7 +135,7 @@ export default function AudioPermissionsStep({ onSuccess }: AudioPermissionsStep
             {systemStatus === 'pending' && (
               <button
                 onClick={requestSystemPermission}
-                className="px-4 py-1.5 bg-primary-600 hover:bg-primary-700 text-white rounded text-sm font-medium transition-colors"
+                className="px-4 py-1.5 bg-[#4ea8dd] hover:bg-[#3d96cb] text-white rounded text-sm font-medium transition-colors"
               >
                 Enable
               </button>

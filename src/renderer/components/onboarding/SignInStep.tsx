@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, ChevronLeft } from 'lucide-react';
 
 interface SignInStepProps {
   onSuccess: (data: {
@@ -8,9 +8,10 @@ interface SignInStepProps {
     avatar?: string;
     provider: 'google' | 'microsoft' | 'apple';
   }) => void;
+  onBack?: () => void;
 }
 
-export default function SignInStep({ onSuccess }: SignInStepProps) {
+export default function SignInStep({ onSuccess, onBack }: SignInStepProps) {
   const [isConnecting, setIsConnecting] = useState(false);
   const [connectingProvider, setConnectingProvider] = useState<'google' | 'microsoft' | 'apple' | null>(null);
   const [error, setError] = useState('');
@@ -132,7 +133,8 @@ export default function SignInStep({ onSuccess }: SignInStepProps) {
           )}
         </button>
 
-        <button
+        {/* Apple Sign-In Button - Hidden */}
+        {/* <button
           onClick={() => handleConnect('apple')}
           disabled={isConnecting}
           className="w-full flex items-center justify-center gap-3 py-3 px-6 bg-white hover:bg-gray-100 text-gray-900 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -147,7 +149,7 @@ export default function SignInStep({ onSuccess }: SignInStepProps) {
           ) : (
             'Continue with Apple'
           )}
-        </button>
+        </button> */}
       </div>
 
       {error && (
@@ -167,6 +169,19 @@ export default function SignInStep({ onSuccess }: SignInStepProps) {
             className="w-full py-2 px-4 bg-white/5 hover:bg-white/10 text-white rounded-lg font-medium transition-colors"
           >
             Try Again
+          </button>
+        </div>
+      )}
+
+      {/* Back button */}
+      {onBack && (
+        <div className="pt-4 border-t border-gray-700">
+          <button
+            onClick={onBack}
+            className="w-full flex items-center justify-center gap-2 py-2 px-4 bg-white/5 hover:bg-white/10 text-gray-300 rounded-lg font-medium transition-colors"
+          >
+            <ChevronLeft className="w-4 h-4" />
+            Back
           </button>
         </div>
       )}

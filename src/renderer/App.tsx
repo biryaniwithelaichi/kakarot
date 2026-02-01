@@ -175,10 +175,10 @@ export default function App() {
       <Sidebar />
       <div className="flex-1 flex flex-col">
         {/* Fixed Header */}
-        <header className="sticky top-0 z-30 backdrop-blur-md bg-[#0C0C0C]/80 border-b-2 border-purple-500/30 drag-region">
+        <header className="sticky top-0 z-30 backdrop-blur-md bg-[#0C0C0C]/80 border-b-2 border-[#4ea8dd]/30 drag-region">
           <div className="max-w-6xl mx-auto px-4 sm:px-6 h-[48px] flex items-center justify-between">
-            {/* Back button (left, next to traffic lights area) */}
-            <div className="w-32 flex items-center no-drag">
+            {/* Back button (left, sticks to sidebar edge) */}
+            <div className="flex items-center no-drag">
               <button
                 className="px-3 py-1.5 rounded-md text-sm text-slate-300 hover:bg-white/5"
                 onClick={() => {
@@ -200,7 +200,7 @@ export default function App() {
             </div>
             {/* Navigation Pills (Center) */}
             <div className="flex-1 flex justify-center no-drag">
-              <div className="flex items-center gap-2 px-2 py-2 rounded-full border border-white/10 bg-[#0C0C0C]/70">
+              <div className="flex items-center gap-2 px-1.5 py-1.5 rounded-full border border-white/10 bg-[#0C0C0C]/70">
                 {(['notes','prep'] as const).map((tab) => (
                   <button
                     key={tab}
@@ -212,9 +212,9 @@ export default function App() {
                         state.setView('recording');
                       }
                     }}
-                    className={`px-4 py-2 rounded-full text-sm font-semibold transition ${
-                      pillarTab === tab
-                        ? 'bg-[#7C3AED] text-white shadow-soft-card'
+                    className={`px-4 py-1.5 rounded-full text-sm font-semibold transition ${
+                      pillarTab === tab && view === 'recording'
+                        ? 'bg-[#4ea8dd] text-white shadow-soft-card'
                         : 'text-slate-300 hover:bg-white/5'
                     }`}
                   >
@@ -231,7 +231,7 @@ export default function App() {
 
         {/* Scrollable Content */}
         <main className={`flex-1 ${needsFullHeight ? 'overflow-hidden' : 'overflow-y-auto'}`}>
-          <div className={`max-w-6xl mx-auto px-4 sm:px-6 ${needsFullHeight ? 'h-full flex flex-col py-4' : 'py-6'}`}>
+          <div className={`${view === 'recording' ? 'h-full' : 'max-w-6xl mx-auto px-4 sm:px-6'} ${needsFullHeight ? 'h-full flex flex-col py-4' : 'py-6'}`}>
             <div className={`rounded-2xl border border-white/10 bg-[#121212] shadow-soft-card ${needsFullHeight ? 'flex-1 min-h-0 flex flex-col' : ''}`}>
               <div className={`${needsFullHeight ? 'h-full flex flex-col p-4' : 'p-4 sm:p-6'}`}>
                 {view === 'recording' && (

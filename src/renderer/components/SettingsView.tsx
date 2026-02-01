@@ -9,6 +9,7 @@ export default function SettingsView() {
   const { settings, setSettings } = useAppStore();
   const [localSettings, setLocalSettings] = useState<AppSettings | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [connectingProvider, setConnectingProvider] = useState<'google' | 'outlook' | 'icloud' | null>(null);
   const [connectingCRM, setConnectingCRM] = useState<'salesforce' | 'hubspot' | null>(null);
   const [connectedCalendars, setConnectedCalendars] = useState<{
@@ -51,6 +52,14 @@ export default function SettingsView() {
       setVisibleGoogleIds(settings.visibleCalendars?.google || []);
     }
   }, [settings]);
+
+  // Check for unsaved changes
+  useEffect(() => {
+    if (settings && localSettings) {
+      const hasChanges = JSON.stringify(settings) !== JSON.stringify(localSettings);
+      setHasUnsavedChanges(hasChanges);
+    }
+  }, [settings, localSettings]);
 
   useEffect(() => {
     async function loadCalendars() {
@@ -159,6 +168,7 @@ export default function SettingsView() {
     try {
       await window.kakarot.settings.update(localSettings);
       setSettings(localSettings);
+      setHasUnsavedChanges(false);
       toast.success('Settings saved');
     } catch {
       toast.error('Failed to save settings');
@@ -298,7 +308,7 @@ export default function SettingsView() {
             <select
               value={localSettings.transcriptionLanguage}
               onChange={(e) => handleChange('transcriptionLanguage', e.target.value)}
-              className="w-full bg-gray-800 text-white rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="w-full bg-gray-800 text-white rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#4ea8dd]"
             >
               <option value="auto">Auto-detect</option>
               <optgroup label="Common Languages">
@@ -555,17 +565,21 @@ export default function SettingsView() {
           )}
         </section>
 
-        {/* Save button */}
-        <div className="flex items-center justify-end pt-4 border-t border-gray-700">
+        {/* Save button - now floating */}
+      </div>
+
+      {/* Floating Save Button - Only shown when there are changes */}
+      {hasUnsavedChanges && (
+        <div className="fixed bottom-8 right-8 z-50">
           <button
             onClick={handleSave}
             disabled={isSaving}
-            className="px-6 py-2 bg-primary-600 hover:bg-primary-700 disabled:opacity-50 text-white rounded-lg font-medium transition-colors"
+            className="px-6 py-3 bg-[#4ea8dd] hover:bg-[#3d96cb] disabled:opacity-50 text-white rounded-lg font-medium transition-all shadow-lg hover:shadow-xl"
           >
             {isSaving ? 'Saving...' : 'Save Settings'}
           </button>
         </div>
-      </div>
+      )}
 
       <ConfirmDialog
         isOpen={disconnectConfirm.isOpen}
@@ -591,7 +605,7 @@ function ToggleSwitch({ enabled, onChange }: ToggleSwitchProps) {
     <button
       onClick={() => onChange(!enabled)}
       className={`relative w-11 h-6 rounded-full transition-colors ${
-        enabled ? 'bg-primary-600' : 'bg-gray-600'
+        enabled ? 'bg-[#4ea8dd]' : 'bg-gray-600'
       }`}
     >
       <div
@@ -660,7 +674,7 @@ function CalendarConnectionButton({
           )}
         </div>
       </div>
-      <span className={`text-sm ${isConnected ? 'text-green-400' : 'text-primary-400'}`}>
+      <span className={`text-sm ${isConnected ? 'text-green-400' : 'text-[#4ea8dd]'}`}>
         {getActionLabel()}
       </span>
     </button>

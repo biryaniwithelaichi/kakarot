@@ -61,8 +61,8 @@ export default function MeetingContextPreview({ meeting, onDismiss }: MeetingCon
           {/* Location */}
           {meeting.location && (
             <div className="flex items-center gap-3 text-sm">
-              <div className="p-2 rounded-lg bg-purple-500/10">
-                <MapPin className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+              <div className="p-2 rounded-lg bg-[#4ea8dd]/10">
+                <MapPin className="w-4 h-4 text-[#4ea8dd] dark:text-[#4ea8dd]" />
               </div>
               <p className="text-slate-700 dark:text-slate-300">{meeting.location}</p>
             </div>
