@@ -29,15 +29,15 @@ export class MeetingNotificationService {
 
     logger.info('Starting meeting notification service');
     
-    // Check every 10 seconds for meetings starting in 1 minute (reduced from 15s for faster detection)
+    // Check every 60 seconds for meetings starting soon to avoid rate limiting
     this.checkInterval = setInterval(() => {
       this.checkUpcomingMeetings();
-    }, 10000);
+    }, 60000);
 
     // Check immediately on start
     this.checkUpcomingMeetings();
     
-    logger.info('Meeting notification service started - checking every 10 seconds');
+    logger.info('Meeting notification service started - checking every 60 seconds');
   }
 
   /**
@@ -67,7 +67,7 @@ export class MeetingNotificationService {
       const now = Date.now();
       const oneMinuteMs = 60 * 1000;
 
-      if (meetings.length === 0) {
+      if (!meetings || meetings.length === 0) {
         logger.debug('No upcoming meetings found');
         return;
       }

@@ -455,6 +455,15 @@ export default function HistoryView() {
                         Generate Notes
                       </button>
                     )}
+                    {!showManualNotesInput && !manualNotes.trim() && (
+                      <button
+                        onClick={() => setShowManualNotesInput(true)}
+                        className="flex flex-none items-center gap-2 rounded-lg border border-[#1A1A1A] bg-[#171717] hover:bg-[#1D1D1F] text-slate-100 px-3 py-2 whitespace-nowrap text-sm transition-colors"
+                      >
+                        <Plus className="w-4 h-4" />
+                        Add Notes
+                      </button>
+                    )}
                     <div className="relative" ref={shareRef}>
                       <button
                         onClick={() => setShowSharePopover((prev) => !prev)}
@@ -513,42 +522,6 @@ export default function HistoryView() {
                 </div>
               )}
 
-              {/* Manual Notes */}
-              <div className="bg-[#121212] rounded-xl p-4 border border-[#1A1A1A]">
-                <div className="flex items-center justify-between mb-3">
-                  <h2 className="text-sm font-medium text-slate-200">My Notes</h2>
-                  <div className="flex items-center gap-2 text-xs">
-                    {isNoteSaving && (
-                      <span className="text-amber-400">Saving...</span>
-                    )}
-                    {!isNoteSaving && noteLastSaved && (
-                      <span className="text-emerald-400">
-                        Saved {noteLastSaved.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </span>
-                    )}
-                    {!showManualNotesInput && (
-                      <button
-                        onClick={() => setShowManualNotesInput(true)}
-                        className="flex items-center gap-1 px-2 py-1 rounded-md bg-[#1A1A1A] hover:bg-[#222222] text-slate-300 transition-colors"
-                      >
-                        <Plus className="w-3 h-3" />
-                        Add
-                      </button>
-                    )}
-                  </div>
-                </div>
-                {showManualNotesInput ? (
-                  <textarea
-                    value={manualNotes}
-                    onChange={(e) => setManualNotes(e.target.value)}
-                    placeholder="Write your notes here..."
-                    className="w-full min-h-[120px] bg-[#0F0F10] border border-[#1A1A1A] text-slate-100 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#7C3AED]/50 placeholder:text-slate-500 resize-y"
-                  />
-                ) : (
-                  <p className="text-sm text-slate-500 italic">No manual notes yet. Click "Add" to start writing.</p>
-                )}
-              </div>
-
               {/* Generated Notes */}
               {selectedMeeting.notesMarkdown && (
                 <div className="bg-[#121212] rounded-xl p-4 border border-[#1A1A1A]">
@@ -566,6 +539,31 @@ export default function HistoryView() {
                   <p className="text-sm text-slate-100 whitespace-pre-wrap">
                     {selectedMeeting.summary}
                   </p>
+                </div>
+              )}
+
+              {/* Manual Notes - shown after generated notes when user has taken notes */}
+              {(showManualNotesInput || manualNotes.trim()) && (
+                <div className="bg-[#121212] rounded-xl p-4 border border-[#1A1A1A]">
+                  <div className="flex items-center justify-between mb-3">
+                    <h2 className="text-sm font-medium text-slate-200">My Notes</h2>
+                    <div className="flex items-center gap-2 text-xs">
+                      {isNoteSaving && (
+                        <span className="text-amber-400">Saving...</span>
+                      )}
+                      {!isNoteSaving && noteLastSaved && (
+                        <span className="text-emerald-400">
+                          Saved {noteLastSaved.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <textarea
+                    value={manualNotes}
+                    onChange={(e) => setManualNotes(e.target.value)}
+                    placeholder="Write your notes here..."
+                    className="w-full min-h-[120px] bg-[#0F0F10] border border-[#1A1A1A] text-slate-100 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#7C3AED]/50 placeholder:text-slate-500 resize-y"
+                  />
                 </div>
               )}
 

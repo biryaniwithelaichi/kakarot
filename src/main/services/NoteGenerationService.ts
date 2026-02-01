@@ -33,7 +33,8 @@ export class NoteGenerationService {
     try {
       const messages = buildNoteGenerationMessages(transcriptText);
       const response = await aiProvider.chat(messages, {
-        maxTokens: 2000,
+        maxTokens: 5000,
+        temperature: 0.35,
       });
 
       // Extract JSON from response (model may include markdown code blocks)

@@ -199,9 +199,9 @@ export class DeepgramProvider extends BaseDualStreamProvider {
       authMethod: this.useToken ? 'Bearer (explicit header)' : 'Token (default)',
     });
 
-    // ✅ OPTIMIZATION #1: Improved Configuration for Lower Latency
+    // ✅ OPTIMIZED CONFIGURATION FOR LONGER, MORE ACCURATE TRANSCRIPTS
     const liveOptions = {
-      model: 'nova-2-general',      // Optimized for real-time streaming (lower latency than nova-2)
+      model: 'nova-2-general',      // Optimized for real-time streaming
       language: 'en',
       smart_format: true,           // Automatic punctuation and capitalization
       interim_results: true,        // Enable partial transcripts for real-time feedback
@@ -209,12 +209,29 @@ export class DeepgramProvider extends BaseDualStreamProvider {
       sample_rate: 16000,           // 16kHz (downsampled from 48kHz for efficiency)
       channels: 1,                  // Mono audio
       diarize: false,               // Speaker diarization disabled (can add latency)
-      endpointing: 300,             // Wait 300ms for phrase completion (prevents word fragmentation)
-      utterance_end_ms: 1000,       // Detect utterance end after 1s silence (faster finalization)
-      vad_events: true,             // Voice Activity Detection (process only when speech detected)
+      
+      // 🔧 KEY CHANGES: These settings prevent fragmentation and allow longer sentences
+      endpointing: 1500,            // INCREASED to 1.5s - tolerate longer natural pauses mid-sentence
+      utterance_end_ms: 3500,       // INCREASED to 3.5s - only finalize after clear end of speech
+      vad_events: true,             // Voice Activity Detection
+      
+      // 🆕 ADDITIONAL SETTINGS for better accuracy
+      punctuate: true,              // Enable punctuation (redundant with smart_format but explicit)
+      profanity_filter: false,      // Don't censor words
+      redact: false,                // Don't redact sensitive info
+      
+      // 🆕 INTERIM RESULTS CONFIGURATION
+      // This controls how often you get partial results
+      // Lower values = more updates but potentially more fragmented
+      // Higher values = fewer updates but more complete phrases
+      // Omitting this lets Deepgram use optimal defaults
     };
 
-    logger.info('Using Deepgram live options', liveOptions);
+    logger.info('✅ Using optimized Deepgram configuration for longer transcripts', {
+      endpointing: `${liveOptions.endpointing}ms (tolerates natural pauses)`,
+      utterance_end_ms: `${liveOptions.utterance_end_ms}ms (waits for clear speech end)`,
+      model: liveOptions.model,
+    });
 
     // Create dual connections for mic and system audio
     this.micConnection = client.listen.live(liveOptions);
@@ -276,8 +293,16 @@ export class DeepgramProvider extends BaseDualStreamProvider {
         if (!transcript?.transcript || transcript.transcript.trim() === '') return;
 
         const isFinal = data.is_final === true;
+        
+        // 📊 Log transcript lengths to monitor improvement
         if (isFinal) {
-          logger.debug('Final transcript', { source, text: transcript.transcript.slice(0, 30) });
+          const wordCount = transcript.transcript.split(/\s+/).length;
+          logger.debug('Final transcript received', { 
+            source, 
+            preview: transcript.transcript.slice(0, 50) + '...',
+            wordCount,
+            characterCount: transcript.transcript.length
+          });
         }
 
         const segment = this.createSegment(
@@ -324,7 +349,7 @@ export class DeepgramProvider extends BaseDualStreamProvider {
         this.setConnectionState(source, false);
       });
 
-      // ✅ NEW: Handle VAD events (optional - for logging voice activity)
+      // Handle VAD events (optional - for logging voice activity)
       connection.on(LiveTranscriptionEvents.Metadata, (data) => {
         if (data.type === 'SpeechStarted') {
           logger.debug('🎤 Speech detected', { source });

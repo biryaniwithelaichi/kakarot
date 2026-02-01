@@ -121,6 +121,16 @@ export default {
           '0%': { opacity: 0, transform: 'translateY(10px)' },
           '100%': { opacity: 1, transform: 'translateY(0)' },
         },
+        'pulse-border': {
+          '0%, 100%': {
+            boxShadow: '0 10px 50px rgba(124,58,237,0.25)',
+            borderColor: 'rgba(124,58,237,0.3)',
+          },
+          '50%': {
+            boxShadow: '0 10px 60px rgba(124,58,237,0.35)',
+            borderColor: 'rgba(124,58,237,0.5)',
+          },
+        },
       },
 
       animation: {
@@ -128,6 +138,7 @@ export default {
         'fade-in': 'fade-in 200ms ease-out',
         'slide-up': 'slide-up 200ms ease-out',
         'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+        'pulse-border': 'pulse-border 2s ease-in-out infinite',
       },
 
       fontFamily: {

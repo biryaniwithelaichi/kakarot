@@ -21,6 +21,15 @@ initializeErrorHandler();
 
 const logger = createLogger('Main');
 
+const PROTOCOL_SCHEME = 'treeto';
+
+app.setAsDefaultProtocolClient(PROTOCOL_SCHEME);
+
+app.on('open-url', (event, url) => {
+  event.preventDefault();
+  app.emit('treeto-oauth-url', url);
+});
+
 let mainWindow: BrowserWindow | null = null;
 let calloutWindow: BrowserWindow | null = null;
 
@@ -140,9 +149,27 @@ async function createWindows() {
 
   registerAllHandlers(mainWindow, calloutWindow);
 
-  // Start meeting notification service
+  // Start meeting notification service only if calendar is connected
+  // Otherwise, delay it until calendar is connected
   const container = getContainer();
-  container.meetingNotificationService.start();
+  const settings = container.settingsRepo.getSettings();
+  const hasCalendar = settings.calendarConnections?.google || settings.calendarConnections?.outlook;
+  
+  if (hasCalendar) {
+    container.meetingNotificationService.start();
+  } else {
+    // Listen for calendar connection and start service when ready
+    mainWindow.webContents.on('ipc-message', (event, channel) => {
+      if (channel === IPC_CHANNELS.SETTINGS_UPDATE) {
+        const updatedSettings = container.settingsRepo.getSettings();
+        const hasCalendarNow = updatedSettings.calendarConnections?.google || updatedSettings.calendarConnections?.outlook;
+        
+        if (hasCalendarNow && !container.meetingNotificationService['checkInterval']) {
+          container.meetingNotificationService.start();
+        }
+      }
+    });
+  }
 
   // Check and run auto-sync of contacts from calendar (every 5 days)
   checkAndRunCalendarContactsSync();

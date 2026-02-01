@@ -7,7 +7,7 @@ import AttendeesList from './AttendeesList';
 
 interface ManualNotesViewProps {
   meetingId?: string;
-  onSelectTab?: (tab: 'notes' | 'prep' | 'interact') => void;
+  onSelectTab?: (tab: 'notes' | 'prep') => void;
   onSaveNotes?: () => void;
   onStartRecording?: () => void;
 }

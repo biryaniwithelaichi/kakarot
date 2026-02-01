@@ -1,4 +1,4 @@
-import { shell } from 'electron';
+import { app, shell } from 'electron';
 import { createServer } from 'http';
 import { randomBytes, createHash } from 'crypto';
 import type { AddressInfo } from 'net';
@@ -23,6 +23,7 @@ interface OAuthConfig {
   clientId: string;
   clientSecret?: string;
   scope: string;
+  redirectUri?: string;
   extraAuthParams?: Record<string, string>;
 }
 
@@ -102,7 +103,8 @@ export class CalendarService {
           authUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize',
           tokenUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/token',
           clientId,
-          scope: 'offline_access Calendars.Read User.Read',
+          scope: 'User.Read Calendars.Read Contacts.Read',
+          redirectUri: 'treeto://auth',
         });
 
         // Fetch user profile from Microsoft Graph
@@ -220,8 +222,24 @@ export class CalendarService {
     const codeVerifier = this.randomString(64);
     const codeChallenge = this.toCodeChallenge(codeVerifier);
 
-    const redirectServer = await this.startRedirectListener(config.provider, state);
-    const redirectUri = redirectServer.redirectUri;
+    let redirectUri = config.redirectUri;
+    let waitForCode: Promise<string>;
+    let closeRedirect: () => void;
+
+    if (redirectUri && redirectUri.startsWith('treeto://')) {
+      const protocolListener = await this.startProtocolListener(state, redirectUri);
+      waitForCode = protocolListener.waitForCode;
+      closeRedirect = protocolListener.close;
+    } else {
+      const redirectServer = await this.startRedirectListener(config.provider, state);
+      redirectUri = redirectServer.redirectUri;
+      waitForCode = redirectServer.waitForCode;
+      closeRedirect = redirectServer.close;
+    }
+
+    if (!redirectUri) {
+      throw new Error('OAuth redirect URI not configured');
+    }
 
     const authUrl = new URL(config.authUrl);
     authUrl.searchParams.set('response_type', 'code');
@@ -246,8 +264,8 @@ export class CalendarService {
     await shell.openExternal(authUrl.toString());
     logger.info('Opened OAuth browser flow', { provider: config.provider });
 
-    const code = await redirectServer.waitForCode;
-    redirectServer.close();
+    const code = await waitForCode;
+    closeRedirect();
 
     // Dev logging
     if (process.env.NODE_ENV === 'development') {
@@ -347,6 +365,47 @@ export class CalendarService {
     };
   }
 
+  private async startProtocolListener(
+    expectedState: string,
+    redirectUri: string
+  ): Promise<{
+    waitForCode: Promise<string>;
+    close: () => void;
+  }> {
+    let resolveCode: (code: string) => void = () => {};
+    let rejectCode: (error: Error) => void = () => {};
+    const waitForCode = new Promise<string>((resolve, reject) => {
+      resolveCode = resolve;
+      rejectCode = reject;
+    });
+
+    const handler = (url: string) => {
+      if (!url.startsWith(redirectUri)) return;
+
+      try {
+        const urlObj = new URL(url);
+        const receivedState = urlObj.searchParams.get('state');
+        const code = urlObj.searchParams.get('code');
+
+        if (!code || receivedState !== expectedState) {
+          rejectCode(new Error('OAuth callback missing code or state mismatch'));
+          return;
+        }
+
+        resolveCode(code);
+      } catch (error) {
+        rejectCode(error instanceof Error ? error : new Error('Invalid OAuth callback URL'));
+      }
+    };
+
+    (app.on as any)('treeto-oauth-url', handler);
+
+    return {
+      waitForCode,
+      close: () => (app.removeListener as any)('treeto-oauth-url', handler),
+    };
+  }
+
   private randomString(length: number): string {
     return randomBytes(length).toString('hex').slice(0, length);
   }
@@ -360,6 +419,10 @@ export class CalendarService {
       .replace(/=+$/, '');
   }
 
+  private async sleep(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
   private async ensureFreshToken(
     provider: 'google' | 'outlook',
     tokens: OAuthTokens
@@ -371,31 +434,69 @@ export class CalendarService {
     const backendEndpoint = this.getBackendAuthEndpoint(provider);
     logger.info(`[OAuth ${provider}] Refreshing token via backend`);
 
-    const response = await fetch(backendEndpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        grant_type: 'refresh_token',
-        refresh_token: tokens.refreshToken,
-      }),
-    });
+    // Exponential backoff retry logic for rate limiting
+    const maxRetries = 3;
+    let lastError: Error | null = null;
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Refresh token failed: ${errorText}`);
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        const response = await fetch(backendEndpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            grant_type: 'refresh_token',
+            refresh_token: tokens.refreshToken,
+          }),
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          
+          // Handle rate limiting (429) with exponential backoff
+          if (response.status === 429 && attempt < maxRetries - 1) {
+            const backoffMs = Math.min(1000 * Math.pow(2, attempt) + Math.random() * 1000, 10000);
+            logger.warn(`[OAuth ${provider}] Rate limited (429). Retrying in ${backoffMs}ms (attempt ${attempt + 1}/${maxRetries - 1})`);
+            await this.sleep(backoffMs);
+            continue;
+          }
+          
+          throw new Error(`Refresh token failed: ${errorText}`);
+        }
+
+        const data = await response.json();
+        const refreshed: OAuthTokens = {
+          ...tokens,
+          accessToken: data.access_token,
+          expiresAt: data.expires_in ? Date.now() + data.expires_in * 1000 : tokens.expiresAt,
+          scope: data.scope ?? tokens.scope,
+          tokenType: data.token_type ?? tokens.tokenType,
+        };
+
+        this.persistConnection(provider, refreshed);
+        return refreshed;
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+        
+        // Only retry on specific errors, not all errors
+        const errorMessage = lastError.message;
+        const isRetryable = errorMessage.includes('Too many requests') || 
+                           errorMessage.includes('429') ||
+                           errorMessage.includes('ECONNRESET') ||
+                           errorMessage.includes('ETIMEDOUT') ||
+                           errorMessage.includes('ENOTFOUND');
+        
+        if (isRetryable && attempt < maxRetries - 1) {
+          const backoffMs = Math.min(1000 * Math.pow(2, attempt) + Math.random() * 1000, 10000);
+          logger.warn(`[OAuth ${provider}] Retryable error encountered. Retrying in ${backoffMs}ms (attempt ${attempt + 1}/${maxRetries - 1}): ${lastError.message}`);
+          await this.sleep(backoffMs);
+          continue;
+        }
+        
+        throw lastError;
+      }
     }
 
-    const data = await response.json();
-    const refreshed: OAuthTokens = {
-      ...tokens,
-      accessToken: data.access_token,
-      expiresAt: data.expires_in ? Date.now() + data.expires_in * 1000 : tokens.expiresAt,
-      scope: data.scope ?? tokens.scope,
-      tokenType: data.token_type ?? tokens.tokenType,
-    };
-
-    this.persistConnection(provider, refreshed);
-    return refreshed;
+    throw lastError || new Error(`Failed to refresh token after ${maxRetries} attempts`);
   }
 
   private async fetchGoogleEvents(tokens: OAuthTokens, start: Date, end: Date, calendarId: string = 'primary'): Promise<CalendarEvent[]> {
@@ -413,64 +514,101 @@ export class CalendarService {
     url.searchParams.set('orderBy', 'startTime');
     url.searchParams.set('conferenceDataVersion', '1');
 
-    const response = await fetch(url, {
-      headers: {
-        Authorization: `Bearer ${freshTokens.accessToken}`,
-      },
-    });
+    // Fetch with exponential backoff retry on rate limiting
+    const maxRetries = 3;
+    let lastError: Error | null = null;
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Google events request failed: ${errorText}`);
-    }
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        const response = await fetch(url, {
+          headers: {
+            Authorization: `Bearer ${freshTokens.accessToken}`,
+          },
+        });
 
-    const data = await response.json();
-    const events: CalendarEvent[] = (data.items || [])
-      .filter((item: any) => {
-        // Filter out events from the Birthdays calendar by checking organizer
-        const organizerEmail = item.organizer?.email || '';
-        const creatorEmail = item.creator?.email || '';
-        const isBirthdaysCalendar = 
-          organizerEmail.includes('addressbook#contacts@group.v.calendar.google.com') ||
-          creatorEmail.includes('addressbook#contacts@group.v.calendar.google.com');
-        
-        // Filter out non-standard event types (outOfOffice, workingLocation, focusTime)
-        // Only include events with eventType 'default'
-        const eventType = item.eventType || 'default';
-        const isStandardEvent = eventType === 'default';
-        
-        return !isBirthdaysCalendar && isStandardEvent;
-      })
-      .map((item: any) => {
-        // Extract meeting link from conferenceData.entryPoints
-        let meetingLink = item.location;
-        if (item.conferenceData?.entryPoints) {
-          const videoEntry = item.conferenceData.entryPoints.find(
-            (entry: any) => entry.entryPointType === 'video'
-          );
-          if (videoEntry?.uri) {
-            meetingLink = videoEntry.uri;
+        if (!response.ok) {
+          const errorText = await response.text();
+          
+          // Handle rate limiting (429) with exponential backoff
+          if (response.status === 429 && attempt < maxRetries - 1) {
+            const backoffMs = Math.min(1000 * Math.pow(2, attempt) + Math.random() * 1000, 10000);
+            logger.warn(`[Google Calendar API] Rate limited (429). Retrying in ${backoffMs}ms for calendar ${calendarId} (attempt ${attempt + 1}/${maxRetries - 1})`);
+            await this.sleep(backoffMs);
+            continue;
           }
+          
+          throw new Error(`Google events request failed: ${errorText}`);
+        }
+
+        const data = await response.json();
+        const events: CalendarEvent[] = (data.items || [])
+          .filter((item: any) => {
+            // Filter out events from the Birthdays calendar by checking organizer
+            const organizerEmail = item.organizer?.email || '';
+            const creatorEmail = item.creator?.email || '';
+            const isBirthdaysCalendar = 
+              organizerEmail.includes('addressbook#contacts@group.v.calendar.google.com') ||
+              creatorEmail.includes('addressbook#contacts@group.v.calendar.google.com');
+            
+            // Filter out non-standard event types (outOfOffice, workingLocation, focusTime)
+            // Only include events with eventType 'default'
+            const eventType = item.eventType || 'default';
+            const isStandardEvent = eventType === 'default';
+            
+            return !isBirthdaysCalendar && isStandardEvent;
+          })
+          .map((item: any) => {
+            // Extract meeting link from conferenceData.entryPoints
+            let meetingLink = item.location;
+            if (item.conferenceData?.entryPoints) {
+              const videoEntry = item.conferenceData.entryPoints.find(
+                (entry: any) => entry.entryPointType === 'video'
+              );
+              if (videoEntry?.uri) {
+                meetingLink = videoEntry.uri;
+              }
+            }
+            
+            const attendees = item.attendees?.map((a: any) => ({
+              email: a.email,
+              name: a.displayName,
+            })) ?? [];
+
+            return {
+              id: item.id,
+              title: item.summary || 'Untitled',
+              start: new Date(item.start?.dateTime || item.start?.date),
+              end: new Date(item.end?.dateTime || item.end?.date || item.start?.dateTime || item.start?.date),
+              provider: 'google',
+              location: meetingLink,
+              attendees,
+              description: item.description,
+            };
+          });
+
+        return events;
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+        
+        // Only retry on network-level errors, not on Google API errors
+        const errorMessage = lastError.message;
+        const isRetryable = errorMessage.includes('429') ||
+                           errorMessage.includes('ECONNRESET') ||
+                           errorMessage.includes('ETIMEDOUT') ||
+                           errorMessage.includes('ENOTFOUND');
+        
+        if (isRetryable && attempt < maxRetries - 1) {
+          const backoffMs = Math.min(1000 * Math.pow(2, attempt) + Math.random() * 1000, 10000);
+          logger.warn(`[Google Calendar API] Retryable error for calendar ${calendarId}. Retrying in ${backoffMs}ms (attempt ${attempt + 1}/${maxRetries - 1}): ${lastError.message}`);
+          await this.sleep(backoffMs);
+          continue;
         }
         
-        const attendees = item.attendees?.map((a: any) => ({
-          email: a.email,
-          name: a.displayName,
-        })) ?? [];
+        throw lastError;
+      }
+    }
 
-        return {
-          id: item.id,
-          title: item.summary || 'Untitled',
-          start: new Date(item.start?.dateTime || item.start?.date),
-          end: new Date(item.end?.dateTime || item.end?.date || item.start?.dateTime || item.start?.date),
-          provider: 'google',
-          location: meetingLink,
-          attendees,
-          description: item.description,
-        };
-      });
-
-    return events;
+    throw lastError || new Error(`Failed to fetch Google events after ${maxRetries} attempts`);
   }
 
   private async fetchOutlookEvents(tokens: OAuthTokens, start: Date, end: Date): Promise<CalendarEvent[]> {
@@ -481,52 +619,89 @@ export class CalendarService {
     url.searchParams.set('enddatetime', end.toISOString());
     url.searchParams.set('$orderby', 'start/dateTime');
 
-    const response = await fetch(url, {
-      headers: {
-        Authorization: `Bearer ${freshTokens.accessToken}`,
-        Prefer: 'outlook.timezone="UTC"',
-      },
-    });
+    // Fetch with exponential backoff retry on rate limiting
+    const maxRetries = 3;
+    let lastError: Error | null = null;
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Outlook events request failed: ${errorText}`);
-    }
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        const response = await fetch(url, {
+          headers: {
+            Authorization: `Bearer ${freshTokens.accessToken}`,
+            Prefer: 'outlook.timezone="UTC"',
+          },
+        });
 
-    const data = await response.json();
-    const events: CalendarEvent[] = (data.value || [])
-      .filter((item: any) => {
-        // Filter out non-standard event types (outOfOffice, workingLocation, focusTime)
-        // Only include events with type 'default'
-        const eventType = item.type || 'default';
-        const isStandardEvent = eventType === 'default';
-        return isStandardEvent;
-      })
-      .map((item: any) => {
-        // Extract meeting link from onlineMeeting or location
-        let meetingLink = item.location?.displayName;
-        if (item.onlineMeeting?.joinUrl) {
-          meetingLink = item.onlineMeeting.joinUrl;
-        } else if (item.isOnlineMeeting && item.onlineMeetingUrl) {
-          meetingLink = item.onlineMeetingUrl;
+        if (!response.ok) {
+          const errorText = await response.text();
+          
+          // Handle rate limiting (429) with exponential backoff
+          if (response.status === 429 && attempt < maxRetries - 1) {
+            const backoffMs = Math.min(1000 * Math.pow(2, attempt) + Math.random() * 1000, 10000);
+            logger.warn(`[Outlook Calendar API] Rate limited (429). Retrying in ${backoffMs}ms (attempt ${attempt + 1}/${maxRetries - 1})`);
+            await this.sleep(backoffMs);
+            continue;
+          }
+          
+          throw new Error(`Outlook events request failed: ${errorText}`);
+        }
+
+        const data = await response.json();
+        const events: CalendarEvent[] = (data.value || [])
+          .filter((item: any) => {
+            // Filter out non-standard event types (outOfOffice, workingLocation, focusTime)
+            // Only include events with type 'default'
+            const eventType = item.type || 'default';
+            const isStandardEvent = eventType === 'default';
+            return isStandardEvent;
+          })
+          .map((item: any) => {
+            // Extract meeting link from onlineMeeting or location
+            let meetingLink = item.location?.displayName;
+            if (item.onlineMeeting?.joinUrl) {
+              meetingLink = item.onlineMeeting.joinUrl;
+            } else if (item.isOnlineMeeting && item.onlineMeetingUrl) {
+              meetingLink = item.onlineMeetingUrl;
+            }
+            
+            return {
+              id: item.id,
+              title: item.subject || 'Untitled',
+              start: new Date(item.start?.dateTime || item.start),
+              end: new Date(item.end?.dateTime || item.end),
+              provider: 'outlook',
+              location: meetingLink,
+              attendees: item.attendees?.map((a: any) => ({
+                email: a.emailAddress?.address,
+                name: a.emailAddress?.name,
+              })) ?? [],
+              description: item.bodyPreview,
+            };
+          });
+
+        return events;
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+        
+        // Only retry on network-level errors
+        const errorMessage = lastError.message;
+        const isRetryable = errorMessage.includes('429') ||
+                           errorMessage.includes('ECONNRESET') ||
+                           errorMessage.includes('ETIMEDOUT') ||
+                           errorMessage.includes('ENOTFOUND');
+        
+        if (isRetryable && attempt < maxRetries - 1) {
+          const backoffMs = Math.min(1000 * Math.pow(2, attempt) + Math.random() * 1000, 10000);
+          logger.warn(`[Outlook Calendar API] Retryable error. Retrying in ${backoffMs}ms (attempt ${attempt + 1}/${maxRetries - 1}): ${lastError.message}`);
+          await this.sleep(backoffMs);
+          continue;
         }
         
-        return {
-          id: item.id,
-          title: item.subject || 'Untitled',
-          start: new Date(item.start?.dateTime || item.start),
-          end: new Date(item.end?.dateTime || item.end),
-          provider: 'outlook',
-          location: meetingLink,
-          attendees: item.attendees?.map((a: any) => ({
-            email: a.emailAddress?.address,
-            name: a.emailAddress?.name,
-          })) ?? [],
-          description: item.bodyPreview,
-        };
-      });
+        throw lastError;
+      }
+    }
 
-    return events;
+    throw lastError || new Error(`Failed to fetch Outlook events after ${maxRetries} attempts`);
   }
 
   /**

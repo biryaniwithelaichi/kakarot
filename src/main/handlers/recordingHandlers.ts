@@ -29,10 +29,11 @@ let activeCalendarContext: {
 } | null = null;
 let isPaused = false;
 
-// NEW: Audio buffering for mic capture
-let micAudioBuffer: Int16Array = new Int16Array(0);
-const MIN_BUFFER_SAMPLES = 2400; // 50ms at 48kHz (Deepgram minimum)
+// 📊 Audio packet counter for logging
 let micAudioDataCount = 0;
+
+// ✅ REMOVED: Audio buffering logic (MIN_BUFFER_SAMPLES, micAudioBuffer)
+// Audio is now sent immediately to Deepgram for better real-time transcription
 
 export function registerRecordingHandlers(
   mainWindow: BrowserWindow,
@@ -74,7 +75,7 @@ export function registerRecordingHandlers(
       aecProcessor = new AECProcessor({
         enableAec: true,
         enableNs: true,
-        enableAgc: false,
+        enableAgc: true,  // ✅ ENABLED: Automatically boosts mic volume (important for built-in mics)
         frameDurationMs: 10,
         sampleRate: AUDIO_CONFIG.SAMPLE_RATE,
       });
@@ -178,7 +179,7 @@ export function registerRecordingHandlers(
             .then(() => {
               logger.info('System audio capture started');
 
-              // NEW: Start native microphone capture AFTER system audio is ready
+              // ✅ OPTIMIZED: Start native microphone capture with IMMEDIATE streaming
               if (aecProcessor && transcriptionProvider) {
                 const tp = transcriptionProvider; // Capture in closure
                 
@@ -219,6 +220,7 @@ export function registerRecordingHandlers(
                     cleanFloat32 = aecProcessor.processCaptureAudio(samples);
                   }
 
+                  // ✅ CRITICAL CHANGE: Send audio IMMEDIATELY without buffering
                   if (cleanFloat32 && cleanFloat32.length > 0) {
                     // Convert echo-cancelled audio to Int16
                     const cleanInt16 = new Int16Array(cleanFloat32.length);
@@ -226,75 +228,45 @@ export function registerRecordingHandlers(
                       cleanInt16[i] = Math.max(-32768, Math.min(32767, cleanFloat32[i] * 32768));
                     }
                     
-                    // Buffer the audio
-                    const newBuffer = new Int16Array(micAudioBuffer.length + cleanInt16.length);
-                    newBuffer.set(micAudioBuffer);
-                    newBuffer.set(cleanInt16, micAudioBuffer.length);
-                    micAudioBuffer = newBuffer;
+                    // 🚀 SEND IMMEDIATELY - No buffering, no delays
+                    // This allows Deepgram's VAD to naturally detect speech boundaries
+                    tp.sendAudio(cleanInt16.buffer as ArrayBuffer, 'mic');
                     
-                    // Debug: Check buffer status
-                    if (micAudioDataCount === 5 || micAudioDataCount === 10 || micAudioDataCount === 15) {
-                      logger.info('🔍 Buffer check (AEC path)', {
-                        bufferSize: micAudioBuffer.length,
-                        needed: MIN_BUFFER_SAMPLES,
-                        chunk: micAudioDataCount,
-                        justAdded: cleanInt16.length
+                    // Log occasionally for debugging
+                    if (micAudioDataCount % 100 === 1) {
+                      logger.debug('📤 Mic audio sent to Deepgram (AEC - immediate streaming)', { 
+                        samples: cleanInt16.length,
+                        bytes: cleanInt16.buffer.byteLength,
+                        packet: micAudioDataCount
                       });
-                    }
-                    
-                    // Send if buffer is large enough (50ms minimum for Deepgram)
-                    if (micAudioBuffer.length >= MIN_BUFFER_SAMPLES) {
-                      logger.info('📤 Sending mic audio to backend (AEC - Deepgram)', { 
-                        samples: micAudioBuffer.length, 
-                        bytes: micAudioBuffer.buffer.byteLength,
-                        firstSample: micAudioBuffer[0],
-                        maxSample: Math.max(...Array.from(micAudioBuffer))
-                      });
-                      tp.sendAudio(micAudioBuffer.buffer as ArrayBuffer, 'mic');
-                      micAudioBuffer = new Int16Array(0); // Reset buffer
                     }
                   } else {
                     // Fallback to raw audio if AEC processing fails
                     if (micAudioDataCount % 100 === 1) {
                       logger.warn('AEC processing returned empty, using raw mic audio', { micAudioDataCount });
                     }
+                    
                     const rawInt16 = new Int16Array(samples.length);
                     for (let i = 0; i < samples.length; i++) {
                       rawInt16[i] = Math.max(-32768, Math.min(32767, samples[i] * 32768));
                     }
                     
-                    // Buffer the raw audio
-                    const newBuffer = new Int16Array(micAudioBuffer.length + rawInt16.length);
-                    newBuffer.set(micAudioBuffer);
-                    newBuffer.set(rawInt16, micAudioBuffer.length);
-                    micAudioBuffer = newBuffer;
+                    // 🚀 SEND IMMEDIATELY - No buffering
+                    tp.sendAudio(rawInt16.buffer as ArrayBuffer, 'mic');
                     
-                    // Debug: Check buffer status
-                    if (micAudioDataCount === 5 || micAudioDataCount === 10 || micAudioDataCount === 15) {
-                      logger.info('🔍 Buffer check', {
-                        bufferSize: micAudioBuffer.length,
-                        needed: MIN_BUFFER_SAMPLES,
-                        chunk: micAudioDataCount,
-                        justAdded: rawInt16.length
+                    if (micAudioDataCount % 100 === 1) {
+                      logger.debug('📤 Mic audio sent to Deepgram (raw - immediate streaming)', { 
+                        samples: rawInt16.length,
+                        bytes: rawInt16.buffer.byteLength,
+                        packet: micAudioDataCount
                       });
-                    }
-                    
-                    // Send if buffer is large enough
-                    if (micAudioBuffer.length >= MIN_BUFFER_SAMPLES) {
-                      logger.info('📤 Sending mic audio to backend (Deepgram)', { 
-                        samples: micAudioBuffer.length, 
-                        bytes: micAudioBuffer.buffer.byteLength,
-                        firstSample: micAudioBuffer[0],
-                        maxSample: Math.max(...Array.from(micAudioBuffer))
-                      });
-                      tp.sendAudio(micAudioBuffer.buffer as ArrayBuffer, 'mic');
-                      micAudioBuffer = new Int16Array(0);
                     }
                   }
                 });
 
                 if (success) {
-                  logger.info('✅ Native microphone capture started (perfect sync with system audio!)');
+                  logger.info('✅ Native microphone capture started with immediate streaming (no buffering)');
+                  logger.info('🎯 Audio packets are sent directly to Deepgram for optimal VAD and sentence formation');
                 } else {
                   logger.error('❌ Failed to start native microphone capture');
                 }
@@ -363,9 +335,8 @@ export function registerRecordingHandlers(
       aecProcessor = null;
     }
 
-    // Reset mic audio counter and buffer
+    // Reset mic audio counter (no buffer to reset anymore)
     micAudioDataCount = 0;
-    micAudioBuffer = new Int16Array(0);
 
     // Disconnect transcription and wait for it to flush
     if (transcriptionProvider) {
@@ -486,10 +457,6 @@ export function registerRecordingHandlers(
     }
     mainWindow.webContents.send(IPC_CHANNELS.RECORDING_STATE, 'recording');
   });
-
-  // REMOVED: Audio data handler for renderer mic capture
-  // Now using native microphone capture in the main process!
-  // The IPC_CHANNELS.AUDIO_DATA handler is no longer needed for mic audio.
 }
 
 // Expose transcription state for other handlers (e.g., audioHandlers)
