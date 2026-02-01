@@ -5,7 +5,6 @@ import RecordingView from './components/RecordingView';
 import PrepView from './components/PrepView';
 import HistoryView from './components/HistoryView';
 import SettingsView from './components/SettingsView';
-import InteractView from './components/InteractView';
 import PeopleView from './components/PeopleView';
 import Sidebar from './components/Sidebar';
 import OnboardingFlow from './components/onboarding/OnboardingFlow';
@@ -31,7 +30,11 @@ export default function App() {
     dismissedEventIds,
   } = useAppStore();
   const { isCompleted: onboardingCompleted, completeOnboarding, resetOnboarding } = useOnboardingStore();
-  const [pillarTab, setPillarTab] = useState<'notes' | 'prep' | 'interact'>('notes');
+  const [pillarTab, setPillarTab] = useState<'notes' | 'prep'>('notes');
+
+  // Determine if we need full-height layout (no scrolling, card fills space)
+  const isLiveRecording = recordingState === 'recording' || recordingState === 'paused';
+  const needsFullHeight = view === 'history' || (view === 'recording' && isLiveRecording);
 
   // Handler that merges incoming audio levels with existing state
   // This allows main process to send partial updates (e.g., just { system: level })
@@ -172,7 +175,7 @@ export default function App() {
       <Sidebar />
       <div className="flex-1 flex flex-col">
         {/* Fixed Header */}
-        <header className="sticky top-0 z-30 backdrop-blur-md bg-[#0C0C0C]/80 border-b border-[#1A1A1A] drag-region">
+        <header className="sticky top-0 z-30 backdrop-blur-md bg-[#0C0C0C]/80 border-b-2 border-purple-500/30 drag-region">
           <div className="max-w-6xl mx-auto px-4 sm:px-6 h-[48px] flex items-center justify-between">
             {/* Back button (left, next to traffic lights area) */}
             <div className="w-32 flex items-center no-drag">
@@ -198,7 +201,7 @@ export default function App() {
             {/* Navigation Pills (Center) */}
             <div className="flex-1 flex justify-center no-drag">
               <div className="flex items-center gap-2 px-2 py-2 rounded-full border border-white/10 bg-[#0C0C0C]/70">
-                {(['notes','prep','interact'] as const).map((tab) => (
+                {(['notes','prep'] as const).map((tab) => (
                   <button
                     key={tab}
                     onClick={() => {
@@ -215,7 +218,7 @@ export default function App() {
                         : 'text-slate-300 hover:bg-white/5'
                     }`}
                   >
-                    {tab === 'notes' ? 'Home' : tab === 'prep' ? 'Prep' : 'Interact'}
+                    {tab === 'notes' ? 'Home' : 'Prep'}
                   </button>
                 ))}
               </div>
@@ -227,17 +230,15 @@ export default function App() {
         </header>
 
         {/* Scrollable Content */}
-        <main className={`flex-1 ${view === 'history' ? 'overflow-hidden' : 'overflow-y-auto'}`}>
-          <div className={`max-w-6xl mx-auto px-4 sm:px-6 py-6 ${view === 'history' ? 'h-full flex flex-col' : ''}`}>
-            <div className={`rounded-2xl border border-white/10 bg-[#121212] shadow-soft-card ${view === 'history' ? 'flex-1 min-h-0' : ''}`}>
-              <div className={`${view === 'history' ? 'h-full p-0' : 'p-4 sm:p-6'}`}>
+        <main className={`flex-1 ${needsFullHeight ? 'overflow-hidden' : 'overflow-y-auto'}`}>
+          <div className={`max-w-6xl mx-auto px-4 sm:px-6 ${needsFullHeight ? 'h-full flex flex-col py-4' : 'py-6'}`}>
+            <div className={`rounded-2xl border border-white/10 bg-[#121212] shadow-soft-card ${needsFullHeight ? 'flex-1 min-h-0 flex flex-col' : ''}`}>
+              <div className={`${needsFullHeight ? 'h-full flex flex-col p-4' : 'p-4 sm:p-6'}`}>
                 {view === 'recording' && (
                   pillarTab === 'notes' ? (
                     <RecordingView onSelectTab={setPillarTab} />
-                  ) : pillarTab === 'prep' ? (
-                    <PrepView onSelectTab={setPillarTab} />
                   ) : (
-                    <InteractView />
+                    <PrepView onSelectTab={setPillarTab} />
                   )
                 )}
                 {view === 'history' && <HistoryView />}
