@@ -201,3 +201,34 @@ app.get('/api/config', (req, res) => {
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ Treeto Server live on port ${PORT}`);
 });
+
+/**
+ * SLACK OAUTH
+ */
+app.post('/api/auth/slack', async (req, res) => {
+  try {
+    const { code, redirect_uri } = req.body;
+    
+    // Slack uses x-www-form-urlencoded for the V2 OAuth Access endpoint
+    const formData = qs.stringify({
+      client_id: process.env.SLACK_CLIENT_ID,
+      client_secret: process.env.SLACK_CLIENT_SECRET,
+      code: code,
+      redirect_uri: redirect_uri
+    });
+
+    const response = await axios.post('https://slack.com/api/oauth.v2.access', formData, {
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+    });
+
+    // Slack returns 200 OK even on errors, so we check response.data.ok
+    if (!response.data.ok) {
+      throw new Error(response.data.error || 'Unknown Slack error');
+    }
+
+    res.json(response.data);
+  } catch (err) {
+    console.error("Slack Auth Error:", err.message);
+    res.status(err.response?.status || 500).json(err.response?.data || { error: "Slack Auth Failed" });
+  }
+});

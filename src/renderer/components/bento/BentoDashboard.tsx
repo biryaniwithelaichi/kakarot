@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import type { CalendarEvent } from '@shared/types';
 import { useAppStore } from '@renderer/stores/appStore';
 import CompactMeetingBar from './CompactMeetingBar';
 import UpcomingMeetingsList from './UpcomingMeetingsList';
 import PreviousMeetingsList from './PreviousMeetingsList';
+import UpcomingMeetingsPopup from '../UpcomingMeetingsPopup';
 
 interface BentoDashboardProps {
   isRecording: boolean;
@@ -13,6 +14,8 @@ interface BentoDashboardProps {
 }
 
 export default function BentoDashboard({ isRecording, hideCompactBarWhenNoEvents, onStartNotes, onSelectTab }: BentoDashboardProps): JSX.Element {
+  const [showUpcomingPopup, setShowUpcomingPopup] = useState(false);
+  
   const {
     setView,
     setSelectedMeeting,
@@ -149,8 +152,18 @@ export default function BentoDashboard({ isRecording, hideCompactBarWhenNoEvents
           onNavigateSettings={handleNavigateSettings}
           onSelectMeeting={handleSelectUpcomingMeeting}
           onTakeNotes={handleTakeManualNotes}
-          onViewMore={() => onSelectTab?.('prep')}
+          onViewMore={() => setShowUpcomingPopup(true)}
         />
+
+        {/* Upcoming meetings popup modal */}
+        {showUpcomingPopup && (
+          <UpcomingMeetingsPopup
+            meetings={upcomingCalendarEvents}
+            onClose={() => setShowUpcomingPopup(false)}
+            onSelectMeeting={handleSelectUpcomingMeeting}
+            onTakeNotes={handleTakeManualNotes}
+          />
+        )}
 
         {/* Previous meetings */}
         <PreviousMeetingsList

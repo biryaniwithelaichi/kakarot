@@ -89,7 +89,7 @@ export default function UpcomingMeetingsList({ meetings, isCalendarConnected = f
 
   return (
     <div className="h-full rounded-xl border border-[#4ea8dd]/40 dark:border-[#4ea8dd]/40 bg-[#0C0C0F] backdrop-blur-md shadow-[0_10px_50px_rgba(78,168,221,0.25)] p-3 flex flex-col opacity-90">
-      <h3 className="text-xs uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400 mb-3 px-1">
+      <h3 className="text-xs uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400 mb-3 px-1 flex-shrink-0">
         Upcoming Meetings
       </h3>
 
@@ -149,9 +149,9 @@ export default function UpcomingMeetingsList({ meetings, isCalendarConnected = f
       </div>
       
       {hasMore && onViewMore && (
-        <div className="mt-2 pt-2 border-t border-slate-200/50 dark:border-slate-700/50">
+        <div className="mt-2 pt-2 border-t border-slate-200/50 dark:border-slate-700/50 flex-shrink-0">
           <button
-            onClick={onViewMore}
+            onClick={() => onViewMore?.()}
             className="w-full text-xs text-[#4ea8dd] dark:text-[#4ea8dd] hover:text-[#3d96cb] dark:hover:text-[#3d96cb] font-medium text-center transition-colors"
           >
             ...More

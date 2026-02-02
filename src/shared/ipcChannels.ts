@@ -6,6 +6,7 @@ export const IPC_CHANNELS = {
   RECORDING_STOP: 'recording:stop',
   RECORDING_PAUSE: 'recording:pause',
   RECORDING_RESUME: 'recording:resume',
+  RECORDING_DISCARD: 'recording:discard',
   RECORDING_STATE: 'recording:state',
 
   // Audio
@@ -22,6 +23,10 @@ export const IPC_CHANNELS = {
   // Transcription
   TRANSCRIPT_UPDATE: 'transcript:update',
   TRANSCRIPT_FINAL: 'transcript:final',
+  TRANSCRIPT_DEEP_DIVE: 'transcript:deepDive',
+
+  // Notes Deep Dive (for AI-generated notes)
+  NOTES_DEEP_DIVE: 'notes:deepDive',
 
   // Meetings
   MEETINGS_LIST: 'meetings:list',
@@ -29,6 +34,7 @@ export const IPC_CHANNELS = {
   MEETINGS_DELETE: 'meetings:delete',
   MEETINGS_SEARCH: 'meetings:search',
   MEETINGS_CREATE_DISMISSED: 'meetings:createDismissed',
+  MEETINGS_UPDATE_ATTENDEES: 'meetings:updateAttendees',
 
   // Callout
   CALLOUT_SHOW: 'callout:show',
@@ -53,9 +59,12 @@ export const IPC_CHANNELS = {
 
   // Meeting Prep
   PREP_GENERATE_BRIEFING: 'prep:generateBriefing',
+  PREP_GENERATE_ENHANCED_BRIEFING: 'prep:generateEnhancedBriefing',  // New enhanced prep
   PREP_GET_TASK_COMMITMENTS: 'prep:getTaskCommitments',
   PREP_TOGGLE_TASK_COMMITMENT: 'prep:toggleTaskCommitment',
+  PREP_TOGGLE_ACTION_ITEM: 'prep:toggleActionItem',  // For new action items
   PREP_FETCH_COMPANY_INFO: 'prep:fetchCompanyInfo',
+  PREP_FETCH_CRM_SNAPSHOT: 'prep:fetchCRMSnapshot',  // Fetch CRM deal data
 
   // Knowledge base
   KNOWLEDGE_INDEX: 'knowledge:index',
@@ -72,6 +81,7 @@ export const IPC_CHANNELS = {
   PEOPLE_STATS: 'people:stats',
   PEOPLE_GET_COMPANIES: 'people:getCompanies',
   PEOPLE_SYNC_FROM_CALENDAR: 'people:syncFromCalendar',
+  PEOPLE_CLEANUP_NAMES: 'people:cleanupNames',
 
   // Calendar
   CALENDAR_CONNECT: 'calendar:connect',

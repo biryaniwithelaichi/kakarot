@@ -6,6 +6,8 @@ import type {
   RecordingState,
   AudioLevels,
   TranscriptUpdate,
+  TranscriptDeepDiveResult,
+  NotesDeepDiveResult,
   Callout,
   CalendarEvent,
   CalendarAttendee,
@@ -14,6 +16,8 @@ import type {
   TaskCommitment,
   CompanyInfo,
   MeetingPrepResult,
+  EnhancedMeetingPrepResult,
+  CRMSnapshot,
 } from '@shared/types';
 
 // Expose protected methods to the renderer process
@@ -31,6 +35,7 @@ contextBridge.exposeInMainWorld('kakarot', {
     stop: () => ipcRenderer.invoke(IPC_CHANNELS.RECORDING_STOP),
     pause: () => ipcRenderer.invoke(IPC_CHANNELS.RECORDING_PAUSE),
     resume: () => ipcRenderer.invoke(IPC_CHANNELS.RECORDING_RESUME),
+    discard: () => ipcRenderer.invoke(IPC_CHANNELS.RECORDING_DISCARD),
     onStateChange: (callback: (state: RecordingState) => void) => {
       const handler = (_: unknown, state: RecordingState) => callback(state);
       ipcRenderer.on(IPC_CHANNELS.RECORDING_STATE, handler);
@@ -55,7 +60,6 @@ contextBridge.exposeInMainWorld('kakarot', {
       ipcRenderer.on(IPC_CHANNELS.AUDIO_LEVELS, handler);
       return () => ipcRenderer.removeListener(IPC_CHANNELS.AUDIO_LEVELS, handler);
     },
-    // Send microphone audio data (system audio handled by main process via AudioTee)
     sendData: (audioData: ArrayBuffer, source: 'mic' | 'system') => {
       ipcRenderer.send(IPC_CHANNELS.AUDIO_DATA, audioData, source);
     },
@@ -73,6 +77,14 @@ contextBridge.exposeInMainWorld('kakarot', {
       ipcRenderer.on(IPC_CHANNELS.TRANSCRIPT_FINAL, handler);
       return () => ipcRenderer.removeListener(IPC_CHANNELS.TRANSCRIPT_FINAL, handler);
     },
+    deepDive: (meetingId: string, segmentId: string): Promise<TranscriptDeepDiveResult> =>
+      ipcRenderer.invoke(IPC_CHANNELS.TRANSCRIPT_DEEP_DIVE, meetingId, segmentId),
+  },
+
+  // Notes (for AI-generated notes deep dive)
+  notes: {
+    deepDive: (meetingId: string, noteContent: string): Promise<NotesDeepDiveResult> =>
+      ipcRenderer.invoke(IPC_CHANNELS.NOTES_DEEP_DIVE, meetingId, noteContent),
   },
 
   // Meetings
@@ -94,6 +106,8 @@ contextBridge.exposeInMainWorld('kakarot', {
       ipcRenderer.invoke(IPC_CHANNELS.MEETING_ASK_NOTES, id, query),
     updateTitle: (id: string, title: string): Promise<Meeting | null> =>
       ipcRenderer.invoke(IPC_CHANNELS.MEETING_UPDATE_TITLE, id, title),
+    updateAttendees: (id: string, attendeeEmails: string[]): Promise<Meeting | null> =>
+      ipcRenderer.invoke(IPC_CHANNELS.MEETINGS_UPDATE_ATTENDEES, id, attendeeEmails),
     createDismissed: (title: string, attendeeEmails?: string[]): Promise<string> =>
       ipcRenderer.invoke(IPC_CHANNELS.MEETINGS_CREATE_DISMISSED, title, attendeeEmails),
   },
@@ -119,12 +133,18 @@ contextBridge.exposeInMainWorld('kakarot', {
   prep: {
     generateBriefing: (input: any): Promise<MeetingPrepResult> =>
       ipcRenderer.invoke(IPC_CHANNELS.PREP_GENERATE_BRIEFING, input),
+    generateEnhancedBriefing: (input: any): Promise<EnhancedMeetingPrepResult> =>
+      ipcRenderer.invoke(IPC_CHANNELS.PREP_GENERATE_ENHANCED_BRIEFING, input),
     getTaskCommitments: (participantEmail: string): Promise<TaskCommitment[]> =>
       ipcRenderer.invoke(IPC_CHANNELS.PREP_GET_TASK_COMMITMENTS, participantEmail),
     toggleTaskCommitment: (taskId: string, completed: boolean): Promise<void> =>
       ipcRenderer.invoke(IPC_CHANNELS.PREP_TOGGLE_TASK_COMMITMENT, taskId, completed),
+    toggleActionItem: (actionItemId: string, completed: boolean): Promise<void> =>
+      ipcRenderer.invoke(IPC_CHANNELS.PREP_TOGGLE_ACTION_ITEM, actionItemId, completed),
     fetchCompanyInfo: (email: string): Promise<CompanyInfo | null> =>
       ipcRenderer.invoke(IPC_CHANNELS.PREP_FETCH_COMPANY_INFO, email),
+    fetchCRMSnapshot: (email: string): Promise<CRMSnapshot | null> =>
+      ipcRenderer.invoke(IPC_CHANNELS.PREP_FETCH_CRM_SNAPSHOT, email),
   },
 
   // Settings
@@ -166,6 +186,8 @@ contextBridge.exposeInMainWorld('kakarot', {
       ipcRenderer.invoke(IPC_CHANNELS.PEOPLE_GET_COMPANIES),
     syncFromCalendar: (): Promise<{ synced: number; total: number }> =>
       ipcRenderer.invoke(IPC_CHANNELS.PEOPLE_SYNC_FROM_CALENDAR),
+    cleanupNames: (): Promise<{ updated: number }> =>
+      ipcRenderer.invoke(IPC_CHANNELS.PEOPLE_CLEANUP_NAMES),
   },
 
   // Calendar
@@ -207,6 +229,14 @@ contextBridge.exposeInMainWorld('kakarot', {
     },
   },
 
+  // 👇 NEW: Slack Integration
+  slack: {
+    connect: (): Promise<any> => ipcRenderer.invoke('slack:connect'),
+    getChannels: (token: string): Promise<any[]> => ipcRenderer.invoke('slack:getChannels', token),
+    sendNote: (token: string, channelId: string, text: string): Promise<void> => 
+      ipcRenderer.invoke('slack:sendNote', { accessToken: token, channelId, text }),
+  },
+
   // Dev utilities
   dev: {
     onResetOnboarding: (callback: () => void) => {
@@ -239,6 +269,7 @@ declare global {
         stop: () => Promise<Meeting>;
         pause: () => Promise<void>;
         resume: () => Promise<void>;
+        discard: () => Promise<void>;
         onStateChange: (callback: (state: RecordingState) => void) => () => void;
         onNotesComplete: (callback: (data: { meetingId: string; title: string; overview: string }) => void) => () => void;
         onNotificationStartRecording: (callback: (context: any) => void) => () => void;
@@ -250,6 +281,10 @@ declare global {
       transcript: {
         onUpdate: (callback: (update: TranscriptUpdate) => void) => () => void;
         onFinal: (callback: (update: TranscriptUpdate) => void) => () => void;
+        deepDive: (meetingId: string, segmentId: string) => Promise<TranscriptDeepDiveResult>;
+      };
+      notes: {
+        deepDive: (meetingId: string, noteContent: string) => Promise<NotesDeepDiveResult>;
       };
       meetings: {
         list: () => Promise<Meeting[]>;
@@ -272,9 +307,12 @@ declare global {
       };
       prep: {
         generateBriefing: (input: any) => Promise<MeetingPrepResult>;
+        generateEnhancedBriefing: (input: any) => Promise<EnhancedMeetingPrepResult>;
         getTaskCommitments: (participantEmail: string) => Promise<TaskCommitment[]>;
         toggleTaskCommitment: (taskId: string, completed: boolean) => Promise<void>;
+        toggleActionItem: (actionItemId: string, completed: boolean) => Promise<void>;
         fetchCompanyInfo: (email: string) => Promise<CompanyInfo | null>;
+        fetchCRMSnapshot: (email: string) => Promise<CRMSnapshot | null>;
       };
       settings: {
         get: () => Promise<AppSettings>;
@@ -316,6 +354,12 @@ declare global {
         disconnect: (provider: 'salesforce' | 'hubspot') => Promise<void>;
         pushNotes: (meetingId: string) => Promise<void>;
         onMeetingComplete: (callback: (data: { meetingId: string; shouldPrompt: boolean; provider?: string }) => void) => () => void;
+      };
+      // 👇 NEW: Slack Definitions
+      slack: {
+        connect: () => Promise<any>;
+        getChannels: (token: string) => Promise<any[]>;
+        sendNote: (token: string, channelId: string, text: string) => Promise<void>;
       };
       dev: {
         onResetOnboarding: (callback: () => void) => () => void;

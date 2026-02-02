@@ -28,13 +28,14 @@ export default function App() {
     setDashboardDataLoaded,
     dashboardDataLoaded,
     dismissedEventIds,
+    showRecordingHome,
   } = useAppStore();
   const { isCompleted: onboardingCompleted, completeOnboarding, resetOnboarding } = useOnboardingStore();
   const [pillarTab, setPillarTab] = useState<'notes' | 'prep'>('notes');
 
   // Determine if we need full-height layout (no scrolling, card fills space)
   const isLiveRecording = recordingState === 'recording' || recordingState === 'paused';
-  const needsFullHeight = view === 'history' || (view === 'recording' && isLiveRecording);
+  const needsFullHeight = view === 'history' || view === 'people' || (view === 'recording' && isLiveRecording);
 
   // Handler that merges incoming audio levels with existing state
   // This allows main process to send partial updates (e.g., just { system: level })
@@ -179,24 +180,38 @@ export default function App() {
           <div className="max-w-6xl mx-auto px-4 sm:px-6 h-[48px] flex items-center justify-between">
             {/* Back button (left, sticks to sidebar edge) */}
             <div className="flex items-center no-drag">
-              <button
-                className="px-3 py-1.5 rounded-md text-sm text-slate-300 hover:bg-white/5"
-                onClick={() => {
-                  const state = useAppStore.getState();
-                  const isLive = state.recordingState === 'recording' || state.recordingState === 'paused' || state.recordingState === 'processing';
-                  // Navigate to home/bento view; if live, keep recording running but swap to home shell
-                  state.setView('recording');
-                  setPillarTab('notes');
-                  state.setActiveCalendarContext(null);
-                  state.setCalendarContext(null);
-                  state.setSelectedMeeting(null);
-                  state.setShowRecordingHome(isLive);
-                }}
-              >
-                <span className="inline-flex items-center gap-1">
-                  ← Back
-                </span>
-              </button>
+              {(() => {
+                // Determine if we're on the homepage (BentoDashboard)
+                const isOnHomepage = view === 'recording' && pillarTab === 'notes' && (recordingState === 'idle' || showRecordingHome);
+
+                return (
+                  <button
+                    disabled={isOnHomepage}
+                    className={`px-3 py-1.5 rounded-md text-sm transition ${
+                      isOnHomepage
+                        ? 'text-slate-600 cursor-not-allowed'
+                        : 'text-slate-300 hover:bg-white/5 cursor-pointer'
+                    }`}
+                    onClick={() => {
+                      if (isOnHomepage) return;
+                      const state = useAppStore.getState();
+                      const currentlyLive = state.recordingState === 'recording' || state.recordingState === 'paused';
+
+                      // Navigate to home screen
+                      state.setView('recording');
+                      setPillarTab('notes');
+                      state.setActiveCalendarContext(null);
+                      state.setCalendarContext(null);
+                      state.setSelectedMeeting(null);
+                      state.setShowRecordingHome(currentlyLive);
+                    }}
+                  >
+                    <span className="inline-flex items-center gap-1">
+                      ← Back
+                    </span>
+                  </button>
+                );
+              })()}
             </div>
             {/* Navigation Pills (Center) */}
             <div className="flex-1 flex justify-center no-drag">

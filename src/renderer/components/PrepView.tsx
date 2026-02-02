@@ -23,47 +23,30 @@ import {
   Edit,
   RotateCcw,
   Trash2,
+  Clock,
+  Mail,
+  MessageSquare,
+  TrendingUp,
+  DollarSign,
+  User,
+  History,
+  ChevronRight,
 } from 'lucide-react';
-import type { Person, TaskCommitment, CompanyInfo, CustomMeetingType, StandardMeetingTypeOverride } from '@shared/types';
+import type {
+  Person,
+  CompanyInfo,
+  CustomMeetingType,
+  StandardMeetingTypeOverride,
+  EnhancedMeetingPrepResult,
+  EnhancedPrepParticipant,
+  TimelineEvent,
+  ActionItemStatus,
+  CRMSnapshot,
+} from '@shared/types';
 import { toast } from '../stores/toastStore';
 
 interface PrepViewProps {
   onSelectTab?: (tab: 'notes' | 'prep') => void;
-}
-
-interface MeetingPrepResult {
-  meeting: {
-    type: string;
-    duration_minutes: number;
-  };
-  generated_at: string;
-  participants: Array<{
-    name: string;
-    email: string | null;
-    history_strength: 'strong' | 'weak' | 'org-only' | 'none';
-    is_first_meeting: boolean;
-    org_has_met_before: boolean;
-    confidence_score: number;
-    data_gaps: string[];
-    pending_task_commitments: TaskCommitment[];
-    company_info?: CompanyInfo;
-    context: {
-      last_meeting_date: string | null;
-      meeting_count: number;
-      recent_topics: string[];
-      key_points: string[];
-    };
-    talking_points: string[];
-    questions_to_ask: string[];
-    background: string;
-  }>;
-  agenda: {
-    opening: string;
-    key_topics: string[];
-    closing: string;
-  };
-  success_metrics: string[];
-  risk_mitigation: string[];
 }
 
 // Standard meeting objectives with full details for editing
@@ -173,8 +156,8 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
   const [selectedObjectiveId, setSelectedObjectiveId] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatingError, setGeneratingError] = useState<string | null>(null);
-  const [briefingResult, setBriefingResult] = useState<MeetingPrepResult | null>(null);
-  const [completedTasks, setCompletedTasks] = useState<Set<string>>(new Set());
+  const [briefingResult, setBriefingResult] = useState<EnhancedMeetingPrepResult | null>(null);
+  const [completedActionItems, setCompletedActionItems] = useState<Set<string>>(new Set());
   const [fetchingCompanyInfo, setFetchingCompanyInfo] = useState<string | null>(null);
   const [companyInfoCache, setCompanyInfoCache] = useState<Record<string, CompanyInfo | null>>({});
 
@@ -254,25 +237,25 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
     return obj?.label || selectedObjectiveId;
   }, [selectedObjectiveId, sortedObjectives]);
 
-  // Handle task completion toggle
-  const handleToggleTask = useCallback(async (taskId: string) => {
-    const newCompleted = !completedTasks.has(taskId);
-    setCompletedTasks(prev => {
+  // Handle action item completion toggle (new enhanced prep)
+  const handleToggleActionItem = useCallback(async (actionItemId: string) => {
+    const newCompleted = !completedActionItems.has(actionItemId);
+    setCompletedActionItems(prev => {
       const next = new Set(prev);
       if (newCompleted) {
-        next.add(taskId);
+        next.add(actionItemId);
       } else {
-        next.delete(taskId);
+        next.delete(actionItemId);
       }
       return next;
     });
     // Persist to backend
     try {
-      await window.kakarot.prep.toggleTaskCommitment(taskId, newCompleted);
+      await window.kakarot.prep.toggleActionItem(actionItemId, newCompleted);
     } catch (error) {
-      console.error('Failed to toggle task:', error);
+      console.error('Failed to toggle action item:', error);
     }
-  }, [completedTasks]);
+  }, [completedActionItems]);
 
   // Fetch company info for a participant
   const handleFetchCompanyInfo = useCallback(async (email: string) => {
@@ -636,7 +619,8 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
         })),
       };
 
-      const result = await window.kakarot.prep.generateBriefing(payload);
+      // Use new enhanced briefing API
+      const result = await window.kakarot.prep.generateEnhancedBriefing(payload);
       setBriefingResult(result);
 
       // Update usage tracking
@@ -816,301 +800,363 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
     </div>
   );
 
-  if (briefingResult) {
-    return (
-      <div className="h-[calc(100vh-200px)] flex flex-col overflow-hidden">
-        {/* Briefing Result View */}
-        <div className="flex flex-col overflow-hidden">
-          <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-200 dark:border-slate-700">
-            <div>
-              <h1 className="text-2xl font-semibold text-slate-900 dark:text-white mb-1">
-                Prep Summary: {briefingResult.meeting.type}
-              </h1>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                {briefingResult.participants.map((p, idx) => (
-                  <span key={idx}>
-                    {p.name}
-                    {p.email && <span className="text-xs text-slate-400 dark:text-slate-500 ml-1">({p.email})</span>}
-                    {idx < briefingResult.participants.length - 1 && ', '}
-                  </span>
+  // Helper to get timeline event icon
+  const getTimelineIcon = (type: TimelineEvent['type']) => {
+    switch (type) {
+      case 'meeting': return <Calendar className="w-3.5 h-3.5" />;
+      case 'email': return <Mail className="w-3.5 h-3.5" />;
+      case 'note': return <MessageSquare className="w-3.5 h-3.5" />;
+      case 'deal_update': return <TrendingUp className="w-3.5 h-3.5" />;
+      case 'call': return <Users className="w-3.5 h-3.5" />;
+      default: return <Clock className="w-3.5 h-3.5" />;
+    }
+  };
+
+  // Helper to get timeline source color
+  const getSourceColor = (source: TimelineEvent['source']) => {
+    switch (source) {
+      case 'Meeting Notes': return 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300';
+      case 'HubSpot': return 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300';
+      case 'Salesforce': return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300';
+      case 'Email': return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300';
+      default: return 'bg-gray-100 text-gray-700 dark:bg-gray-700/30 dark:text-gray-300';
+    }
+  };
+
+  // Helper to format relative date
+  const formatRelativeDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
+    if (diffDays === 0) return 'Today';
+    if (diffDays === 1) return 'Yesterday';
+    if (diffDays < 7) return `${diffDays} days ago`;
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
+
+  // Render participant card with new 3-block structure
+  const renderParticipantCard = (participant: EnhancedPrepParticipant, idx: number) => (
+    <div key={idx} className="bg-[#0C0C0F] border border-[#4ea8dd]/30 rounded-2xl overflow-hidden">
+      {/* Header with Last Seen Context */}
+      <div className="p-5 border-b border-white/10">
+        <div className="flex items-start justify-between">
+          <div>
+            <h4 className="text-lg font-semibold text-white">{participant.name}</h4>
+            {participant.email && (
+              <p className="text-sm text-slate-400">{participant.email}</p>
+            )}
+          </div>
+          {/* Confidence Badge with Source Attribution */}
+          <div className="relative group">
+            <div className={`text-xs px-3 py-1.5 rounded-full cursor-help ${
+              participant.confidence.score >= 70
+                ? 'bg-green-500/20 text-green-300 border border-green-500/30'
+                : participant.confidence.score >= 40
+                ? 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30'
+                : 'bg-slate-700/50 text-slate-400 border border-slate-600'
+            }`}>
+              {participant.confidence.score}% confidence
+            </div>
+            {/* Tooltip with source breakdown */}
+            <div className="absolute right-0 top-full mt-2 w-48 p-3 bg-slate-800 border border-slate-700 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
+              <p className="text-xs text-slate-300 mb-2">{participant.confidence.explanation}</p>
+              <div className="space-y-1 text-xs text-slate-400">
+                <div className="flex justify-between">
+                  <span>Meetings:</span>
+                  <span className="text-white">{participant.confidence.sources.meetings}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Emails:</span>
+                  <span className="text-white">{participant.confidence.sources.emails}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>CRM Notes:</span>
+                  <span className="text-white">{participant.confidence.sources.crmNotes}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Last Seen Context */}
+        {participant.lastSeen && (
+          <div className="mt-3 p-3 bg-[#4ea8dd]/10 rounded-lg border border-[#4ea8dd]/20">
+            <p className="text-sm text-[#4ea8dd]">
+              <Clock className="w-3.5 h-3.5 inline mr-1.5" />
+              We last spoke <span className="font-semibold">{participant.lastSeen.daysAgo} days ago</span> about "{participant.lastSeen.topic}"
+              <span className={`ml-2 px-2 py-0.5 rounded text-xs ${
+                participant.lastSeen.sentiment === 'Positive' ? 'bg-green-500/20 text-green-300' :
+                participant.lastSeen.sentiment === 'Tense' ? 'bg-red-500/20 text-red-300' :
+                'bg-slate-600/50 text-slate-300'
+              }`}>
+                {participant.lastSeen.sentiment}
+              </span>
+            </p>
+          </div>
+        )}
+
+        {/* First Meeting Notice */}
+        {participant.isFirstMeeting && (
+          <div className="mt-3 p-3 bg-amber-500/10 rounded-lg border border-amber-500/20">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-amber-400" />
+              <p className="text-sm text-amber-300">First meeting with {participant.name}</p>
+            </div>
+            <div className="mt-2 flex gap-2">
+              <button
+                onClick={handleLinkedInClick}
+                className="text-xs px-3 py-1.5 bg-blue-500/20 text-blue-300 rounded-lg hover:bg-blue-500/30 transition flex items-center gap-1.5"
+              >
+                <Linkedin className="w-3 h-3" />
+                LinkedIn
+              </button>
+              {participant.email && (
+                <button
+                  onClick={() => handleFetchCompanyInfo(participant.email!)}
+                  disabled={fetchingCompanyInfo === participant.email}
+                  className="text-xs px-3 py-1.5 bg-green-500/20 text-green-300 rounded-lg hover:bg-green-500/30 transition flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  <Building2 className="w-3 h-3" />
+                  {fetchingCompanyInfo === participant.email ? 'Fetching...' : 'Company Info'}
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Block A: The "Who" (Participant Intel) */}
+      <div className="p-5 border-b border-white/10">
+        <h5 className="text-sm font-semibold text-[#4ea8dd] uppercase tracking-wide mb-3 flex items-center gap-2">
+          <User className="w-4 h-4" />
+          Participant Intel
+        </h5>
+        <div className="space-y-2">
+          <div className="flex items-start gap-3">
+            <span className="text-xs text-slate-500 w-24 flex-shrink-0">Persona</span>
+            <span className={`text-xs px-2 py-1 rounded ${
+              participant.intel.persona === 'Technical' ? 'bg-blue-500/20 text-blue-300' :
+              participant.intel.persona === 'Executive' ? 'bg-purple-500/20 text-purple-300' :
+              participant.intel.persona === 'Skeptic' ? 'bg-red-500/20 text-red-300' :
+              participant.intel.persona === 'Champion' ? 'bg-green-500/20 text-green-300' :
+              'bg-slate-600/50 text-slate-300'
+            }`}>
+              {participant.intel.persona}
+            </span>
+          </div>
+          {participant.intel.crmRole && (
+            <div className="flex items-start gap-3">
+              <span className="text-xs text-slate-500 w-24 flex-shrink-0">CRM Role</span>
+              <span className="text-sm text-white">{participant.intel.crmRole}</span>
+            </div>
+          )}
+          {participant.intel.personalFacts.length > 0 && (
+            <div className="flex items-start gap-3">
+              <span className="text-xs text-slate-500 w-24 flex-shrink-0">Personal</span>
+              <span className="text-sm text-slate-300">{participant.intel.personalFacts.join(' • ')}</span>
+            </div>
+          )}
+          {participant.intel.recentActivity.length > 0 && (
+            <div className="flex items-start gap-3">
+              <span className="text-xs text-slate-500 w-24 flex-shrink-0">Activity</span>
+              <div className="space-y-1">
+                {participant.intel.recentActivity.map((activity, i) => (
+                  <p key={i} className="text-sm text-slate-300">{activity}</p>
                 ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* CRM Snapshot (if available) */}
+      {participant.crmSnapshot && (
+        <div className="p-5 border-b border-white/10 bg-gradient-to-r from-[#4ea8dd]/5 to-transparent">
+          <h5 className="text-sm font-semibold text-[#4ea8dd] uppercase tracking-wide mb-3 flex items-center gap-2">
+            <DollarSign className="w-4 h-4" />
+            CRM Snapshot
+            <span className="text-xs font-normal normal-case text-slate-500">
+              via {participant.crmSnapshot.source === 'hubspot' ? 'HubSpot' : 'Salesforce'}
+            </span>
+          </h5>
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <p className="text-xs text-slate-500">Deal</p>
+              <p className="text-sm text-white font-medium">{participant.crmSnapshot.dealName || 'N/A'}</p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-500">Value</p>
+              <p className="text-sm text-white font-medium">
+                {participant.crmSnapshot.dealValue
+                  ? `$${participant.crmSnapshot.dealValue.toLocaleString()}`
+                  : 'N/A'}
               </p>
             </div>
-            <button
-              onClick={() => {
-                setBriefingResult(null);
-                setSelectedObjectiveId('');
-                setSelectedPeople([]);
-              }}
-              className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+            <div>
+              <p className="text-xs text-slate-500">Stage</p>
+              <p className="text-sm text-[#4ea8dd] font-medium">{participant.crmSnapshot.dealStage || 'N/A'}</p>
+            </div>
+          </div>
+          {participant.crmSnapshot.blockers && participant.crmSnapshot.blockers.length > 0 && (
+            <div className="mt-3 p-2 bg-red-500/10 rounded border border-red-500/20">
+              <p className="text-xs text-red-300">
+                <AlertCircle className="w-3 h-3 inline mr-1" />
+                Blockers: {participant.crmSnapshot.blockers.join(', ')}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Block B: The "History" (Action Items) */}
+      {participant.actionItems.length > 0 && (
+        <div className="p-5 border-b border-white/10">
+          <h5 className="text-sm font-semibold text-[#4ea8dd] uppercase tracking-wide mb-3 flex items-center gap-2">
+            <ListChecks className="w-4 h-4" />
+            Action Items
+          </h5>
+          <div className="space-y-2">
+            {participant.actionItems.slice(0, 5).map((item) => (
+              <div key={item.id} className="flex items-start gap-3 group">
+                <input
+                  type="checkbox"
+                  checked={completedActionItems.has(item.id) || item.completed}
+                  onChange={() => handleToggleActionItem(item.id)}
+                  className="mt-1 rounded border-slate-600 bg-slate-800 text-[#4ea8dd] focus:ring-[#4ea8dd] focus:ring-offset-0"
+                />
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm ${
+                    completedActionItems.has(item.id) || item.completed
+                      ? 'line-through text-slate-500'
+                      : 'text-slate-300'
+                  }`}>
+                    {item.description}
+                  </p>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    <span className={`px-1.5 py-0.5 rounded text-xs mr-2 ${
+                      item.assignedTo === 'them' ? 'bg-orange-500/20 text-orange-300' : 'bg-blue-500/20 text-blue-300'
+                    }`}>
+                      {item.assignedTo === 'them' ? 'Their action' : 'Our action'}
+                    </span>
+                    {formatRelativeDate(item.meetingDate)} • {item.meetingTitle}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Unresolved Threads */}
+      {participant.unresolvedThreads.length > 0 && (
+        <div className="p-5 border-b border-white/10 bg-amber-500/5">
+          <h5 className="text-sm font-semibold text-amber-400 uppercase tracking-wide mb-3 flex items-center gap-2">
+            <AlertCircle className="w-4 h-4" />
+            Unresolved Threads
+          </h5>
+          <div className="space-y-2">
+            {participant.unresolvedThreads.map((thread) => (
+              <div key={thread.id} className="p-3 bg-amber-500/10 rounded-lg border border-amber-500/20">
+                <p className="text-sm text-amber-200">{thread.description}</p>
+                <p className="text-xs text-amber-400/70 mt-1">
+                  From {thread.originMeetingTitle} • {formatRelativeDate(thread.originMeetingDate)}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Block C: Timeline */}
+      {participant.timeline.length > 0 && (
+        <div className="p-5">
+          <h5 className="text-sm font-semibold text-[#4ea8dd] uppercase tracking-wide mb-3 flex items-center gap-2">
+            <History className="w-4 h-4" />
+            Timeline
+          </h5>
+          <div className="space-y-3">
+            {participant.timeline.slice(0, 8).map((event) => (
+              <div key={event.id} className="flex items-start gap-3">
+                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-slate-400">
+                  {getTimelineIcon(event.type)}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs text-slate-500">{formatRelativeDate(event.date)}</span>
+                    <span className={`text-xs px-1.5 py-0.5 rounded ${getSourceColor(event.source)}`}>
+                      {event.source}
+                    </span>
+                  </div>
+                  <p className="text-sm text-slate-300 mt-0.5">{event.summary}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Company Info (fetched separately) */}
+      {participant.email && companyInfoCache[participant.email] && (
+        <div className="p-5 border-t border-white/10 bg-blue-500/5">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-sm font-medium text-blue-300">
+                {companyInfoCache[participant.email]!.name || companyInfoCache[participant.email]!.domain}
+              </p>
+              {companyInfoCache[participant.email]!.description && (
+                <p className="text-xs text-blue-400/70 mt-1 line-clamp-2">
+                  {companyInfoCache[participant.email]!.description}
+                </p>
+              )}
+            </div>
+            <a
+              href={companyInfoCache[participant.email]!.website}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-400 hover:text-blue-300"
             >
-              Generate Another
-            </button>
+              <ExternalLink className="w-4 h-4" />
+            </a>
           </div>
+        </div>
+      )}
+    </div>
+  );
 
-          <div className="flex-1 overflow-y-auto space-y-6">
-            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-6 border border-blue-200 dark:border-blue-800">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                {briefingResult.meeting.type}
-              </h2>
-            </div>
-
-            <div className="bg-white dark:bg-slate-800/50 rounded-xl p-6 border border-gray-200 dark:border-slate-700">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Agenda</h3>
-              <div className="space-y-4">
-                <div>
-                  <p className="text-sm font-medium text-[#4ea8dd] dark:text-[#4ea8dd] mb-1">Opening</p>
-                  <p className="text-gray-700 dark:text-gray-300">{briefingResult.agenda.opening}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-[#4ea8dd] dark:text-[#4ea8dd] mb-2">Key Topics</p>
-                  <ul className="space-y-2">
-                    {briefingResult.agenda.key_topics.map((topic, idx) => (
-                      <li key={idx} className="flex gap-3">
-                        <span className="text-[#4ea8dd] flex-shrink-0 mt-1">•</span>
-                        <span className="text-gray-700 dark:text-gray-300">{topic}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-[#4ea8dd] dark:text-[#4ea8dd] mb-1">Closing</p>
-                  <p className="text-gray-700 dark:text-gray-300">{briefingResult.agenda.closing}</p>
-                </div>
-              </div>
-            </div>
-
-            {briefingResult.success_metrics.length > 0 && (
-              <div className="bg-white dark:bg-slate-800/50 rounded-xl p-6 border border-gray-200 dark:border-slate-700">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Success Metrics</h3>
-                <ul className="space-y-2">
-                  {briefingResult.success_metrics.map((metric, idx) => (
-                    <li key={idx} className="flex gap-3">
-                      <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400 flex-shrink-0 mt-1" />
-                      <span className="text-gray-700 dark:text-gray-300">{metric}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {briefingResult.risk_mitigation.length > 0 && (
-              <div className="bg-white dark:bg-slate-800/50 rounded-xl p-6 border border-gray-200 dark:border-slate-700">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Risk Mitigation</h3>
-                <ul className="space-y-2">
-                  {briefingResult.risk_mitigation.map((risk, idx) => (
-                    <li key={idx} className="flex gap-3">
-                      <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-1" />
-                      <span className="text-gray-700 dark:text-gray-300">{risk}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Participant Insights</h3>
-              {briefingResult.participants.map((participant, idx) => (
-                <div key={idx} className="bg-white dark:bg-slate-800/50 rounded-xl p-6 border border-gray-200 dark:border-slate-700">
-                  <div className="flex items-start justify-between mb-4">
-                    <div>
-                      <h4 className="text-lg font-semibold text-gray-900 dark:text-white">{participant.name}</h4>
-                      {participant.email && <p className="text-sm text-gray-500 dark:text-gray-400">{participant.email}</p>}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
-                        participant.history_strength === 'strong'
-                          ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
-                          : participant.history_strength === 'weak'
-                          ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'
-                          : participant.history_strength === 'org-only'
-                          ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
-                          : 'bg-gray-100 text-gray-800 dark:bg-gray-700/30 dark:text-gray-300'
-                      }`}>
-                        {participant.history_strength === 'strong' && 'Strong History'}
-                        {participant.history_strength === 'weak' && 'Weak History'}
-                        {participant.history_strength === 'org-only' && 'Same Org'}
-                        {participant.history_strength === 'none' && 'No History'}
-                      </span>
-                      {participant.confidence_score > 0 && (
-                        <span className={`text-xs px-2 py-1 rounded-full ${
-                          participant.confidence_score >= 70
-                            ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
-                            : participant.confidence_score >= 40
-                            ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300'
-                            : 'bg-gray-100 text-gray-600 dark:bg-gray-700/30 dark:text-gray-400'
-                        }`}>
-                          {participant.confidence_score}% confidence
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* First-time meeting banner */}
-                  {participant.is_first_meeting && (
-                    <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-700">
-                      <div className="flex items-start gap-2">
-                        <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
-                        <div className="flex-1">
-                          <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
-                            First meeting with {participant.name}
-                          </p>
-                          {participant.org_has_met_before ? (
-                            <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
-                              Others in your organization have met with them before.
-                            </p>
-                          ) : (
-                            <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
-                              No one in your organization has met them yet.
-                            </p>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Data fetch options */}
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        <button
-                          onClick={handleLinkedInClick}
-                          className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-900/50 transition"
-                        >
-                          <Linkedin className="w-3 h-3" />
-                          Fetch from LinkedIn
-                        </button>
-                        {participant.email && (
-                          <button
-                            onClick={() => handleFetchCompanyInfo(participant.email!)}
-                            disabled={fetchingCompanyInfo === participant.email}
-                            className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-lg hover:bg-green-200 dark:hover:bg-green-900/50 transition disabled:opacity-50"
-                          >
-                            <Building2 className="w-3 h-3" />
-                            {fetchingCompanyInfo === participant.email ? 'Fetching...' : 'Check Company Website'}
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Company info display */}
-                  {participant.email && companyInfoCache[participant.email] && (
-                    <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
-                            {companyInfoCache[participant.email]!.name || companyInfoCache[participant.email]!.domain}
-                          </p>
-                          {companyInfoCache[participant.email]!.description && (
-                            <p className="text-xs text-blue-700 dark:text-blue-300 mt-1 line-clamp-2">
-                              {companyInfoCache[participant.email]!.description}
-                            </p>
-                          )}
-                        </div>
-                        <a
-                          href={companyInfoCache[participant.email]!.website}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-600 dark:text-blue-400 hover:text-blue-800"
-                        >
-                          <ExternalLink className="w-4 h-4" />
-                        </a>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Data gaps warning */}
-                  {participant.data_gaps && participant.data_gaps.length > 0 && (
-                    <div className="mb-4 p-2 bg-gray-50 dark:bg-slate-700/30 rounded-lg border border-gray-200 dark:border-slate-600">
-                      <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
-                        <Info className="w-3 h-3" />
-                        Limited data: {participant.data_gaps.join(', ')}
-                      </p>
-                    </div>
-                  )}
-
-                  <div className="grid grid-cols-3 gap-3 mb-4 text-sm">
-                    <div className="bg-gray-50 dark:bg-slate-700/50 rounded-lg p-2">
-                      <p className="text-xs text-gray-600 dark:text-gray-400">Meetings</p>
-                      <p className="font-semibold text-gray-900 dark:text-white">{participant.context.meeting_count}</p>
-                    </div>
-                    <div className="bg-gray-50 dark:bg-slate-700/50 rounded-lg p-2">
-                      <p className="text-xs text-gray-600 dark:text-gray-400">Recent Topics</p>
-                      <p className="font-semibold text-gray-900 dark:text-white">{participant.context.recent_topics.length}</p>
-                    </div>
-                    <div className="bg-gray-50 dark:bg-slate-700/50 rounded-lg p-2">
-                      <p className="text-xs text-gray-600 dark:text-gray-400">Last Meeting</p>
-                      <p className="font-semibold text-gray-900 dark:text-white text-xs">
-                        {participant.context.last_meeting_date ? new Date(participant.context.last_meeting_date).toLocaleDateString() : 'N/A'}
-                      </p>
-                    </div>
-                  </div>
-
-                  {participant.background && (
-                    <div className="mb-4 p-3 bg-gray-50 dark:bg-slate-700/50 rounded-lg">
-                      <p className="text-xs text-gray-600 dark:text-gray-400 mb-1 font-medium">Background</p>
-                      <p className="text-sm text-gray-700 dark:text-gray-300">{participant.background}</p>
-                    </div>
-                  )}
-
-                  {/* Task Commitments Section */}
-                  {participant.pending_task_commitments && participant.pending_task_commitments.length > 0 && (
-                    <div className="mb-4">
-                      <p className="text-sm font-medium text-gray-900 dark:text-white mb-2 flex items-center gap-2">
-                        <ListChecks className="w-4 h-4 text-[#4ea8dd]" />
-                        Previous Commitments
-                      </p>
-                      <ul className="space-y-2">
-                        {participant.pending_task_commitments.slice(0, 5).map((task) => (
-                          <li key={task.id} className="flex items-start gap-2 text-sm">
-                            <input
-                              type="checkbox"
-                              checked={completedTasks.has(task.id) || task.completed}
-                              onChange={() => handleToggleTask(task.id)}
-                              className="mt-1 rounded border-gray-300 text-[#4ea8dd] focus:ring-[#4ea8dd]"
-                            />
-                            <div className="flex-1">
-                              <span className={`${completedTasks.has(task.id) || task.completed ? 'line-through text-gray-400' : 'text-gray-700 dark:text-gray-300'}`}>
-                                {task.description}
-                              </span>
-                              <span className="text-xs text-gray-400 ml-2">
-                                from {new Date(task.meetingDate).toLocaleDateString()}
-                              </span>
-                            </div>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  {participant.talking_points.length > 0 && (
-                    <div className="mb-4">
-                      <p className="text-sm font-medium text-gray-900 dark:text-white mb-2">Talking Points</p>
-                      <ul className="space-y-1">
-                        {participant.talking_points.map((point, pidx) => (
-                          <li key={pidx} className="flex gap-2 text-sm text-gray-700 dark:text-gray-300">
-                            <span className="text-[#4ea8dd] flex-shrink-0">→</span>
-                            <span>{point}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  {participant.questions_to_ask.length > 0 && (
-                    <div>
-                      <p className="text-sm font-medium text-gray-900 dark:text-white mb-2">Questions to Ask</p>
-                      <ul className="space-y-1">
-                        {participant.questions_to_ask.map((question, qidx) => (
-                          <li key={qidx} className="flex gap-2 text-sm text-gray-700 dark:text-gray-300">
-                            <span className="text-blue-500 flex-shrink-0">?</span>
-                            <span>{question}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </div>
+  if (briefingResult) {
+    return (
+      <div className="h-[calc(100vh-200px)] flex flex-col overflow-hidden text-white">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-700">
+          <div>
+            <h1 className="text-2xl font-semibold text-white mb-1">
+              Prep Summary: {briefingResult.meeting.type}
+            </h1>
+            <p className="text-sm text-slate-400">
+              {briefingResult.participants.map((p, idx) => (
+                <span key={idx}>
+                  {p.name}
+                  {idx < briefingResult.participants.length - 1 && ', '}
+                </span>
               ))}
-            </div>
+            </p>
           </div>
+          <button
+            onClick={() => {
+              setBriefingResult(null);
+              setSelectedObjectiveId('');
+              setSelectedPeople([]);
+              setCompletedActionItems(new Set());
+            }}
+            className="px-4 py-2 text-sm font-medium text-slate-300 hover:bg-slate-700 rounded-lg transition-colors border border-slate-600"
+          >
+            Generate Another
+          </button>
+        </div>
+
+        {/* Participant Cards */}
+        <div className="flex-1 overflow-y-auto space-y-6 pr-2">
+          {briefingResult.participants.map((participant, idx) => renderParticipantCard(participant, idx))}
         </div>
       </div>
     );

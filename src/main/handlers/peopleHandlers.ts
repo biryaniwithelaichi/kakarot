@@ -188,5 +188,18 @@ export function registerPeopleHandlers(): void {
     }
   });
 
+  // Cleanup names with numbers
+  ipcMain.handle(IPC_CHANNELS.PEOPLE_CLEANUP_NAMES, async () => {
+    logger.debug('Cleaning up names with numbers');
+    try {
+      const result = peopleRepo.cleanupNamesWithNumbers();
+      logger.info('Name cleanup complete', result);
+      return result;
+    } catch (error) {
+      logger.error('Failed to cleanup names', { error: (error as Error).message });
+      throw error;
+    }
+  });
+
   logger.info('People handlers registered');
 }

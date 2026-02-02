@@ -13,11 +13,12 @@ export class SalesforceOAuthProvider {
   private redirectUri: string;
 
   constructor(
-    clientId: string,
+    clientId: string, // Kept to match existing calls, but ignored
     redirectUri = 'http://localhost:3000/oauth/salesforce'
   ) {
     this.redirectUri = redirectUri;
-    this.salesforceService = new SalesforceService(clientId, redirectUri);
+    // ✅ FIX: Ignore the dummy clientId passed in. Use the hardcoded key in the Service.
+    this.salesforceService = new SalesforceService(); 
   }
 
   async authenticate(mainWindow: BrowserWindow): Promise<SalesforceOAuthToken> {
@@ -72,7 +73,7 @@ export class SalesforceOAuthProvider {
 
       logger.info('Opening Salesforce OAuth window', {
         redirectUri: this.redirectUri,
-        authUrl,
+        authUrlSnippet: authUrl.substring(0, 50) + '...',
       });
 
       authWindow.loadURL(authUrl);
@@ -85,6 +86,7 @@ export class SalesforceOAuthProvider {
 
         logger.info('Authorization code received', { code: code.substring(0, 10) + '...' });
 
+        // Clean up listeners
         authWindow.removeAllListeners('closed');
         authWindow.webContents.removeAllListeners('will-redirect');
         authWindow.webContents.removeAllListeners('will-navigate');
@@ -103,9 +105,6 @@ export class SalesforceOAuthProvider {
       };
 
       const checkUrlForCode = (url: string): boolean => {
-        logger.debug('Checking URL for authorization code', { url });
-
-        // Check if this is our redirect URI
         if (url.startsWith(this.redirectUri)) {
           const urlObj = new URL(url);
           const code = urlObj.searchParams.get('code');
@@ -129,13 +128,11 @@ export class SalesforceOAuthProvider {
 
       authWindow.webContents.on('did-finish-load', () => {
         const currentUrl = authWindow.webContents.getURL();
-        logger.debug('Page finished loading', { url: currentUrl });
         injectCloseButton();
         checkUrlForCode(currentUrl);
       });
 
       authWindow.webContents.on('will-redirect', (event, url) => {
-        logger.debug('OAuth redirect detected', { url });
         if (url.startsWith(CLOSE_URL)) {
           event.preventDefault();
           authWindow.close();
@@ -147,7 +144,6 @@ export class SalesforceOAuthProvider {
       });
 
       authWindow.webContents.on('will-navigate', (event, url) => {
-        logger.debug('OAuth navigation detected', { url });
         if (url.startsWith(CLOSE_URL)) {
           event.preventDefault();
           authWindow.close();

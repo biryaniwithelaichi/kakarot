@@ -1,10 +1,12 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Search, Mail, Building2, Calendar, Clock, FileText, Edit2, X, Check, RefreshCw } from 'lucide-react';
-import type { Person } from '@shared/types';
+import { Search, Mail, Building2, Calendar, Clock, FileText, Edit2, X, Check, RefreshCw, MessageSquare } from 'lucide-react';
+import type { Person, Meeting } from '@shared/types';
 import { formatDuration, getAvatarColor, getInitials, formatLastMeeting } from '../lib/formatters';
 import { PersonListSkeleton } from './Skeleton';
+import { useAppStore } from '../stores/appStore';
 
 export default function PeopleView() {
+  const { setSelectedMeeting, setCurrentView } = useAppStore();
   const [people, setPeople] = useState<Person[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
@@ -12,6 +14,10 @@ export default function PeopleView() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [editingField, setEditingField] = useState<'name' | 'organization' | 'notes' | null>(null);
   const [editValue, setEditValue] = useState('');
+  const [contactMeetings, setContactMeetings] = useState<Meeting[]>([]);
+  const [isLoadingMeetings, setIsLoadingMeetings] = useState(false);
+  const [showNotesPopup, setShowNotesPopup] = useState(false);
+  const [selectedMeetingForModal, setSelectedMeetingForModal] = useState<Meeting | null>(null);
 
   const loadPeople = useCallback(async () => {
     setIsLoading(true);
@@ -26,6 +32,11 @@ export default function PeopleView() {
   const syncFromCalendar = async () => {
     setIsSyncing(true);
     try {
+      // First cleanup names with numbers
+      const cleanupResult = await window.kakarot.people.cleanupNames();
+      console.log('Cleaned up names:', cleanupResult);
+      
+      // Then sync from calendar
       const result = await window.kakarot.people.syncFromCalendar();
       console.log('Synced contacts from calendar:', result);
       await loadPeople(); // Refresh the list after sync
@@ -40,6 +51,25 @@ export default function PeopleView() {
     loadPeople();
   }, [loadPeople]);
 
+  const loadContactMeetings = useCallback(async (email: string) => {
+    setIsLoadingMeetings(true);
+    try {
+      const allMeetings = await window.kakarot.meetings.list();
+      // Filter meetings where the contact's email is in attendeeEmails
+      const filtered = allMeetings.filter(meeting => 
+        meeting.attendeeEmails.includes(email) && meeting.endedAt !== null
+      );
+      // Sort by most recent first
+      filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      setContactMeetings(filtered);
+    } catch (error) {
+      console.error('Failed to load contact meetings:', error);
+      setContactMeetings([]);
+    } finally {
+      setIsLoadingMeetings(false);
+    }
+  }, []);
+
   const handleSearch = async () => {
     if (searchQuery.trim()) {
       const results = await window.kakarot.people.search(searchQuery);
@@ -52,6 +82,27 @@ export default function PeopleView() {
   const handleSelectPerson = (person: Person) => {
     setSelectedPerson(person);
     setEditingField(null);
+    loadContactMeetings(person.email);
+  };
+
+  const handleMeetingClick = (meeting: Meeting) => {
+    // Switch to history view and select the meeting
+    setSelectedMeeting(meeting);
+    setCurrentView('history');
+  };
+
+  const handleViewNotes = (e: React.MouseEvent, meeting: Meeting) => {
+    e.stopPropagation();
+    setSelectedMeetingForModal(meeting);
+    setShowNotesPopup(true);
+  };
+
+  const hasNotes = (meeting: Meeting): boolean => {
+    return (
+      (meeting.noteEntries && meeting.noteEntries.length > 0) ||
+      !!meeting.notesMarkdown ||
+      !!meeting.notesPlain
+    );
   };
 
   const startEditing = (field: 'name' | 'organization' | 'notes', currentValue: string | undefined) => {
@@ -99,11 +150,12 @@ export default function PeopleView() {
   };
 
   return (
-    <div className="h-full flex bg-[#050505] text-slate-100 rounded-2xl border border-[#1A1A1A] shadow-[0_8px_30px_rgba(0,0,0,0.35)] overflow-hidden">
-      {/* People list sidebar */}
-      <div className="w-64 lg:w-80 border-r border-[#1A1A1A] flex flex-col bg-[#121212] flex-shrink-0">
-        {/* Search */}
-        <div className="p-4 border-b border-[#1A1A1A]">
+    <React.Fragment>
+      <div className="h-full flex bg-[#050505] text-slate-100 rounded-2xl border border-[#1A1A1A] shadow-[0_8px_30px_rgba(0,0,0,0.35)] overflow-hidden">
+        {/* People list sidebar */}
+        <div className="w-64 lg:w-80 border-r border-[#1A1A1A] flex flex-col bg-[#121212] flex-shrink-0 overflow-hidden">
+          {/* Search */}
+          <div className="p-4 border-b border-[#1A1A1A] flex-shrink-0">
           <div className="mb-3">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold text-white">Contacts</h2>
@@ -196,7 +248,7 @@ export default function PeopleView() {
         {selectedPerson ? (
           <>
             {/* Header */}
-            <div className="p-6 border-b border-[#1A1A1A] bg-[#121212]">
+            <div className="p-6 border-b border-[#1A1A1A] bg-[#121212] flex-shrink-0">
               <div className="flex items-start gap-4">
                 <div className={`w-16 h-16 rounded-full ${getAvatarColor(selectedPerson.email)} flex items-center justify-center text-white font-medium text-xl flex-shrink-0`}>
                   {getPersonInitials(selectedPerson)}
@@ -319,56 +371,115 @@ export default function PeopleView() {
 
             {/* Notes section */}
             <div className="flex-1 overflow-y-auto p-6 bg-[#050505]">
-              <div className="max-w-3xl">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <FileText className="w-5 h-5 text-slate-400" />
-                    <h2 className="text-lg font-semibold text-white">Notes</h2>
+              <div className="max-w-3xl space-y-6">
+                {/* Notes */}
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <FileText className="w-5 h-5 text-slate-400" />
+                      <h2 className="text-lg font-semibold text-white">Notes</h2>
+                    </div>
+                    {editingField !== 'notes' && (
+                      <button
+                        onClick={() => startEditing('notes', selectedPerson.notes)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-slate-400 hover:bg-[#171717] rounded-lg transition-colors"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                        Edit
+                      </button>
+                    )}
                   </div>
-                  {editingField !== 'notes' && (
-                    <button
-                      onClick={() => startEditing('notes', selectedPerson.notes)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-slate-400 hover:bg-[#171717] rounded-lg transition-colors"
-                    >
-                      <Edit2 className="w-3.5 h-3.5" />
-                      Edit
-                    </button>
+
+                  {editingField === 'notes' ? (
+                    <div className="space-y-3">
+                      <textarea
+                        value={editValue}
+                        onChange={(e) => setEditValue(e.target.value)}
+                        className="w-full h-64 px-4 py-3 text-sm text-slate-200 bg-[#121212] border border-[#1A1A1A] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4ea8dd]/50 resize-none font-mono placeholder:text-slate-500"
+                        placeholder="Add notes about this contact..."
+                        autoFocus
+                      />
+                      <div className="flex justify-end gap-2">
+                        <button
+                          onClick={cancelEdit}
+                          className="px-4 py-2 text-sm text-slate-400 hover:bg-[#171717] rounded-lg transition-colors"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={saveEdit}
+                          className="px-4 py-2 text-sm text-white bg-[#4ea8dd] hover:bg-[#3d8ec4] rounded-lg transition-colors"
+                        >
+                          Save Notes
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-[#121212] rounded-lg p-4 border border-[#1A1A1A]">
+                      {selectedPerson.notes ? (
+                        <p className="text-sm text-slate-300 whitespace-pre-wrap">{selectedPerson.notes}</p>
+                      ) : (
+                        <p className="text-sm text-slate-500 italic">No notes yet. Click Edit to add notes about this contact.</p>
+                      )}
+                    </div>
                   )}
                 </div>
 
-                {editingField === 'notes' ? (
-                  <div className="space-y-3">
-                    <textarea
-                      value={editValue}
-                      onChange={(e) => setEditValue(e.target.value)}
-                      className="w-full h-64 px-4 py-3 text-sm text-slate-200 bg-[#121212] border border-[#1A1A1A] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#7C3AED]/50 resize-none font-mono placeholder:text-slate-500"
-                      placeholder="Add notes about this contact..."
-                      autoFocus
-                    />
-                    <div className="flex justify-end gap-2">
-                      <button
-                        onClick={cancelEdit}
-                        className="px-4 py-2 text-sm text-slate-400 hover:bg-[#171717] rounded-lg transition-colors"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={saveEdit}
-                        className="px-4 py-2 text-sm text-white bg-[#7C3AED] hover:bg-[#6D28D9] rounded-lg transition-colors"
-                      >
-                        Save Notes
-                      </button>
+                {/* Meeting History */}
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <MessageSquare className="w-5 h-5 text-slate-400" />
+                    <h2 className="text-lg font-semibold text-white">Meeting History</h2>
+                    <span className="text-sm text-slate-500">({contactMeetings.length})</span>
+                  </div>
+
+                  {isLoadingMeetings ? (
+                    <div className="bg-[#121212] rounded-lg p-8 border border-[#1A1A1A] flex items-center justify-center">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#4ea8dd]"></div>
                     </div>
-                  </div>
-                ) : (
-                  <div className="bg-[#121212] rounded-lg p-4 border border-[#1A1A1A]">
-                    {selectedPerson.notes ? (
-                      <p className="text-sm text-slate-300 whitespace-pre-wrap">{selectedPerson.notes}</p>
-                    ) : (
-                      <p className="text-sm text-slate-500 italic">No notes yet. Click Edit to add notes about this contact.</p>
-                    )}
-                  </div>
-                )}
+                  ) : contactMeetings.length > 0 ? (
+                    <div className="grid grid-cols-1 gap-3">
+                      {contactMeetings.map((meeting) => (
+                        <button
+                          key={meeting.id}
+                          onClick={() => handleMeetingClick(meeting)}
+                          className="bg-[#121212] rounded-lg p-4 border border-[#1A1A1A] hover:border-[#4ea8dd]/50 hover:bg-[#171717] transition-all text-left"
+                        >
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex-1 min-w-0">
+                              <h3 className="text-base font-medium text-white mb-1 hover:text-[#4ea8dd] transition-colors line-clamp-1">
+                                {meeting.title}
+                              </h3>
+                              <div className="flex items-center gap-3 text-sm text-slate-400">
+                                <div className="flex items-center gap-1.5">
+                                  <Calendar className="w-3.5 h-3.5" />
+                                  <span>{new Date(meeting.createdAt).toLocaleDateString()}</span>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  <Clock className="w-3.5 h-3.5" />
+                                  <span>{formatDuration(meeting.duration)}</span>
+                                </div>
+                              </div>
+                            </div>
+                            {hasNotes(meeting) && (
+                              <button
+                                onClick={(e) => handleViewNotes(e, meeting)}
+                                className="flex-shrink-0 px-3 py-1.5 text-sm font-medium text-[#4ea8dd] border border-[#4ea8dd]/50 hover:border-[#4ea8dd] hover:bg-[#4ea8dd]/10 rounded-lg transition-all"
+                              >
+                                View Notes
+                              </button>
+                            )}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="bg-[#121212] rounded-lg p-8 border border-[#1A1A1A] text-center">
+                      <MessageSquare className="w-12 h-12 mx-auto mb-3 text-slate-600" />
+                      <p className="text-sm text-slate-500">No meetings recorded with this contact yet.</p>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </>
@@ -382,6 +493,142 @@ export default function PeopleView() {
           </div>
         )}
       </div>
-    </div>
+      </div>
+
+      {/* Modal Backdrop - Click to close */}
+      {showNotesPopup && (
+        <div
+          className="fixed inset-0 z-40"
+          onClick={() => {
+            setShowNotesPopup(false);
+            setSelectedMeetingForModal(null);
+          }}
+        />
+      )}
+
+      {/* Notes Modal - Full Meeting View */}
+      {showNotesPopup && selectedMeetingForModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[#121212] border border-[#1A1A1A] rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            {/* Header */}
+            <div className="p-6 border-b border-[#1A1A1A] bg-[#121212] flex-shrink-0">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1 space-y-3 min-w-0">
+                  <h1 className="text-2xl font-semibold text-white truncate">{selectedMeetingForModal.title}</h1>
+                  <div className="flex gap-3 items-stretch flex-wrap">
+                    <div className="flex flex-none items-center gap-2 rounded-lg border border-[#1A1A1A] bg-[#171717] px-3 py-2 whitespace-nowrap">
+                      <Calendar className="w-4 h-4 text-slate-400" />
+                      <div className="text-sm text-slate-200 whitespace-nowrap">
+                        {new Date(selectedMeetingForModal.createdAt).toLocaleDateString()}
+                      </div>
+                    </div>
+                    {(selectedMeetingForModal.attendeeEmails && selectedMeetingForModal.attendeeEmails.length > 0) && (
+                      <div className="flex flex-none items-center gap-2 rounded-lg border border-[#1A1A1A] bg-[#171717] px-3 py-2 whitespace-nowrap">
+                        <MessageSquare className="w-4 h-4 text-slate-400" />
+                        <div className="text-sm text-slate-200 whitespace-nowrap">
+                          {selectedMeetingForModal.attendeeEmails.length} attendee{selectedMeetingForModal.attendeeEmails.length !== 1 ? 's' : ''}
+                        </div>
+                      </div>
+                    )}
+                    <div className="flex flex-none items-center gap-2 rounded-lg border border-[#1A1A1A] bg-[#171717] px-3 py-2 whitespace-nowrap">
+                      <Clock className="w-4 h-4 text-slate-400" />
+                      <div className="text-sm text-slate-200 whitespace-nowrap">
+                        {formatDuration(selectedMeetingForModal.duration)}
+                      </div>
+                    </div>
+                  </div>
+                  <p className="text-sm text-slate-400">
+                    {formatDuration(selectedMeetingForModal.duration)} · {selectedMeetingForModal.transcript.length} segments
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowNotesPopup(false);
+                    setSelectedMeetingForModal(null);
+                  }}
+                  className="p-2 text-slate-400 hover:text-white hover:bg-[#171717] rounded-lg transition-colors flex-shrink-0"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+            
+            {/* Content - Notes and Transcript */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-[#050505]">
+              {/* Generated Notes */}
+              {selectedMeetingForModal.notesMarkdown && (
+                <div className="bg-[#121212] rounded-xl p-4 border border-[#1A1A1A]">
+                  <h2 className="text-sm font-medium text-slate-200 mb-3">Generated Notes</h2>
+                  <div className="text-sm text-slate-100 whitespace-pre-wrap">
+                    {selectedMeetingForModal.notesMarkdown}
+                  </div>
+                </div>
+              )}
+
+              {/* Note Entries */}
+              {selectedMeetingForModal.noteEntries && selectedMeetingForModal.noteEntries.length > 0 && (
+                <div className="bg-[#121212] rounded-xl p-4 border border-[#1A1A1A]">
+                  <h2 className="text-sm font-medium text-slate-200 mb-3">Notes</h2>
+                  <div className="space-y-3">
+                    {selectedMeetingForModal.noteEntries.map((entry, idx) => (
+                      <div key={idx} className="text-sm text-slate-100 whitespace-pre-wrap">
+                        {entry.content}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Summary (legacy) */}
+              {selectedMeetingForModal.summary && !selectedMeetingForModal.notesMarkdown && (
+                <div className="bg-[#121212] rounded-xl p-4 border border-[#1A1A1A]">
+                  <h2 className="text-sm font-medium text-slate-200 mb-2">Summary</h2>
+                  <p className="text-sm text-slate-100 whitespace-pre-wrap">
+                    {selectedMeetingForModal.summary}
+                  </p>
+                </div>
+              )}
+
+              {/* Overview */}
+              {selectedMeetingForModal.overview && (
+                <div className="bg-[#121212] rounded-xl p-4 border border-[#1A1A1A]">
+                  <h2 className="text-sm font-medium text-slate-200 mb-2">Overview</h2>
+                  <p className="text-sm text-slate-100">{selectedMeetingForModal.overview}</p>
+                </div>
+              )}
+
+              {/* Transcript */}
+              <div>
+                <h2 className="text-sm font-medium text-slate-200 mb-3">Transcript</h2>
+                <div className="space-y-3 max-h-96 overflow-y-auto">
+                  {selectedMeetingForModal.transcript.length > 0 ? (
+                    selectedMeetingForModal.transcript.map((segment, idx) => (
+                      <div
+                        key={idx}
+                        className={`flex ${
+                          segment.source === 'mic' ? 'justify-end' : 'justify-start'
+                        }`}
+                      >
+                        <div
+                          className={`max-w-[80%] rounded-2xl px-4 py-3 ${
+                            segment.source === 'mic'
+                              ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white'
+                              : 'bg-[#171717] text-slate-100 border border-[#1A1A1A]'
+                          }`}
+                        >
+                          <p className="text-sm leading-relaxed">{segment.text}</p>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-slate-500 text-center py-4">No transcript available</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </React.Fragment>
   );
 }

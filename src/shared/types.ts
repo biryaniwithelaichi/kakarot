@@ -234,6 +234,23 @@ export interface CalendarEventMapping {
   provider: 'google' | 'outlook' | 'icloud';
 }
 
+// Transcript Deep Dive Analysis (3-part explanation)
+export interface TranscriptDeepDiveResult {
+  context: string;      // The Context: AI narrative explaining what was being discussed
+  verbatimQuote: string; // The Verbatim Quote: Exact segment from transcript
+  implication: string;   // The Implication: Result or next step
+  segmentId: string;     // Reference back to the segment
+  timestamp: number;     // Timestamp in the meeting
+}
+
+// Notes Deep Dive Analysis (for AI-generated notes)
+export interface NotesDeepDiveResult {
+  context: string;       // The Context: AI narrative explaining what was being discussed
+  verbatimQuote: string; // The Verbatim Quote: Exact quote(s) from transcript
+  implication: string;   // The Implication: Result or next step
+  noteContent: string;   // The original note content
+}
+
 // IPC payloads
 export interface TranscriptUpdate {
   segment: TranscriptSegment;
@@ -332,7 +349,7 @@ export interface ParticipantPrepData {
   background: string;
 }
 
-// Meeting prep result structure
+// Meeting prep result structure (legacy - keeping for backward compatibility)
 export interface MeetingPrepResult {
   meeting: {
     type: string;
@@ -348,5 +365,175 @@ export interface MeetingPrepResult {
   };
   success_metrics: string[];
   risk_mitigation: string[];
+}
+
+// ============================================================
+// NEW PREP TYPES - Revamped Meeting Prep Summary
+// ============================================================
+
+/** Participant persona derived from past interactions and CRM data */
+export type ParticipantPersona = 'Technical' | 'Executive' | 'Skeptic' | 'Champion' | 'Unknown';
+
+/** Sentiment analysis result for meeting mood */
+export type MeetingSentiment = 'Positive' | 'Neutral' | 'Tense';
+
+/** Block A: Participant Intelligence (The "Who") */
+export interface ParticipantIntel {
+  persona: ParticipantPersona;
+  personalFacts: string[];      // From past small talk or external sources
+  recentActivity: string[];     // Support tickets, contract requests, etc.
+  crmRole?: string;             // Decision Maker, Influencer, etc. from CRM
+  missedMeetings?: number;      // Count of recent meetings they didn't join
+}
+
+/** Block B: Action Item with completion tracking */
+export interface ActionItemStatus {
+  id: string;
+  description: string;
+  assignedTo: 'them' | 'us';
+  meetingId: string;
+  meetingTitle: string;
+  meetingDate: string;
+  completed: boolean;
+  completedAt?: string;
+  source: 'meeting_notes' | 'transcript' | 'crm';
+}
+
+/** Timeline event source types */
+export type TimelineEventType = 'meeting' | 'email' | 'note' | 'deal_update' | 'support_ticket' | 'call';
+export type TimelineEventSource = 'Meeting Notes' | 'HubSpot' | 'Salesforce' | 'Email' | 'Calendar';
+
+/** Block C: Timeline Event */
+export interface TimelineEvent {
+  id: string;
+  date: string;
+  type: TimelineEventType;
+  source: TimelineEventSource;
+  summary: string;
+  sentiment?: MeetingSentiment;
+  metadata?: {
+    dealStage?: string;
+    emailSubject?: string;
+    meetingTitle?: string;
+  };
+}
+
+/** CRM Deal/Opportunity Snapshot */
+export interface CRMSnapshot {
+  dealId?: string;
+  dealName?: string;
+  dealValue?: number;
+  dealStage?: string;
+  closeDate?: string;
+  blockers?: string[];
+  lastActivityDate?: string;
+  source: 'hubspot' | 'salesforce';
+}
+
+/** Confidence metrics with source attribution */
+export interface ConfidenceMetrics {
+  score: number;  // 0-100
+  sources: {
+    meetings: number;
+    emails: number;
+    crmNotes: number;
+    calls: number;
+  };
+  explanation: string;  // e.g., "Data from: 2 Meetings, 1 Email"
+}
+
+/** Last seen context for a participant */
+export interface LastSeenContext {
+  daysAgo: number;
+  date: string;
+  topic: string;
+  sentiment: MeetingSentiment;
+  meetingId?: string;
+}
+
+/** Unresolved thread from past meetings */
+export interface UnresolvedThread {
+  id: string;
+  description: string;
+  originMeetingId: string;
+  originMeetingDate: string;
+  originMeetingTitle: string;
+  promisedBy: 'them' | 'us';
+  source: 'meeting_notes' | 'crm_email';
+}
+
+/** NEW: Enhanced participant data for revamped prep */
+export interface EnhancedPrepParticipant {
+  name: string;
+  email: string | null;
+
+  // Last Seen Context
+  lastSeen?: LastSeenContext;
+
+  // Block A: "The Who" (Participant Intel)
+  intel: ParticipantIntel;
+
+  // Block B: "The History" (Paper Trail)
+  actionItems: ActionItemStatus[];
+
+  // Block C: Timeline
+  timeline: TimelineEvent[];
+
+  // CRM Snapshot
+  crmSnapshot?: CRMSnapshot;
+
+  // Unresolved Threads
+  unresolvedThreads: UnresolvedThread[];
+
+  // Confidence with attribution
+  confidence: ConfidenceMetrics;
+
+  // Is this first meeting?
+  isFirstMeeting: boolean;
+
+  // Company info (fetched separately)
+  companyInfo?: CompanyInfo;
+}
+
+/** NEW: Revamped Meeting Prep Result */
+export interface EnhancedMeetingPrepResult {
+  meeting: {
+    type: string;
+    objective?: string;
+  };
+  generatedAt: string;
+  participants: EnhancedPrepParticipant[];
+}
+
+/** CRM Email Activity */
+export interface CRMEmailActivity {
+  id: string;
+  subject: string;
+  snippet?: string;
+  date: string;
+  direction: 'inbound' | 'outbound';
+  source: 'hubspot' | 'salesforce';
+}
+
+/** CRM Note */
+export interface CRMNote {
+  id: string;
+  content: string;
+  date: string;
+  source: 'hubspot' | 'salesforce';
+}
+
+/** CRM Contact Data (aggregated from HubSpot or Salesforce) */
+export interface CRMContactData {
+  contactId: string;
+  email: string;
+  name?: string;
+  jobTitle?: string;
+  role?: string;  // Decision Maker, Influencer, etc.
+  source: 'hubspot' | 'salesforce';
+  deals: CRMSnapshot[];
+  emails: CRMEmailActivity[];
+  notes: CRMNote[];
+  lastActivityDate?: string;
 }
 

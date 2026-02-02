@@ -1,7 +1,27 @@
 import { getContainer } from '../core/container';
 import { createLogger } from '../core/logger';
 import { CRMEmailMatcher } from './CRMEmailMatcher';
-import type { Meeting, HubSpotOAuthToken, TaskCommitment, CompanyInfo } from '@shared/types';
+import type {
+  Meeting,
+  HubSpotOAuthToken,
+  TaskCommitment,
+  CompanyInfo,
+  SalesforceOAuthToken,
+  TranscriptSegment,
+  // New enhanced types
+  EnhancedMeetingPrepResult,
+  EnhancedPrepParticipant,
+  ParticipantIntel,
+  ActionItemStatus,
+  TimelineEvent,
+  CRMSnapshot,
+  ConfidenceMetrics,
+  LastSeenContext,
+  UnresolvedThread,
+  CRMContactData,
+  MeetingSentiment,
+  ParticipantPersona,
+} from '@shared/types';
 import type { ContactSearchResult } from './HubSpotService';
 
 const CONFIDENCE_THRESHOLD = 70;
@@ -697,6 +717,580 @@ Return JSON only:
       logger.error('Failed to extract tasks from transcript', { error, meetingId });
       return [];
     }
+  }
+
+  // ============================================================
+  // ENHANCED PREP GENERATION - New revamped meeting prep
+  // ============================================================
+
+  /**
+   * Generate enhanced meeting prep with the new format
+   * Includes: Last seen context, CRM snapshot, participant intel, action items, timeline
+   */
+  async generateEnhancedMeetingPrep(input: GenerateMeetingPrepInput): Promise<EnhancedMeetingPrepResult> {
+    logger.info('Generating enhanced meeting prep', {
+      meetingType: input.meeting.meeting_type,
+      participantCount: input.participants.length,
+    });
+
+    const { aiProvider, meetingRepo, settingsRepo, hubSpotService, salesforceService } = getContainer();
+    if (!aiProvider) throw new Error('AI provider not available');
+    if (!meetingRepo) throw new Error('Meeting repository not available');
+
+    const settings = settingsRepo?.getSettings();
+    const participants: EnhancedPrepParticipant[] = [];
+
+    for (const participant of input.participants) {
+      const enhancedParticipant = await this.buildEnhancedParticipant(
+        participant,
+        meetingRepo,
+        aiProvider,
+        settings,
+        hubSpotService,
+        salesforceService
+      );
+      participants.push(enhancedParticipant);
+    }
+
+    return {
+      meeting: {
+        type: input.meeting.meeting_type,
+        objective: input.meeting.objective,
+      },
+      generatedAt: new Date().toISOString(),
+      participants,
+    };
+  }
+
+  /**
+   * Build enhanced participant data with all blocks
+   */
+  private async buildEnhancedParticipant(
+    participant: PrepParticipant,
+    meetingRepo: any,
+    aiProvider: any,
+    settings: any,
+    hubSpotService: any,
+    salesforceService: any
+  ): Promise<EnhancedPrepParticipant> {
+    const email = participant.email;
+
+    // Get past meetings with this participant
+    const allMeetings = meetingRepo.findAll();
+    const participantMeetings = this.filterMeetingsByParticipant(allMeetings, participant)
+      .sort((a: Meeting, b: Meeting) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    const isFirstMeeting = participantMeetings.length === 0;
+
+    // Fetch CRM data if available
+    let crmData: CRMContactData | null = null;
+    if (email) {
+      crmData = await this.fetchCRMData(email, settings, hubSpotService, salesforceService);
+    }
+
+    // Build last seen context
+    const lastSeen = this.buildLastSeenContext(participantMeetings, aiProvider);
+
+    // Build participant intel (Block A)
+    const intel = await this.buildParticipantIntel(
+      participant,
+      participantMeetings,
+      crmData,
+      aiProvider
+    );
+
+    // Build action items (Block B)
+    const actionItems = this.buildActionItems(participantMeetings, email);
+
+    // Build timeline (Block C)
+    const timeline = this.buildTimeline(participantMeetings, crmData);
+
+    // Extract CRM snapshot (primary deal)
+    const crmSnapshot = crmData?.deals?.[0] || undefined;
+
+    // Build unresolved threads
+    const unresolvedThreads = await this.extractUnresolvedThreads(
+      participantMeetings,
+      crmData,
+      aiProvider
+    );
+
+    // Calculate confidence
+    const confidence = this.calculateConfidence(participantMeetings, crmData);
+
+    return {
+      name: participant.name,
+      email: participant.email,
+      lastSeen: lastSeen || undefined,
+      intel,
+      actionItems,
+      timeline,
+      crmSnapshot,
+      unresolvedThreads,
+      confidence,
+      isFirstMeeting,
+    };
+  }
+
+  /**
+   * Fetch CRM data from HubSpot or Salesforce
+   */
+  private async fetchCRMData(
+    email: string,
+    settings: any,
+    hubSpotService: any,
+    salesforceService: any
+  ): Promise<CRMContactData | null> {
+    try {
+      // Try HubSpot first
+      const hubspotToken = settings?.crmConnections?.hubspot as HubSpotOAuthToken | undefined;
+      if (hubspotToken?.accessToken && hubSpotService) {
+        // Refresh token if needed
+        let token = hubspotToken;
+        if (hubSpotService.isTokenExpired(token) && token.refreshToken) {
+          token = await hubSpotService.refreshAccessToken(token.refreshToken);
+        }
+        const data = await hubSpotService.getContactData(email, token.accessToken);
+        if (data) return data;
+      }
+
+      // Try Salesforce
+      const salesforceToken = settings?.crmConnections?.salesforce as SalesforceOAuthToken | undefined;
+      if (salesforceToken?.accessToken && salesforceService) {
+        const data = await salesforceService.getContactData(
+          email,
+          salesforceToken.accessToken,
+          salesforceToken.instanceUrl
+        );
+        if (data) return data;
+      }
+
+      return null;
+    } catch (error) {
+      logger.warn('Failed to fetch CRM data', { email, error });
+      return null;
+    }
+  }
+
+  /**
+   * Build last seen context from past meetings
+   */
+  private buildLastSeenContext(
+    meetings: Meeting[],
+    _aiProvider: any
+  ): LastSeenContext | null {
+    if (meetings.length === 0) return null;
+
+    const lastMeeting = meetings[0];
+    const daysAgo = Math.floor(
+      (Date.now() - new Date(lastMeeting.createdAt).getTime()) / (1000 * 60 * 60 * 24)
+    );
+
+    // Extract topic from title or summary
+    const topic = lastMeeting.title || lastMeeting.summary?.split('.')[0] || 'General discussion';
+
+    // Simple sentiment heuristic based on content
+    // In production, this would use AI analysis
+    let sentiment: MeetingSentiment = 'Neutral';
+    const summary = (lastMeeting.summary || '').toLowerCase();
+    if (summary.includes('great') || summary.includes('excellent') || summary.includes('agreed')) {
+      sentiment = 'Positive';
+    } else if (summary.includes('concern') || summary.includes('issue') || summary.includes('disagree')) {
+      sentiment = 'Tense';
+    }
+
+    return {
+      daysAgo,
+      date: new Date(lastMeeting.createdAt).toISOString(),
+      topic: topic.substring(0, 100),
+      sentiment,
+      meetingId: lastMeeting.id,
+    };
+  }
+
+  /**
+   * Build participant intel (Block A: The "Who")
+   */
+  private async buildParticipantIntel(
+    _participant: PrepParticipant,
+    meetings: Meeting[],
+    crmData: CRMContactData | null,
+    aiProvider: any
+  ): Promise<ParticipantIntel> {
+    // Derive persona from meeting content and CRM data
+    const persona = await this.derivePersona(meetings, crmData, aiProvider);
+
+    // Extract personal facts from transcripts
+    const personalFacts = this.extractPersonalFacts(meetings);
+
+    // Build recent activity from CRM
+    const recentActivity = this.buildRecentActivity(crmData);
+
+    // Get CRM role
+    const crmRole = crmData?.role || undefined;
+
+    return {
+      persona,
+      personalFacts,
+      recentActivity,
+      crmRole,
+    };
+  }
+
+  /**
+   * Derive participant persona from interactions
+   */
+  private async derivePersona(
+    meetings: Meeting[],
+    crmData: CRMContactData | null,
+    _aiProvider: any
+  ): Promise<ParticipantPersona> {
+    // Simple heuristics - in production would use AI
+    const allText = meetings
+      .map(m => `${m.title || ''} ${m.summary || ''}`)
+      .join(' ')
+      .toLowerCase();
+
+    // Check CRM role first
+    const crmRole = (crmData?.role || '').toLowerCase();
+    if (crmRole.includes('executive') || crmRole.includes('ceo') || crmRole.includes('vp')) {
+      return 'Executive';
+    }
+
+    // Check job title
+    const jobTitle = (crmData?.jobTitle || '').toLowerCase();
+    if (jobTitle.includes('engineer') || jobTitle.includes('developer') || jobTitle.includes('technical')) {
+      return 'Technical';
+    }
+    if (jobTitle.includes('ceo') || jobTitle.includes('cto') || jobTitle.includes('director') || jobTitle.includes('vp')) {
+      return 'Executive';
+    }
+
+    // Check meeting content
+    if (allText.includes('api') || allText.includes('integration') || allText.includes('technical')) {
+      return 'Technical';
+    }
+    if (allText.includes('budget') || allText.includes('roi') || allText.includes('approval')) {
+      return 'Executive';
+    }
+    if (allText.includes('concern') || allText.includes('risk') || allText.includes('competitor')) {
+      return 'Skeptic';
+    }
+    if (allText.includes('excited') || allText.includes('champion') || allText.includes('advocate')) {
+      return 'Champion';
+    }
+
+    return 'Unknown';
+  }
+
+  /**
+   * Extract personal facts from past meeting transcripts
+   */
+  private extractPersonalFacts(meetings: Meeting[]): string[] {
+    const facts: string[] = [];
+
+    // Look for common small talk patterns in transcripts
+    for (const meeting of meetings.slice(0, 3)) {
+      if (!meeting.transcript) continue;
+
+      const text = meeting.transcript
+        .filter(s => s.source === 'system') // Other participant's speech
+        .map(s => s.text)
+        .join(' ')
+        .toLowerCase();
+
+      // Location mentions
+      if (text.includes('bangalore') || text.includes('bengaluru')) {
+        facts.push('Based in Bengaluru');
+      } else if (text.includes('new york') || text.includes('nyc')) {
+        facts.push('Based in New York');
+      } else if (text.includes('san francisco') || text.includes('sf')) {
+        facts.push('Based in San Francisco');
+      }
+
+      // Hobbies/interests
+      if (text.includes('trek') || text.includes('hiking')) {
+        facts.push('Enjoys trekking/hiking');
+      }
+      if (text.includes('kids') || text.includes('children') || text.includes('soccer game')) {
+        facts.push('Has children');
+      }
+      if (text.includes('vacation') || text.includes('holiday')) {
+        facts.push('Recently mentioned vacation plans');
+      }
+    }
+
+    // Deduplicate and limit
+    return [...new Set(facts)].slice(0, 3);
+  }
+
+  /**
+   * Build recent activity from CRM data
+   */
+  private buildRecentActivity(crmData: CRMContactData | null): string[] {
+    const activities: string[] = [];
+
+    if (!crmData) return activities;
+
+    // Recent emails
+    const recentEmails = crmData.emails?.slice(0, 3) || [];
+    if (recentEmails.length > 0) {
+      const latestEmail = recentEmails[0];
+      activities.push(`Latest email: "${latestEmail.subject}" (${this.formatRelativeDate(latestEmail.date)})`);
+    }
+
+    // Recent notes (support tickets, etc.)
+    const recentNotes = crmData.notes?.slice(0, 2) || [];
+    for (const note of recentNotes) {
+      const preview = note.content.substring(0, 50);
+      activities.push(`CRM Note: "${preview}..." (${this.formatRelativeDate(note.date)})`);
+    }
+
+    // Deal activity
+    if (crmData.deals?.length) {
+      const deal = crmData.deals[0];
+      if (deal.dealStage) {
+        activities.push(`Deal in "${deal.dealStage}" stage`);
+      }
+    }
+
+    return activities.slice(0, 3);
+  }
+
+  /**
+   * Build action items (Block B: The "History")
+   */
+  private buildActionItems(meetings: Meeting[], _email: string | null): ActionItemStatus[] {
+    const items: ActionItemStatus[] = [];
+
+    for (const meeting of meetings.slice(0, 5)) {
+      if (!meeting.actionItems) continue;
+
+      for (let i = 0; i < meeting.actionItems.length; i++) {
+        const item = meeting.actionItems[i];
+
+        // Simple heuristic to determine assignment
+        const itemLower = item.toLowerCase();
+        const assignedTo: 'them' | 'us' =
+          itemLower.includes('they will') || itemLower.includes('they\'ll') ||
+          itemLower.includes('send us') || itemLower.includes('get back')
+            ? 'them' : 'us';
+
+        items.push({
+          id: `${meeting.id}-action-${i}`,
+          description: item,
+          assignedTo,
+          meetingId: meeting.id,
+          meetingTitle: meeting.title,
+          meetingDate: new Date(meeting.createdAt).toISOString(),
+          completed: false,
+          source: 'meeting_notes',
+        });
+      }
+    }
+
+    return items.slice(0, 10);
+  }
+
+  /**
+   * Build timeline (Block C) from meetings and CRM data
+   */
+  private buildTimeline(meetings: Meeting[], crmData: CRMContactData | null): TimelineEvent[] {
+    const events: TimelineEvent[] = [];
+
+    // Add meetings to timeline
+    for (const meeting of meetings.slice(0, 5)) {
+      events.push({
+        id: `meeting-${meeting.id}`,
+        date: new Date(meeting.createdAt).toISOString(),
+        type: 'meeting',
+        source: 'Meeting Notes',
+        summary: meeting.summary?.split('.')[0] || meeting.title || 'Meeting',
+        metadata: { meetingTitle: meeting.title },
+      });
+    }
+
+    // Add CRM emails to timeline
+    if (crmData?.emails) {
+      for (const email of crmData.emails.slice(0, 5)) {
+        events.push({
+          id: `email-${email.id}`,
+          date: email.date,
+          type: 'email',
+          source: crmData.source === 'hubspot' ? 'HubSpot' : 'Salesforce',
+          summary: email.subject,
+          metadata: { emailSubject: email.subject },
+        });
+      }
+    }
+
+    // Add CRM notes to timeline
+    if (crmData?.notes) {
+      for (const note of crmData.notes.slice(0, 3)) {
+        events.push({
+          id: `note-${note.id}`,
+          date: note.date,
+          type: 'note',
+          source: crmData.source === 'hubspot' ? 'HubSpot' : 'Salesforce',
+          summary: note.content.substring(0, 100),
+        });
+      }
+    }
+
+    // Add deal updates to timeline
+    if (crmData?.deals) {
+      for (const deal of crmData.deals.slice(0, 2)) {
+        if (deal.dealStage) {
+          events.push({
+            id: `deal-${deal.dealId || deal.dealName}`,
+            date: deal.closeDate || new Date().toISOString(),
+            type: 'deal_update',
+            source: crmData.source === 'hubspot' ? 'HubSpot' : 'Salesforce',
+            summary: `Deal "${deal.dealName}" in ${deal.dealStage}`,
+            metadata: { dealStage: deal.dealStage },
+          });
+        }
+      }
+    }
+
+    // Sort by date descending
+    events.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    return events.slice(0, 10);
+  }
+
+  /**
+   * Extract unresolved threads (promises not kept)
+   */
+  private async extractUnresolvedThreads(
+    meetings: Meeting[],
+    crmData: CRMContactData | null,
+    _aiProvider: any
+  ): Promise<UnresolvedThread[]> {
+    const threads: UnresolvedThread[] = [];
+
+    // Look for action items that might be unresolved
+    for (const meeting of meetings.slice(0, 3)) {
+      if (!meeting.actionItems) continue;
+
+      for (let i = 0; i < meeting.actionItems.length; i++) {
+        const item = meeting.actionItems[i];
+        const itemLower = item.toLowerCase();
+
+        // Check if it's something they were supposed to do
+        if (
+          itemLower.includes('they will send') ||
+          itemLower.includes('they\'ll send') ||
+          itemLower.includes('promised to') ||
+          itemLower.includes('will provide') ||
+          itemLower.includes('get back to us')
+        ) {
+          // Check if there's a follow-up email in CRM mentioning completion
+          const resolved = crmData?.emails?.some(
+            e => e.subject.toLowerCase().includes('attached') ||
+                 e.subject.toLowerCase().includes('as discussed')
+          );
+
+          if (!resolved) {
+            threads.push({
+              id: `thread-${meeting.id}-${i}`,
+              description: item,
+              originMeetingId: meeting.id,
+              originMeetingDate: new Date(meeting.createdAt).toISOString(),
+              originMeetingTitle: meeting.title,
+              promisedBy: 'them',
+              source: 'meeting_notes',
+            });
+          }
+        }
+      }
+    }
+
+    return threads.slice(0, 5);
+  }
+
+  /**
+   * Calculate confidence with source attribution
+   */
+  private calculateConfidence(
+    meetings: Meeting[],
+    crmData: CRMContactData | null
+  ): ConfidenceMetrics {
+    const meetingCount = meetings.length;
+    const emailCount = crmData?.emails?.length || 0;
+    const noteCount = crmData?.notes?.length || 0;
+
+    // Calculate score based on data availability
+    let score = 20; // Base score for any lookup
+    score += Math.min(meetingCount * 20, 40); // Up to 40 for meetings
+    score += Math.min(emailCount * 5, 20); // Up to 20 for emails
+    score += Math.min(noteCount * 5, 10); // Up to 10 for notes
+    if (crmData?.deals?.length) score += 10; // Bonus for deal data
+
+    score = Math.min(score, 100);
+
+    // Build explanation
+    const parts: string[] = [];
+    if (meetingCount > 0) parts.push(`${meetingCount} Meeting${meetingCount > 1 ? 's' : ''}`);
+    if (emailCount > 0) parts.push(`${emailCount} Email${emailCount > 1 ? 's' : ''}`);
+    if (noteCount > 0) parts.push(`${noteCount} CRM Note${noteCount > 1 ? 's' : ''}`);
+    if (parts.length === 0) parts.push('No data sources');
+
+    return {
+      score,
+      sources: {
+        meetings: meetingCount,
+        emails: emailCount,
+        crmNotes: noteCount,
+        calls: 0,
+      },
+      explanation: `Data from: ${parts.join(', ')}`,
+    };
+  }
+
+  /**
+   * Analyze meeting sentiment using AI
+   */
+  async analyzeMeetingSentiment(transcript: TranscriptSegment[]): Promise<MeetingSentiment> {
+    const { aiProvider } = getContainer();
+    if (!aiProvider || transcript.length === 0) return 'Neutral';
+
+    const text = transcript.map(s => s.text).join(' ').substring(0, 2000);
+
+    const prompt = `Analyze the overall sentiment/mood of this meeting transcript.
+Return ONLY one word: "Positive", "Neutral", or "Tense"
+
+Transcript:
+${text}`;
+
+    try {
+      const response = await aiProvider.chat(
+        [{ role: 'user', content: prompt }],
+        { model: 'gpt-4o', temperature: 0.1, maxTokens: 10 }
+      );
+
+      const cleaned = response.trim().toLowerCase();
+      if (cleaned.includes('positive')) return 'Positive';
+      if (cleaned.includes('tense')) return 'Tense';
+      return 'Neutral';
+    } catch {
+      return 'Neutral';
+    }
+  }
+
+  /**
+   * Format relative date for display
+   */
+  private formatRelativeDate(dateStr: string): string {
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
+
+    if (diffDays === 0) return 'Today';
+    if (diffDays === 1) return 'Yesterday';
+    if (diffDays < 7) return `${diffDays} days ago`;
+    if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
+    return date.toLocaleDateString();
   }
 }
 

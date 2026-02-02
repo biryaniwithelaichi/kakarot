@@ -3,6 +3,7 @@ import { Client } from '@hubspot/api-client';
 import { createLogger } from '../core/logger';
 import type { HubSpotOAuthToken } from '../providers/HubSpotOAuthProvider';
 import { BACKEND_BASE_URL } from '../providers/BackendAPIProvider';
+import type { CRMSnapshot, CRMEmailActivity, CRMNote, CRMContactData } from '@shared/types';
 
 const logger = createLogger('HubSpotService');
 
@@ -12,6 +13,24 @@ export interface ContactSearchResult {
   firstName?: string;
   lastName?: string;
   name?: string;
+}
+
+export interface HubSpotDeal {
+  id: string;
+  name: string;
+  stage: string;
+  amount?: number;
+  closeDate?: string;
+  pipeline?: string;
+}
+
+export interface HubSpotEngagement {
+  id: string;
+  type: 'EMAIL' | 'NOTE' | 'CALL' | 'MEETING' | 'TASK';
+  timestamp: number;
+  subject?: string;
+  body?: string;
+  direction?: 'INBOUND' | 'OUTBOUND';
 }
 
 export class HubSpotService {
@@ -329,5 +348,250 @@ export class HubSpotService {
   public getApiClient(accessToken: string): Client {
     const client = new Client({ accessToken });
     return client;
+  }
+
+  /**
+   * Get deals associated with a contact
+   */
+  public async getDealsForContact(
+    contactId: string,
+    accessToken: string
+  ): Promise<HubSpotDeal[]> {
+    try {
+      logger.debug('Fetching HubSpot deals for contact', { contactId });
+
+      // First, get deal associations for the contact
+      const assocResponse = await axios.get(
+        `https://api.hubapi.com/crm/v3/objects/contacts/${contactId}/associations/deals`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      );
+
+      const dealIds = assocResponse.data.results?.map((r: { id: string }) => r.id) || [];
+
+      if (dealIds.length === 0) {
+        logger.debug('No deals associated with contact', { contactId });
+        return [];
+      }
+
+      // Fetch deal details
+      const deals: HubSpotDeal[] = [];
+      for (const dealId of dealIds.slice(0, 5)) { // Limit to 5 deals
+        try {
+          const dealResponse = await axios.get(
+            `https://api.hubapi.com/crm/v3/objects/deals/${dealId}`,
+            {
+              params: {
+                properties: 'dealname,dealstage,amount,closedate,pipeline',
+              },
+              headers: {
+                Authorization: `Bearer ${accessToken}`,
+              },
+            }
+          );
+
+          const props = dealResponse.data.properties;
+          deals.push({
+            id: dealId,
+            name: props.dealname || 'Unnamed Deal',
+            stage: props.dealstage || 'Unknown',
+            amount: props.amount ? parseFloat(props.amount) : undefined,
+            closeDate: props.closedate || undefined,
+            pipeline: props.pipeline || undefined,
+          });
+        } catch (err) {
+          logger.warn('Failed to fetch deal details', { dealId, error: err });
+        }
+      }
+
+      logger.info('Fetched HubSpot deals for contact', { contactId, count: deals.length });
+      return deals;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('Failed to fetch deals for contact', { contactId, error: message });
+      return [];
+    }
+  }
+
+  /**
+   * Get engagements (emails, notes, calls) for a contact
+   */
+  public async getEngagementsForContact(
+    contactId: string,
+    accessToken: string,
+    limit: number = 20
+  ): Promise<HubSpotEngagement[]> {
+    try {
+      logger.debug('Fetching HubSpot engagements for contact', { contactId });
+
+      // Get engagement associations
+      const assocResponse = await axios.get(
+        `https://api.hubapi.com/crm/v3/objects/contacts/${contactId}/associations/engagements`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      );
+
+      const engagementIds = assocResponse.data.results?.map((r: { id: string }) => r.id) || [];
+
+      if (engagementIds.length === 0) {
+        logger.debug('No engagements for contact', { contactId });
+        return [];
+      }
+
+      // Fetch engagement details using the engagements API
+      const engagements: HubSpotEngagement[] = [];
+      for (const engId of engagementIds.slice(0, limit)) {
+        try {
+          const engResponse = await axios.get(
+            `https://api.hubapi.com/engagements/v1/engagements/${engId}`,
+            {
+              headers: {
+                Authorization: `Bearer ${accessToken}`,
+              },
+            }
+          );
+
+          const eng = engResponse.data;
+          const engType = eng.engagement?.type;
+          const metadata = eng.metadata || {};
+
+          engagements.push({
+            id: engId,
+            type: engType,
+            timestamp: eng.engagement?.timestamp || Date.now(),
+            subject: metadata.subject || metadata.title || undefined,
+            body: metadata.body || metadata.text || undefined,
+            direction: metadata.direction || undefined,
+          });
+        } catch (err) {
+          // Skip failed engagements
+        }
+      }
+
+      // Sort by timestamp descending
+      engagements.sort((a, b) => b.timestamp - a.timestamp);
+
+      logger.info('Fetched HubSpot engagements', { contactId, count: engagements.length });
+      return engagements;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('Failed to fetch engagements', { contactId, error: message });
+      return [];
+    }
+  }
+
+  /**
+   * Get comprehensive contact data including deals, emails, and notes
+   * This is the main method for prep data collection
+   */
+  public async getContactData(
+    email: string,
+    accessToken: string
+  ): Promise<CRMContactData | null> {
+    try {
+      // First, find the contact
+      const contact = await this.searchContactByEmail(email, accessToken);
+      if (!contact) {
+        logger.debug('Contact not found in HubSpot', { email });
+        return null;
+      }
+
+      // Fetch deals and engagements in parallel
+      const [deals, engagements] = await Promise.all([
+        this.getDealsForContact(contact.id, accessToken),
+        this.getEngagementsForContact(contact.id, accessToken),
+      ]);
+
+      // Transform deals to CRMSnapshot format
+      const crmDeals: CRMSnapshot[] = deals.map(deal => ({
+        dealId: deal.id,
+        dealName: deal.name,
+        dealValue: deal.amount,
+        dealStage: deal.stage,
+        closeDate: deal.closeDate,
+        source: 'hubspot' as const,
+      }));
+
+      // Separate emails and notes from engagements
+      const emails: CRMEmailActivity[] = engagements
+        .filter(e => e.type === 'EMAIL')
+        .map(e => ({
+          id: e.id,
+          subject: e.subject || 'No Subject',
+          snippet: e.body ? e.body.substring(0, 200) : undefined,
+          date: new Date(e.timestamp).toISOString(),
+          direction: e.direction === 'INBOUND' ? 'inbound' as const : 'outbound' as const,
+          source: 'hubspot' as const,
+        }));
+
+      const notes: CRMNote[] = engagements
+        .filter(e => e.type === 'NOTE')
+        .map(e => ({
+          id: e.id,
+          content: e.body || '',
+          date: new Date(e.timestamp).toISOString(),
+          source: 'hubspot' as const,
+        }));
+
+      // Find last activity date
+      const lastActivityDate = engagements.length > 0
+        ? new Date(engagements[0].timestamp).toISOString()
+        : undefined;
+
+      const contactData: CRMContactData = {
+        contactId: contact.id,
+        email: contact.email,
+        name: contact.name,
+        source: 'hubspot',
+        deals: crmDeals,
+        emails,
+        notes,
+        lastActivityDate,
+      };
+
+      logger.info('Fetched comprehensive HubSpot contact data', {
+        email,
+        deals: crmDeals.length,
+        emails: emails.length,
+        notes: notes.length,
+      });
+
+      return contactData;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('Failed to fetch comprehensive contact data', { email, error: message });
+      return null;
+    }
+  }
+
+  /**
+   * Get deal stage name from pipeline (for display)
+   */
+  public async getDealStageName(
+    stageId: string,
+    pipelineId: string,
+    accessToken: string
+  ): Promise<string> {
+    try {
+      const response = await axios.get(
+        `https://api.hubapi.com/crm/v3/pipelines/deals/${pipelineId}/stages`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      );
+
+      const stage = response.data.results?.find((s: { id: string }) => s.id === stageId);
+      return stage?.label || stageId;
+    } catch (error) {
+      return stageId; // Return raw ID if lookup fails
+    }
   }
 }

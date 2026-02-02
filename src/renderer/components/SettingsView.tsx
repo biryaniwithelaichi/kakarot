@@ -4,6 +4,9 @@ import type { AppSettings } from '@shared/types';
 import { Calendar } from 'lucide-react';
 import { ConfirmDialog } from './ConfirmDialog';
 import { toast } from '../stores/toastStore';
+import salesforceLogo from '../assets/salesforce logo.png';
+import hubspotLogo from '../assets/hubspotlogo.png';
+import { SlackIntegration } from './SlackIntegration';
 
 export default function SettingsView() {
   const { settings, setSettings } = useAppStore();
@@ -276,10 +279,10 @@ export default function SettingsView() {
             <div className="flex items-start justify-between px-4 py-3 rounded-lg border border-gray-700 bg-gray-800">
               <div className="flex-1 pr-4">
                 <h3 className="text-sm font-medium text-white mb-1">
-                  Open Kakarot when you log in
+                  Open Treeto when you log in
                 </h3>
                 <p className="text-xs text-gray-400">
-                  Kakarot will open automatically when you log in
+                  Treeto will open automatically when you log in
                 </p>
               </div>
               <ToggleSwitch
@@ -389,15 +392,6 @@ export default function SettingsView() {
               onDisconnect={() => showDisconnectConfirm('calendar', 'outlook', 'Outlook Calendar')}
               icon={<Calendar className="w-5 h-5 text-gray-400" />}
             />
-            <CalendarConnectionButton
-              provider="icloud"
-              label="iCloud Calendar"
-              isConnected={connectedCalendars.icloud}
-              isLoading={connectingProvider === 'icloud'}
-              onConnect={() => handleConnectCalendar('icloud')}
-              onDisconnect={() => showDisconnectConfirm('calendar', 'icloud', 'iCloud Calendar')}
-              icon={<Calendar className="w-5 h-5 text-gray-400" />}
-            />
           </div>
         </section>
 
@@ -438,6 +432,17 @@ export default function SettingsView() {
           </section>
         )}
 
+        {/* Slack Integration */}
+        <section className="space-y-4">
+          <h2 className="text-lg font-medium text-white border-b border-gray-700 pb-2">
+            Slack Integration
+          </h2>
+          <p className="text-sm text-gray-400">
+            Connect Slack to send notes directly to channels.
+          </p>
+          <SlackIntegration showTitle={false} />
+        </section>
+
         {/* CRM Integrations */}
         <section className="space-y-4">
           <h2 className="text-lg font-medium text-white border-b border-gray-700 pb-2">
@@ -463,9 +468,7 @@ export default function SettingsView() {
               }`}
             >
               <div className="flex items-center gap-3">
-                <div className="w-5 h-5 bg-gradient-to-br from-blue-400 to-blue-600 rounded text-white text-xs font-bold flex items-center justify-center">
-                  SF
-                </div>
+                <img src={salesforceLogo} alt="Salesforce" className="w-5 h-5 object-contain" />
                 <div className="text-left">
                   <p className="text-sm font-medium text-white">
                     {connectedCRMs.salesforce ? 'Salesforce Connected' : 'Connect Salesforce'}
@@ -501,9 +504,7 @@ export default function SettingsView() {
               }`}
             >
               <div className="flex items-center gap-3">
-                <div className="w-5 h-5 bg-gradient-to-br from-orange-400 to-orange-600 rounded text-white text-xs font-bold flex items-center justify-center">
-                  HS
-                </div>
+                <img src={hubspotLogo} alt="HubSpot" className="w-5 h-5 object-contain" />
                 <div className="text-left">
                   <p className="text-sm font-medium text-white">
                     {connectedCRMs.hubspot ? 'HubSpot Connected' : 'Connect HubSpot'}

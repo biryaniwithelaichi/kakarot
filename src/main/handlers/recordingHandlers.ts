@@ -354,12 +354,23 @@ export function registerRecordingHandlers(
     const meeting = await meetingRepo.endCurrentMeeting();
     logger.info('Meeting ended', { id: meeting?.id, transcriptCount: meeting?.transcript.length });
 
-    // Auto-generate notes in background
+    // Auto-generate notes in background (only if sufficient transcript)
     if (meeting && meetingId) {
-      mainWindow.webContents.send(IPC_CHANNELS.MEETING_NOTES_GENERATING, { meetingId: meeting.id });
-
       // Re-fetch meeting to get all transcript segments
       const fullMeeting = meetingRepo.findById(meeting.id);
+      
+      // Skip note generation if transcript has fewer than 2 segments
+      if (fullMeeting && fullMeeting.transcript.length < 2) {
+        logger.info('Skipping notes generation - insufficient transcript', {
+          meetingId: meeting.id,
+          transcriptLength: fullMeeting.transcript.length
+        });
+        mainWindow.webContents.send(IPC_CHANNELS.RECORDING_STATE, 'idle');
+        return meeting;
+      }
+
+      mainWindow.webContents.send(IPC_CHANNELS.MEETING_NOTES_GENERATING, { meetingId: meeting.id });
+
       if (fullMeeting && fullMeeting.transcript.length > 0) {
         // Generate notes safely with try/catch
         try {
@@ -444,18 +455,124 @@ export function registerRecordingHandlers(
     isPaused = true;
     // Cancel pending callouts - don't show callouts while paused
     calloutService.cancelPendingCallout();
+    
+    // Pause system audio
     if (systemAudioService) {
       systemAudioService.pause();
     }
+    
+    // Stop microphone capture (we'll restart on resume)
+    if (aecProcessor && aecProcessor.isMicrophoneCapturing()) {
+      logger.info('Stopping microphone capture on pause');
+      aecProcessor.stopMicrophoneCapture();
+    }
+    
+    // Pause transcription provider
+    if (transcriptionProvider) {
+      transcriptionProvider.pause?.();
+    }
+    
     mainWindow.webContents.send(IPC_CHANNELS.RECORDING_STATE, 'paused');
   });
 
   ipcMain.handle(IPC_CHANNELS.RECORDING_RESUME, async () => {
     isPaused = false;
+
+    // Resume system audio
     if (systemAudioService) {
       systemAudioService.resume();
     }
+
+    // Restart microphone capture if it was stopped
+    if (aecProcessor && !aecProcessor.isMicrophoneCapturing()) {
+      logger.info('Restarting microphone capture on resume');
+      aecProcessor.startMicrophoneCapture((samples: Float32Array, timestamp: number) => {
+        micAudioDataCount += samples.length;
+        if (transcriptionProvider && !isPaused) {
+          transcriptionProvider.send(samples, timestamp, 'microphone');
+        }
+      });
+    }
+
+    // Resume transcription provider
+    if (transcriptionProvider) {
+      transcriptionProvider.resume?.();
+    }
+
     mainWindow.webContents.send(IPC_CHANNELS.RECORDING_STATE, 'recording');
+  });
+
+  // Discard recording - stops everything without generating notes and deletes the meeting
+  ipcMain.handle(IPC_CHANNELS.RECORDING_DISCARD, async () => {
+    logger.info('Recording discard requested');
+    const { meetingRepo } = getContainer();
+    const meetingId = meetingRepo.getCurrentMeetingId();
+
+    // Cancel any pending callouts
+    calloutService.reset();
+    activeCalendarContext = null;
+
+    // Stop system audio capture
+    if (systemAudioService) {
+      const sas = systemAudioService;
+      systemAudioService = null;
+      await sas.stop().catch((error) => logger.error('System audio stop error on discard', error));
+      logger.info('System audio capture stopped (discard)');
+    }
+
+    // Stop native mic capture
+    if (aecProcessor && aecProcessor.isMicrophoneCapturing()) {
+      logger.info('Stopping native microphone capture (discard)');
+      aecProcessor.stopMicrophoneCapture();
+    }
+
+    // Wait for in-flight audio callbacks
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    // Clean up AEC sync
+    if (aecSync) {
+      aecSync.clear();
+      aecSync = null;
+    }
+
+    // Clean up AEC processor
+    if (aecProcessor) {
+      try {
+        aecProcessor.destroy();
+      } catch (error) {
+        logger.warn('Error destroying AEC processor on discard', { error: (error as Error).message });
+      }
+      aecProcessor = null;
+    }
+
+    // Reset mic audio counter
+    micAudioDataCount = 0;
+
+    // Disconnect transcription
+    if (transcriptionProvider) {
+      const tp = transcriptionProvider;
+      transcriptionProvider = null;
+      await tp.disconnect().catch((error) => logger.error('Transcription disconnect error on discard', error));
+      logger.info('Transcription provider disconnected (discard)');
+    }
+
+    isPaused = false;
+
+    // Delete the meeting if it exists
+    if (meetingId) {
+      try {
+        meetingRepo.clearCurrentMeeting();
+        meetingRepo.delete(meetingId);
+        logger.info('Meeting discarded', { meetingId });
+      } catch (error) {
+        logger.error('Failed to delete meeting on discard', { error: (error as Error).message });
+      }
+    } else {
+      meetingRepo.clearCurrentMeeting();
+    }
+
+    mainWindow.webContents.send(IPC_CHANNELS.RECORDING_STATE, 'idle');
+    logger.info('Recording discarded successfully');
   });
 }
 

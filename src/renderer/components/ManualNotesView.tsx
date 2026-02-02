@@ -254,33 +254,35 @@ export default function ManualNotesView({ meetingId, onSelectTab, onSaveNotes, o
   const endTime = meeting ? new Date(meeting.end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
 
   return (
-    <div className="h-[calc(100vh-12rem)] bg-studio text-slate-ink dark:bg-onyx dark:text-gray-100 flex flex-col w-full">
-      <div className="flex-1 flex flex-col justify-center mx-auto w-full max-w-2xl px-4 sm:px-6 py-4">
-      {/* Header Section */}
-      <div className="flex-shrink-0 border-b border-slate-200 dark:border-slate-700 pb-4 mb-4">
-        {/* Meeting Title */}
-        <h1 className="text-2xl font-semibold text-slate-900 dark:text-white mb-3">
-          {meetingTitle}
-        </h1>
+    <div className="flex-1 min-h-0 bg-gradient-to-br from-[#0C0C0F] via-[#0D0D0F] to-[#0C0C14] text-slate-ink dark:text-gray-100 flex flex-col overflow-hidden">
+      <div className="w-full flex justify-center flex-1 min-h-0 overflow-hidden px-4 sm:px-6">
+        <div className="w-full max-w-2xl flex flex-col flex-1 min-h-0 overflow-hidden">
+          {/* Header Section */}
+          <div className="flex-shrink-0 pt-4 sm:pt-6 pb-3">
+            <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm p-4 sm:p-5">
+              {/* Meeting Title */}
+              <h1 className="text-2xl font-semibold text-white mb-3">
+                {meetingTitle}
+              </h1>
 
-        {/* Meeting Metadata */}
-        <div className="flex items-center gap-3 text-sm flex-wrap relative">
-          <div className="relative">
-            <button 
-              ref={timeButtonRef}
-              onClick={() => setShowTimePopover(!showTimePopover)}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/60 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 hover:bg-white/80 dark:hover:bg-slate-700/80 transition text-slate-600 dark:text-slate-400"
-            >
-              <Clock className="w-4 h-4" />
-              <span>{meetingTime}</span>
-              <ChevronDown className="w-4 h-4 opacity-50" />
-            </button>
+              {/* Meeting Metadata */}
+              <div className="flex items-center gap-3 text-sm flex-wrap relative">
+                <div className="relative">
+                  <button 
+                    ref={timeButtonRef}
+                    onClick={() => setShowTimePopover(!showTimePopover)}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/10 border border-white/10 hover:bg-white/15 transition text-slate-200"
+                  >
+                    <Clock className="w-4 h-4" />
+                    <span>{meetingTime}</span>
+                    <ChevronDown className="w-4 h-4 opacity-50" />
+                  </button>
 
-            {showTimePopover && (
-              <div
-                ref={timePopoverRef}
-                className="absolute top-full left-0 mt-2 bg-slate-900 dark:bg-slate-950 rounded-xl border border-slate-800 dark:border-slate-700 shadow-2xl z-50 overflow-hidden min-w-max"
-              >
+                  {showTimePopover && (
+                    <div
+                      ref={timePopoverRef}
+                      className="absolute top-full left-0 mt-2 bg-slate-900 dark:bg-slate-950 rounded-xl border border-slate-800 dark:border-slate-700 shadow-2xl z-50 overflow-hidden min-w-max"
+                    >
                 {/* Header */}
                 <div className="p-4 border-b border-slate-800 flex items-center justify-between">
                   <h3 className="text-base font-semibold text-white">Meeting Time</h3>
@@ -341,73 +343,79 @@ export default function ManualNotesView({ meetingId, onSelectTab, onSaveNotes, o
                   </div>
                 </div>
               </div>
-            )}
+                  )}
+                </div>
+                
+                {meeting?.attendees && meeting.attendees.length > 0 ? (
+                  <AttendeesList 
+                    attendeeEmails={
+                      meeting.attendees.map((a: any) => 
+                        typeof a === 'string' ? a : a.email
+                      )
+                    } 
+                  />
+                ) : (
+                  <button className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/10 border border-white/10 hover:bg-white/15 transition text-slate-200 whitespace-nowrap">
+                    <Users className="w-4 h-4" />
+                    Add attendees
+                  </button>
+                )}
+
+                <button className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/10 border border-white/10 hover:bg-white/15 transition text-slate-200">
+                  <FolderPlus className="w-4 h-4" />
+                  Add to folder
+                </button>
+              </div>
+            </div>
           </div>
-          
-          {meeting?.attendees && meeting.attendees.length > 0 ? (
-            <AttendeesList 
-              attendeeEmails={
-                meeting.attendees.map((a: any) => 
-                  typeof a === 'string' ? a : a.email
-                )
-              } 
-            />
-          ) : (
-            <button className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/60 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 hover:bg-white/80 dark:hover:bg-slate-700/80 transition text-slate-600 dark:text-slate-400 whitespace-nowrap">
-              <Users className="w-4 h-4" />
-              Add attendees
-            </button>
-          )}
 
-          <button className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/60 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 hover:bg-white/80 dark:hover:bg-slate-700/80 transition text-slate-600 dark:text-slate-400">
-            <FolderPlus className="w-4 h-4" />
-            Add to folder
-          </button>
-        </div>
-      </div>
+          {/* Notes Editor */}
+          <div className="flex-1 min-h-0 pb-4 sm:pb-6">
+            <div className="h-full rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm p-4 sm:p-5 flex flex-col">
+              <div className="flex-1 min-h-0 overflow-y-auto">
+                <textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Write notes..."
+                  className="w-full min-h-full resize-none bg-transparent text-lg text-white placeholder-slate-400 focus:outline-none leading-relaxed"
+                />
+              </div>
 
-      {/* Notes Editor */}
-      <div className="flex-1 min-h-0 py-4 overflow-y-auto">
-        <textarea
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          placeholder="Write notes..."
-          className="w-full min-h-full resize-none bg-transparent text-lg text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none leading-relaxed"
-        />
-      </div>
-
-      {/* Bottom Bar */}
-      <div className="flex-shrink-0 py-4 border-t border-slate-200 dark:border-slate-700 bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm flex items-center justify-between">
-        <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
-          <span>{notes.length} characters</span>
-          {isSaving && (
-            <span className="text-amber-600 dark:text-amber-400">Saving...</span>
-          )}
-          {!isSaving && lastSaved && (
-            <span className="text-emerald-600 dark:text-emerald-400">
-              Saved {lastSaved.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-            </span>
-          )}
+              {/* Bottom Bar */}
+              <div className="flex-shrink-0 pt-4 mt-4 border-t border-white/10 flex items-center justify-between">
+                <div className="flex items-center gap-3 text-xs text-slate-400">
+                  <span>{notes.length} characters</span>
+                  {isSaving && (
+                    <span className="text-amber-400">Saving...</span>
+                  )}
+                  {!isSaving && lastSaved && (
+                    <span className="text-emerald-400">
+                      Saved {lastSaved.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  )}
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  {onStartRecording && (
+                    <button
+                      onClick={onStartRecording}
+                      className="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 text-sm font-medium transition-colors"
+                    >
+                      Transcribe Now
+                    </button>
+                  )}
+                  <button
+                    onClick={() => onSelectTab?.('prep')}
+                    className="px-4 py-2 rounded-lg bg-emerald-mist hover:bg-emerald-mist/90 text-onyx font-medium transition-colors flex items-center gap-2"
+                  >
+                    <BookOpen className="w-4 h-4" />
+                    Prep
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-        
-        <div className="flex items-center gap-2">
-          {onStartRecording && (
-            <button
-              onClick={onStartRecording}
-              className="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 text-sm font-medium transition-colors"
-            >
-              Transcribe Now
-            </button>
-          )}
-          <button
-            onClick={() => onSelectTab?.('prep')}
-            className="px-4 py-2 rounded-lg bg-emerald-mist hover:bg-emerald-mist/90 text-onyx font-medium transition-colors flex items-center gap-2"
-          >
-            <BookOpen className="w-4 h-4" />
-            Prep
-          </button>
-        </div>
-      </div>
       </div>
     </div>
   );

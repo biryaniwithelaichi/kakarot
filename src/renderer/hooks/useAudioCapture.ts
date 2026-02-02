@@ -83,36 +83,159 @@ export function useAudioCapture() {
   }, [setupMicWorklet]);
 
   const stopCapture = useCallback(async () => {
-    if (micSourceRef.current) {
-      micSourceRef.current.disconnect();
-      micSourceRef.current = null;
-    }
+    try {
+      // First, pause to stop worklet from processing
+      isPausedRef.current = true;
+      console.log('[AudioCapture] Paused worklet processing');
 
-    if (micWorkletRef.current) {
-      micWorkletRef.current.disconnect();
-      micWorkletRef.current = null;
-    }
+      // Wait a tick to let any pending messages flush
+      await new Promise((resolve) => setTimeout(resolve, 50));
 
-    if (micStreamRef.current) {
-      micStreamRef.current.getTracks().forEach((track) => track.stop());
-      micStreamRef.current = null;
-    }
+      // Disconnect and stop all nodes first
+      if (micSourceRef.current) {
+        try {
+          micSourceRef.current.disconnect();
+          console.log('[AudioCapture] Source node disconnected');
+        } catch (err) {
+          console.warn('[AudioCapture] Error disconnecting source:', err);
+        }
+        micSourceRef.current = null;
+      }
 
-    if (micAudioContextRef.current) {
-      await micAudioContextRef.current.close();
-      micAudioContextRef.current = null;
-    }
+      if (micWorkletRef.current) {
+        try {
+          micWorkletRef.current.disconnect();
+          console.log('[AudioCapture] Worklet node disconnected');
+        } catch (err) {
+          console.warn('[AudioCapture] Error disconnecting worklet:', err);
+        }
+        micWorkletRef.current = null;
+      }
 
-    micWorkletLoadedRef.current = false;
+      // Stop all tracks to release the microphone - this is critical
+      if (micStreamRef.current) {
+        const trackCount = micStreamRef.current.getTracks().length;
+        micStreamRef.current.getTracks().forEach((track) => {
+          try {
+            // Force stop the track
+            track.enabled = false;
+            track.stop();
+            console.log('[AudioCapture] Stopped audio track:', track.label, 'readyState:', track.readyState);
+          } catch (err) {
+            console.warn('[AudioCapture] Error stopping track:', err);
+          }
+        });
+        console.log('[AudioCapture] All tracks stopped:', trackCount);
+        micStreamRef.current = null;
+      }
+
+      // Wait a bit before closing context
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      // Close audio context - this is critical for releasing mic
+      if (micAudioContextRef.current) {
+        try {
+          const state = micAudioContextRef.current.state;
+          console.log('[AudioCapture] Closing audio context, state:', state);
+          
+          if (state !== 'closed') {
+            // Try to close the context
+            await micAudioContextRef.current.close();
+            console.log('[AudioCapture] Audio context closed successfully');
+          }
+        } catch (err) {
+          console.warn('[AudioCapture] Error closing audio context:', err);
+        }
+        micAudioContextRef.current = null;
+      }
+
+      micWorkletLoadedRef.current = false;
+      console.log('[AudioCapture] ✅ Capture fully stopped and all resources released');
+    } catch (err) {
+      console.error('[AudioCapture] Error in stopCapture:', err);
+    }
   }, []);
 
-  const pause = useCallback(() => {
+  const pause = useCallback(async () => {
     isPausedRef.current = true;
+    console.log('[AudioCapture] Pausing - stopping tracks to release OS microphone');
+    
+    try {
+      // Stop all tracks to fully release the microphone to the OS
+      if (micStreamRef.current) {
+        micStreamRef.current.getTracks().forEach((track) => {
+          try {
+            track.enabled = false;
+            track.stop();
+            console.log('[AudioCapture] Paused - stopped audio track:', track.label);
+          } catch (err) {
+            console.warn('[AudioCapture] Error stopping track on pause:', err);
+          }
+        });
+        micStreamRef.current = null;
+      }
+      
+      // Disconnect nodes but keep context (for lower overhead on resume)
+      if (micSourceRef.current) {
+        try {
+          micSourceRef.current.disconnect();
+          console.log('[AudioCapture] Paused - source node disconnected');
+        } catch (err) {
+          console.warn('[AudioCapture] Error disconnecting source on pause:', err);
+        }
+        micSourceRef.current = null;
+      }
+      
+      if (micWorkletRef.current) {
+        try {
+          micWorkletRef.current.disconnect();
+          console.log('[AudioCapture] Paused - worklet node disconnected');
+        } catch (err) {
+          console.warn('[AudioCapture] Error disconnecting worklet on pause:', err);
+        }
+        micWorkletRef.current = null;
+      }
+      
+      console.log('[AudioCapture] ✅ Pause complete - OS microphone released');
+    } catch (err) {
+      console.error('[AudioCapture] Error in pause:', err);
+    }
   }, []);
 
-  const resume = useCallback(() => {
+  const resume = useCallback(async () => {
     isPausedRef.current = false;
-  }, []);
+    console.log('[AudioCapture] Resuming - restarting microphone capture');
+    
+    try {
+      // Get a fresh microphone stream
+      micStreamRef.current = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          sampleRate: 48000,
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false,
+        },
+        video: false,
+      });
+
+      const micTrack = micStreamRef.current.getAudioTracks()[0];
+      micTrack.onended = () => console.error('[AudioCapture] Mic track ended unexpectedly on resume');
+
+      // Reconnect nodes
+      if (micAudioContextRef.current) {
+        const micResult = await setupMicWorklet(micAudioContextRef.current, micStreamRef.current);
+        if (micResult) {
+          micWorkletRef.current = micResult.worklet;
+          micSourceRef.current = micResult.sourceNode;
+          console.log('[AudioCapture] ✅ Resume complete - microphone capture restarted');
+        }
+      } else {
+        console.warn('[AudioCapture] Audio context lost, cannot resume');
+      }
+    } catch (err) {
+      console.error('[AudioCapture] Error in resume:', err);
+    }
+  }, [setupMicWorklet]);
 
   return {
     startCapture,

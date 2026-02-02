@@ -154,7 +154,13 @@ export class PeopleRepository {
 
     if (!name) {
       const localPart = email.split('@')[0];
-      const nameParts = localPart.split(/[._-]/).filter(part => part.length > 0);
+      const nameParts = localPart
+        .split(/[._-]/)
+        .filter(part => part.length > 0)
+        .map(part => part.replace(/\d+$/, '')) // Strip trailing numbers
+        .filter(part => part.length > 0) // Remove parts that became empty
+        .filter(part => !/^\d+$/.test(part)); // Remove purely numeric parts
+      
       name = nameParts
         .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
         .join(' ');
@@ -217,6 +223,47 @@ export class PeopleRepository {
 
     // Sort by contact count descending
     return companies.sort((a, b) => b.contactCount - a.contactCount);
+  }
+
+  cleanupNamesWithNumbers(): { updated: number } {
+    const db = getDatabase();
+    const rows = db.exec('SELECT email, name FROM people')[0]?.values || [];
+    let updated = 0;
+
+    for (const row of rows) {
+      const email = row[0] as string;
+      const currentName = row[1] as string | null;
+
+      if (!currentName) continue;
+
+      // Check if name contains numbers
+      if (!/\d/.test(currentName)) continue;
+
+      // Extract clean name from email
+      const localPart = email.split('@')[0];
+      const nameParts = localPart
+        .split(/[._-]/)
+        .filter(part => part.length > 0)
+        .map(part => part.replace(/\d+$/, '')) // Strip trailing numbers
+        .filter(part => part.length > 0) // Remove parts that became empty
+        .filter(part => !/^\d+$/.test(part)); // Remove purely numeric parts
+      
+      const cleanName = nameParts
+        .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+        .join(' ');
+
+      if (cleanName && cleanName !== currentName) {
+        db.run('UPDATE people SET name = ? WHERE email = ?', [cleanName, email]);
+        updated++;
+        logger.info('Cleaned up name with numbers', { email, old: currentName, new: cleanName });
+      }
+    }
+
+    if (updated > 0) {
+      saveDatabase();
+    }
+
+    return { updated };
   }
 
   private rowToPerson(row: unknown[]): Person {

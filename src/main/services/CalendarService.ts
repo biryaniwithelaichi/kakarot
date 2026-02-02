@@ -82,8 +82,26 @@ export class CalendarService {
         try {
           const calendarList = await this.listCalendars('google');
           if (calendarList.length > 0) {
-            await this.setVisibleCalendars('google', calendarList.map(cal => cal.id));
-            logger.info('Auto-populated visible Google calendars', { count: calendarList.length });
+            // Only select the user's primary calendar
+            // Primary calendar might be listed with ID='primary' or the user's email
+            const userEmail = tokens.userEmail;
+            const primaryCalendars = calendarList.filter(cal => 
+              cal.id === userEmail || cal.id === 'primary'
+            );
+            
+            // Default to primary calendar(s), or all if primary not found
+            const defaultVisible = primaryCalendars.length > 0 
+              ? primaryCalendars.map(cal => cal.id)
+              : [calendarList[0].id]; // Fallback to first if no primary found
+            
+            await this.setVisibleCalendars('google', defaultVisible);
+            logger.info('Auto-populated visible Google calendars', { 
+              total: calendarList.length,
+              selected: defaultVisible,
+              userEmail,
+              primaryCalendars: primaryCalendars.map(c => ({ id: c.id, name: c.name })),
+              allCalendars: calendarList.map(c => ({ id: c.id, name: c.name }))
+            });
           }
         } catch (err) {
           logger.warn('Failed to auto-populate visible Google calendars', { error: (err as Error).message });
@@ -529,6 +547,12 @@ export class CalendarService {
         if (!response.ok) {
           const errorText = await response.text();
           
+          // Handle 404 - calendar not accessible (likely shared calendar with no access)
+          if (response.status === 404) {
+            logger.warn(`[Google Calendar API] Calendar not found or not accessible (404) for calendar ${calendarId}. Skipping this calendar.`);
+            return [];
+          }
+          
           // Handle rate limiting (429) with exponential backoff
           if (response.status === 429 && attempt < maxRetries - 1) {
             const backoffMs = Math.min(1000 * Math.pow(2, attempt) + Math.random() * 1000, 10000);
@@ -727,8 +751,15 @@ export class CalendarService {
             results.push(...events);
           }
         } else {
-          const events = await this.fetchGoogleEvents(settings.calendarConnections.google, now, oneWeekFromNow);
-          results.push(...events);
+          // Fallback: if no visible calendars configured, only fetch from primary (user's email)
+          const primaryCalendarId = settings.calendarConnections.google?.userEmail;
+          if (primaryCalendarId) {
+            const events = await this.fetchGoogleEvents(settings.calendarConnections.google, now, oneWeekFromNow, primaryCalendarId);
+            results.push(...events);
+            logger.warn('No visible calendars configured; using primary calendar fallback', { primaryCalendarId });
+          } else {
+            logger.warn('No visible calendars and no primary calendar ID available');
+          }
         }
       } catch (err) {
         logger.error('Failed to fetch Google upcoming events', err as Error, { provider: 'google' });

@@ -12,6 +12,8 @@ import SearchPopup from './SearchPopup';
 import { FileText, Square, Search, Loader2, Calendar as CalendarIcon, Users, Folder, Share2, Copy, Check, X, MessageSquare, Clock3, Clock, ChevronDown, Mic } from 'lucide-react';
 import { formatDateTime } from '../lib/formatters';
 import type { CalendarEvent, AppSettings } from '@shared/types';
+import slackLogo from '../assets/slack.png';
+import { toast } from '../stores/toastStore';
 
 interface RecordingViewProps {
   onSelectTab?: (tab: 'notes' | 'prep') => void;
@@ -28,7 +30,7 @@ type LiveCalloutEntry = {
 
 export default function RecordingView({ onSelectTab }: RecordingViewProps) {
   const { recordingState, audioLevels, liveTranscript, currentPartials, clearLiveTranscript, calendarContext, setCalendarContext, activeCalendarContext, setActiveCalendarContext, setLastCompletedNoteId, setSelectedMeeting, setView, currentMeetingId, setCurrentMeetingId, showRecordingHome, setShowRecordingHome } = useAppStore();
-  const { startCapture, stopCapture } = useAudioCapture();
+  const { startCapture, stopCapture, pause: pauseCapture, resume: resumeCapture } = useAudioCapture();
   const [pillarTab, setPillarTab] = React.useState<'notes' | 'prep'>('notes');
   const [recordingTitle, setRecordingTitle] = React.useState<string>(''); // Title to display during recording
   const [upcomingMeetingId, setUpcomingMeetingId] = React.useState<string | null>(null); // Meeting ID for upcoming notes
@@ -49,6 +51,15 @@ export default function RecordingView({ onSelectTab }: RecordingViewProps) {
   const [showManualNotes, setShowManualNotes] = React.useState<boolean>(false);
   const [notes, setNotes] = React.useState<string>('');
   const [showSearchPopup, setShowSearchPopup] = React.useState<boolean>(false);
+  
+  // Slack state
+  const [slackToken, setSlackToken] = React.useState<string | null>(null);
+  const [slackChannels, setSlackChannels] = React.useState<Array<{ id: string; name: string; isPrivate?: boolean }>>([]);
+  const [slackChannelId, setSlackChannelId] = React.useState('');
+  const [isSlackConnecting, setIsSlackConnecting] = React.useState(false);
+  const [isSlackSending, setIsSlackSending] = React.useState(false);
+  const [showSlackOptions, setShowSlackOptions] = React.useState(false);
+  
   const [calloutTimeline, setCalloutTimeline] = React.useState<LiveCalloutEntry[]>([]);
   const [showTimePopover, setShowTimePopover] = React.useState<boolean>(false);
   const [showParticipantsPopover, setShowParticipantsPopover] = React.useState<boolean>(false);
@@ -66,6 +77,25 @@ export default function RecordingView({ onSelectTab }: RecordingViewProps) {
   const isRecording = recordingState === 'recording';
   const isPaused = recordingState === 'paused';
   const isGenerating = phase === 'processing';
+
+  // Track previous recording state to detect pause->resume transitions
+  const prevRecordingStateRef = React.useRef<string>(recordingState);
+
+  // Pause/resume audio capture when recording state changes
+  React.useEffect(() => {
+    const prevState = prevRecordingStateRef.current;
+    prevRecordingStateRef.current = recordingState;
+
+    if (recordingState === 'paused') {
+      pauseCapture();
+    } else if (recordingState === 'recording' && prevState === 'paused') {
+      // Only resume if we're coming from a paused state, not from idle (fresh start)
+      resumeCapture();
+    } else if (recordingState === 'idle' && (prevState === 'paused' || prevState === 'recording')) {
+      // Fully stop capture when discarding or ending (paused/recording -> idle)
+      stopCapture();
+    }
+  }, [recordingState, pauseCapture, resumeCapture, stopCapture]);
 
   // Forward tab changes to parent if handler provided
   const handleSelectTab = (tab: 'notes' | 'prep') => {
@@ -352,6 +382,25 @@ export default function RecordingView({ onSelectTab }: RecordingViewProps) {
   };
 
   const handleStopRecording = async () => {
+    // If paused, resume instead
+    if (recordingState === 'paused') {
+      console.log('Resuming transcription');
+      await window.kakarot.recording.resume();
+      return;
+    }
+
+    // Check if transcript has enough content (at least 2 segments)
+    const transcriptSegments = liveTranscript.filter(item => item.text?.trim());
+    
+    if (transcriptSegments.length < 2) {
+      // Not enough content - pause recording and release microphone
+      // User can resume or discard from the paused state
+      console.log('Insufficient transcript content, pausing recording for user to continue');
+      await window.kakarot.recording.pause();
+      return;
+    }
+
+    // Sufficient content - proceed with normal stop and note generation
     setPhase('processing');
     setErrorMessage('');
     await stopCapture();
@@ -395,7 +444,7 @@ export default function RecordingView({ onSelectTab }: RecordingViewProps) {
     } catch (err) {
       console.error('[RecordingView] Failed to check CRM settings:', err);
     }
-    
+
     // Keep active calendar context until notes render so metadata can be surfaced
   };
 
@@ -495,6 +544,46 @@ export default function RecordingView({ onSelectTab }: RecordingViewProps) {
     setShowCRMPrompt(false);
     setPendingCRMMeetingId(null);
     setCRMProvider(null);
+  };
+
+  const handleSlack = async () => {
+    if (!completedMeeting) return;
+
+    if (!slackToken) {
+      try {
+        setIsSlackConnecting(true);
+        const result = await window.kakarot.slack.connect();
+        setSlackToken(result.accessToken);
+        const channelList = await window.kakarot.slack.getChannels(result.accessToken);
+        setSlackChannels(channelList);
+        setShowSlackOptions(true);
+      } catch (err) {
+        console.error('Failed to connect to Slack:', err);
+        toast.error('Failed to connect to Slack');
+      } finally {
+        setIsSlackConnecting(false);
+      }
+    } else {
+      setShowSlackOptions(true);
+    }
+  };
+
+  const handleSlackSend = async () => {
+    if (!slackToken || !slackChannelId || !completedMeeting) return;
+
+    setIsSlackSending(true);
+    try {
+      const notesContent = completedMeeting.notesMarkdown || completedMeeting.overview || 'Meeting notes';
+      await window.kakarot.slack.sendNote(slackToken, slackChannelId, `📝 *${completedMeeting.title}*\n\n${notesContent}`);
+      toast.success('Notes sent to Slack!');
+      setShowSlackOptions(false);
+      setShowSharePopover(false);
+    } catch (err) {
+      console.error('Failed to send to Slack:', err);
+      toast.error('Failed to send notes to Slack');
+    } finally {
+      setIsSlackSending(false);
+    }
   };
 
   return (
@@ -734,7 +823,7 @@ export default function RecordingView({ onSelectTab }: RecordingViewProps) {
                         className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-700/80 text-slate-300 text-xs font-medium hover:bg-slate-600/80 transition"
                       >
                         <Square className="w-3 h-3" />
-                        Stop Transcribing
+                        {recordingState === 'paused' ? 'Resume Transcribing' : 'Stop Transcribing'}
                       </button>
                     </div>
 
@@ -751,13 +840,6 @@ export default function RecordingView({ onSelectTab }: RecordingViewProps) {
                       >
                         <Mic className="w-4 h-4" />
                         <span className="text-sm font-medium">Live Transcription</span>
-                        {liveTranscript.length > 0 && (
-                          <span className={`text-xs px-2 py-0.5 rounded-full ${
-                            showTranscriptPopover ? 'bg-white/20' : 'bg-[#4ea8dd]/30 text-[#4ea8dd]'
-                          }`}>
-                            {liveTranscript.length}
-                          </span>
-                        )}
                       </button>
                     </div>
                   </div>
@@ -794,6 +876,39 @@ export default function RecordingView({ onSelectTab }: RecordingViewProps) {
                                 </span>
                                 <span className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-slate-400">Link</span>
                               </button>
+                              <button
+                                onClick={handleSlack}
+                                disabled={isSlackConnecting}
+                                className="w-full flex items-center justify-between px-3 py-2 rounded-md bg-slate-100 dark:bg-slate-700 text-sm font-medium text-slate-800 dark:text-slate-100 hover:bg-slate-200 dark:hover:bg-slate-600 transition disabled:opacity-50"
+                              >
+                                <span className="flex items-center gap-2">
+                                  <img src={slackLogo} alt="Slack" className="w-4 h-4" />
+                                  {isSlackConnecting ? 'Connecting...' : 'Send to Slack'}
+                                </span>
+                              </button>
+                              {showSlackOptions && (
+                                <div className="pt-2 border-t border-slate-200 dark:border-slate-700 space-y-2">
+                                  <select
+                                    value={slackChannelId}
+                                    onChange={(e) => setSlackChannelId(e.target.value)}
+                                    className="w-full px-2 py-1.5 text-sm rounded-md bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100"
+                                  >
+                                    <option value="">Select channel...</option>
+                                    {slackChannels.map((channel) => (
+                                      <option key={channel.id} value={channel.id}>
+                                        {channel.isPrivate ? '🔒' : '#'} {channel.name}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  <button
+                                    onClick={handleSlackSend}
+                                    disabled={!slackChannelId || isSlackSending}
+                                    className="w-full px-3 py-1.5 rounded-md bg-[#4ea8dd] hover:bg-[#3d96cb] text-white text-sm font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
+                                  >
+                                    {isSlackSending ? 'Sending...' : 'Send'}
+                                  </button>
+                                </div>
+                              )}
                               <p className="text-[11px] text-slate-500 dark:text-slate-400 break-all leading-tight bg-slate-50 dark:bg-slate-900/60 rounded-md px-2 py-1">{shareLink}</p>
                             </div>
                           )}
