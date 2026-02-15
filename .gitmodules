@@ -1,0 +1,3 @@
+[submodule "native/kakarot-audio/deps/webrtc-audio-processing"]
+	path = native/kakarot-audio/deps/webrtc-audio-processing
+	url = https://gitlab.freedesktop.org/pulseaudio/webrtc-audio-processing.git
