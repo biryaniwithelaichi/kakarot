@@ -83,6 +83,12 @@ export class GeminiProvider implements AIProvider {
     return contents;
   }
 
+  async *chatStream(messages: ChatMessage[], options: ChatOptions = {}): AsyncIterable<string> {
+    // Fallback: Gemini streaming not implemented, yield full response
+    const response = await this.chat(messages, options);
+    yield response;
+  }
+
   async complete(prompt: string, model?: string): Promise<string> {
     return this.chat([{ role: 'user', content: prompt }], { model });
   }

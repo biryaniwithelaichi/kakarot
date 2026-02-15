@@ -1,127 +1,47 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
-import type { CalendarEvent, Meeting, AppSettings } from '@shared/types';
+import { useState } from 'react';
+import type { CalendarEvent } from '@shared/types';
 import { useAppStore } from '@renderer/stores/appStore';
 import CompactMeetingBar from './CompactMeetingBar';
 import UpcomingMeetingsList from './UpcomingMeetingsList';
 import PreviousMeetingsList from './PreviousMeetingsList';
+import UpcomingMeetingsPopup from '../UpcomingMeetingsPopup';
 
 interface BentoDashboardProps {
   isRecording: boolean;
   hideCompactBarWhenNoEvents?: boolean;
   onStartNotes: (event?: CalendarEvent) => void;
-  onSelectTab?: (tab: 'notes' | 'prep' | 'interact') => void;
+  onSelectTab?: (tab: 'notes' | 'prep') => void;
 }
 
-type CompletedMeeting = Meeting & { endedAt: Date };
-
 export default function BentoDashboard({ isRecording, hideCompactBarWhenNoEvents, onStartNotes, onSelectTab }: BentoDashboardProps): JSX.Element {
-  const { setView, setSelectedMeeting, setCalendarContext, setActiveCalendarContext, recordingState } = useAppStore();
-  const prevRecordingState = useRef(recordingState);
-  const [liveEvents, setLiveEvents] = useState<CalendarEvent[]>([]);
-  const [dismissedEventIds, setDismissedEventIds] = useState<Set<string>>(() => {
-    try {
-      const stored = localStorage.getItem('dismissedEventIds');
-      return stored ? new Set(JSON.parse(stored)) : new Set();
-    } catch {
-      return new Set();
-    }
-  });
-  const [upcomingEventsWithoutNotes, setUpcomingEventsWithoutNotes] = useState<CalendarEvent[]>([]);
-  const [previousMeetings, setPreviousMeetings] = useState<CompletedMeeting[]>([]);
-  const [calendarMappings, setCalendarMappings] = useState<Record<string, any>>({});
+  const [showUpcomingPopup, setShowUpcomingPopup] = useState(false);
 
-  const loadPreviousMeetings = useCallback(async () => {
-    try {
-      const meetings = await window.kakarot.meetings.list();
-      const completed = meetings
-        .filter((m): m is CompletedMeeting => m.endedAt !== null)
-        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-        .slice(0, 5);
-      setPreviousMeetings(completed);
-    } catch (err) {
-      console.error('Failed to load previous meetings:', err);
-    }
-  }, []);
+  const {
+    navigate,
+    setSelectedMeeting,
+    setCalendarPreview,
+    setRecordingContext,
+    liveCalendarEvents,
+    upcomingCalendarEvents,
+    previousMeetings,
+    calendarMappings,
+    addDismissedEventId,
+    setPreviousMeetings,
+    settings,
+  } = useAppStore();
 
-  const loadCalendarMappings = useCallback(async () => {
-    try {
-      const settings = await window.kakarot.settings.get();
-      const mappings = (settings as AppSettings).calendarEventMappings || {};
-      setCalendarMappings(mappings);
-    } catch (err) {
-      console.error('Failed to load calendar mappings:', err);
-    }
-  }, []);
-
-  const loadUpcomingMeetings = useCallback(async () => {
-    try {
-      const events = await window.kakarot.calendar.getUpcoming();
-      
-      // Load calendar mappings (for view behavior), but do not exclude events with notes from Upcoming
-      const mappings = await (async () => {
-        try {
-          const settings = await window.kakarot.settings.get();
-          return (settings as AppSettings).calendarEventMappings || {};
-        } catch {
-          return {};
-        }
-      })();
-      setCalendarMappings(mappings);
-
-      const now = Date.now();
-      const oneMinute = 60_000;
-
-      // Upcoming section: events whose start is more than 1 minute away
-      const upcoming = events.filter((e) => new Date(e.start).getTime() - now > oneMinute);
-      setUpcomingEventsWithoutNotes(upcoming);
-
-      // Live bar: ALL events currently between start and end (not dismissed)
-      const live = events.filter((e) => {
-        const startMs = new Date(e.start).getTime();
-        const endMs = new Date(e.end).getTime();
-        return now >= startMs && now <= endMs && !dismissedEventIds.has(e.id);
-      });
-      setLiveEvents(live);
-    } catch (err) {
-      console.error('Failed to load calendar events:', err);
-    }
-  }, [dismissedEventIds]);
-
-  useEffect(() => {
-    loadUpcomingMeetings();
-    loadPreviousMeetings();
-    loadCalendarMappings();
-  }, [loadUpcomingMeetings, loadPreviousMeetings, loadCalendarMappings]);
-
-  // Listen for notes completion and refresh previous meetings
-  useEffect(() => {
-    const unsubscribe = window.kakarot.recording.onNotesComplete?.(() => {
-      setTimeout(() => {
-        loadPreviousMeetings();
-      }, 500);
-    });
-    return () => {
-      if (unsubscribe) unsubscribe();
-    };
-  }, [loadPreviousMeetings]);
-
-  // Refresh previous meetings when recording ends (transitions from recording to idle)
-  useEffect(() => {
-    if (prevRecordingState.current === 'recording' && recordingState === 'idle') {
-      // Small delay to allow database to update
-      setTimeout(() => {
-        loadPreviousMeetings();
-      }, 300);
-    }
-    prevRecordingState.current = recordingState;
-  }, [recordingState, loadPreviousMeetings]);
+  const isCalendarConnected = !!(
+    settings?.calendarConnections?.google ||
+    settings?.calendarConnections?.outlook ||
+    settings?.calendarConnections?.icloud
+  );
 
   const handleViewNotes = async (meetingId: string) => {
     try {
       const meeting = await window.kakarot.meetings.get(meetingId);
       if (meeting) {
         setSelectedMeeting(meeting);
-        setView('history');
+        navigate('meeting-detail', { meetingId });
       }
     } catch (err) {
       console.error('Failed to load meeting:', err);
@@ -140,116 +60,104 @@ export default function BentoDashboard({ isRecording, hideCompactBarWhenNoEvents
   };
 
   const handleNavigateSettings = () => {
-    setView('settings');
+    navigate('settings');
   };
 
-  /**
-   * Handle clicking on an upcoming meeting (Prep button)
-   * Prepares to record with this calendar context
-   */
-  const handleSelectUpcomingMeeting = (event: CalendarEvent) => {
+  const handleSelectUpcomingMeeting = (
+    event: CalendarEvent,
+    options?: { showPrep?: boolean }
+  ) => {
     const hasNotes = calendarMappings[event.id]?.notesId;
-    
+
     if (hasNotes) {
-      // View existing notes
       handleViewCalendarEventNotes(event.id);
     } else {
-      // Prepare to record with this calendar context
-      setCalendarContext(event);
-      setActiveCalendarContext(event);
-      setView('recording');
-      onSelectTab?.('prep');
+      setCalendarPreview(event);
+      setRecordingContext(event);
+      if (options?.showPrep ?? true) {
+        navigate('home');
+        onSelectTab?.('prep');
+      }
     }
   };
 
-  /**
-   * Handle taking manual notes on an upcoming meeting (Take Notes button)
-   * Opens manual notes interface without audio recording
-   */
   const handleTakeManualNotes = (event: CalendarEvent) => {
-    setCalendarContext(event);
-    setActiveCalendarContext(event);
-    setView('recording');
+    setCalendarPreview(event);
+    setRecordingContext(event);
+    navigate('recording');
     onSelectTab?.('notes');
   };
 
   const handleDismissLiveMeeting = async (eventId: string) => {
     try {
-      const event = liveEvents.find(e => e.id === eventId);
+      const event = liveCalendarEvents.find(e => e.id === eventId);
       if (!event) return;
 
-      setDismissedEventIds(prev => {
-        const updated = new Set([...prev, eventId]);
-        localStorage.setItem('dismissedEventIds', JSON.stringify([...updated]));
-        return updated;
-      });
+      addDismissedEventId(eventId);
 
       await window.kakarot.meetings.createDismissed(
         event.title,
         event.attendees?.map((a: any) => typeof a === 'string' ? a : a.email)
       );
 
-      await loadPreviousMeetings();
+      const meetings = await window.kakarot.meetings.list();
+      const now = Date.now();
+      const completed = meetings
+        .filter((m): m is typeof m & { endedAt: Date } => m.endedAt !== null)
+        .filter((m) => new Date(m.endedAt).getTime() < now)
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .slice(0, 5)
+        .map((m) => ({
+          id: m.id,
+          title: m.title,
+          start: new Date(m.createdAt),
+          end: new Date(m.endedAt),
+          hasTranscript: m.transcript.length > 0,
+          isCalendarEvent: false,
+        }));
+      setPreviousMeetings(completed);
     } catch (err) {
       console.error('Failed to dismiss live meeting:', err);
-      setDismissedEventIds(prev => {
-        const next = new Set(prev);
-        next.delete(eventId);
-        localStorage.setItem('dismissedEventIds', JSON.stringify([...next]));
-        return next;
-      });
     }
   };
 
-  // Previous meetings: completed recorded meetings OR dismissed meetings
-  // Filter out any that might be upcoming calendar events
-  const now = Date.now();
-  const allPreviousMeetings = previousMeetings
-    .filter((m) => {
-      // Show if it has ended (with or without transcript)
-      if (!m.endedAt) return false;
-      // Only show if end time is in the past
-      const endTime = new Date(m.endedAt).getTime();
-      return endTime < now;
-    })
-    .map((m) => ({
-      id: m.id,
-      title: m.title,
-      start: new Date(m.createdAt),
-      end: new Date(m.endedAt),
-      hasTranscript: m.transcript.length > 0,
-      isCalendarEvent: false,
-    }))
-    .sort((a, b) => b.start.getTime() - a.start.getTime())
-    .slice(0, 5);
-
   return (
-    <div className="h-full flex flex-col gap-2.5 p-3">
-      {/* Compact meeting bar at top */}
-      <div className="flex-shrink-0">
+    <div className="h-full flex flex-col items-center overflow-auto px-2 py-4">
+      <div className="w-full max-w-3xl flex flex-col gap-3">
         <CompactMeetingBar
-          events={liveEvents}
+          events={liveCalendarEvents}
           isRecording={isRecording}
           hideWhenNoEvents={hideCompactBarWhenNoEvents}
           onStartNotes={onStartNotes}
           onPrep={() => onSelectTab?.('prep')}
           onDismiss={handleDismissLiveMeeting}
         />
-      </div>
 
-      {/* Two-column layout: Upcoming | Previous (responsive) */}
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-2.5 min-h-0 overflow-auto">
         <UpcomingMeetingsList
-          meetings={upcomingEventsWithoutNotes}
+          meetings={upcomingCalendarEvents}
+          isCalendarConnected={isCalendarConnected}
           onNavigateSettings={handleNavigateSettings}
           onSelectMeeting={handleSelectUpcomingMeeting}
           onTakeNotes={handleTakeManualNotes}
-          onNavigateInteract={() => onSelectTab?.('interact')}
+          onViewMore={() => setShowUpcomingPopup(true)}
         />
+
+        {showUpcomingPopup && (
+          <UpcomingMeetingsPopup
+            meetings={upcomingCalendarEvents}
+            onClose={() => setShowUpcomingPopup(false)}
+            onSelectMeeting={(event) =>
+              handleSelectUpcomingMeeting(event, { showPrep: false })
+            }
+            onTakeNotes={handleTakeManualNotes}
+          />
+        )}
+
         <PreviousMeetingsList
-          meetings={allPreviousMeetings}
+          meetings={previousMeetings}
           onViewNotes={handleViewNotes}
           onViewCalendarEventNotes={handleViewCalendarEventNotes}
+          onViewMore={() => navigate('history')}
         />
       </div>
     </div>

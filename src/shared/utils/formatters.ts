@@ -19,6 +19,15 @@ export function formatDateTime(date: Date): string {
   return date.toLocaleString();
 }
 
+export function formatMeetingDate(date: Date): string {
+  const d = new Date(date);
+  const weekday = d.toLocaleDateString('en-US', { weekday: 'long' });
+  const day = d.toLocaleDateString('en-US', { day: '2-digit' });
+  const month = d.toLocaleDateString('en-US', { month: 'long' });
+  const year = d.toLocaleDateString('en-US', { year: 'numeric' });
+  return `${weekday} - ${day} ${month}, ${year}`;
+}
+
 export function getSpeakerLabel(source: 'mic' | 'system'): string {
   return source === 'mic' ? 'You' : 'Other';
 }
@@ -53,7 +62,7 @@ export function formatDateTimeContext(date: Date): string {
 const AVATAR_COLORS = [
   'bg-blue-500',
   'bg-green-500',
-  'bg-purple-500',
+  'bg-[#4ea8dd]',
   'bg-pink-500',
   'bg-indigo-500',
   'bg-yellow-500',

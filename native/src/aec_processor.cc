@@ -50,26 +50,28 @@ public:
             aec3_config.filter.conservative_initial_phase = false;  // Aggressive from start
             
             // SUPPRESSOR - MUCH more aggressive echo suppression
-            aec3_config.suppressor.nearend_average_blocks = 4;
+            aec3_config.suppressor.nearend_average_blocks = 8;  // Longer averaging = slower to release suppression (was 4)
             
             // Normal tuning - more aggressive suppression
-            aec3_config.suppressor.normal_tuning.mask_lf.enr_transparent = 0.15f;  // Start suppressing earlier (was 0.3)
-            aec3_config.suppressor.normal_tuning.mask_lf.enr_suppress = 0.2f;  // Suppress harder (was 0.4)
-            aec3_config.suppressor.normal_tuning.mask_hf.enr_transparent = 0.04f;  // Very aggressive HF (was 0.07)
-            aec3_config.suppressor.normal_tuning.mask_hf.enr_suppress = 0.05f;  // Very aggressive HF (was 0.1)
-            aec3_config.suppressor.normal_tuning.max_inc_factor = 1.5f;  // Slower gain increase (was 2.0)
-            aec3_config.suppressor.normal_tuning.max_dec_factor_lf = 0.1f;  // Faster gain decrease (was 0.25)
+            aec3_config.suppressor.normal_tuning.mask_lf.enr_transparent = 0.12f;  // Start suppressing even earlier (was 0.15)
+            aec3_config.suppressor.normal_tuning.mask_lf.enr_suppress = 0.18f;  // Suppress even harder (was 0.2)
+            aec3_config.suppressor.normal_tuning.mask_hf.enr_transparent = 0.03f;  // Ultra-aggressive HF (was 0.04)
+            aec3_config.suppressor.normal_tuning.mask_hf.enr_suppress = 0.04f;  // Ultra-aggressive HF (was 0.05)
+            aec3_config.suppressor.normal_tuning.max_inc_factor = 1.0f;  // VERY slow gain increase (was 1.2) - holds suppression longer
+            aec3_config.suppressor.normal_tuning.max_dec_factor_lf = 0.05f;  // Ultra-fast gain decrease (was 0.08) - crushes tail-end echo instantly
             
             // High bands suppression - crush echo in high frequencies
-            aec3_config.suppressor.high_bands_suppression.enr_threshold = 0.5f;  // More sensitive (was 1.0)
-            aec3_config.suppressor.high_bands_suppression.max_gain_during_echo = 0.01f;  // Near silence during echo (was 1.0)
+            aec3_config.suppressor.high_bands_suppression.enr_threshold = 0.4f;  // Even more sensitive (was 0.5)
+            aec3_config.suppressor.high_bands_suppression.max_gain_during_echo = 0.005f;  // Ultra-low gain during echo (was 0.01) - 0.5% instead of 1%
             
-            // Floor first increase - allow quick suppression
-            aec3_config.suppressor.floor_first_increase = 0.000001f;  // Very small (was 0.00001)
+            // Floor first increase - keep suppression floor VERY low to block tail-end echo
+            aec3_config.suppressor.floor_first_increase = 0.0000005f;  // Ultra-small (was 0.000001) - maintains deep suppression
             
-            // Dominant nearend detection - detect voice more sensitively
-            aec3_config.suppressor.dominant_nearend_detection.enr_threshold = 0.15f;  // Lower threshold (was 0.25)
-            aec3_config.suppressor.dominant_nearend_detection.trigger_threshold = 8;  // Faster trigger (was 12)
+            // Dominant nearend detection - require stronger evidence of actual speech
+            // Higher thresholds = less sensitive = fewer false positives = less echo leakage
+            aec3_config.suppressor.dominant_nearend_detection.enr_threshold = 0.35f;  // Higher = less sensitive (was 0.15)
+            aec3_config.suppressor.dominant_nearend_detection.trigger_threshold = 18;  // Slower = more evidence needed (was 8)
+            aec3_config.suppressor.dominant_nearend_detection.hold_duration = 150;  // Hold detection even longer (was 100) - prevents rapid transitions
             
             // Echo audibility - be more aggressive about detecting echo
             aec3_config.echo_audibility.floor_power = 32.f;  // Lower floor (was 128)
@@ -83,7 +85,7 @@ public:
             // EP strength - protect nearend speech
             aec3_config.ep_strength.default_len = 0.95f;  // Strong protection (was 0.83)
             
-            std::cout << "✅ Aggressive AEC3 config created (2x stronger suppression)\n";
+            std::cout << "✅ Ultra-aggressive AEC3 config created (optimized for echo blocking + mic sensitivity)\n";
             
             // Create AudioProcessing::Config
             webrtc::AudioProcessing::Config apm_config;
@@ -103,11 +105,22 @@ public:
                 std::cout << "✅ Noise suppression enabled\n";
             }
             
-            // Configure AGC
+            // Configure AGC with aggressive settings for quiet laptop mics
+            // Note: AGC is applied AFTER AEC, so these boosts don't affect echo cancellation
             if (config_.enable_agc) {
                 apm_config.gain_controller2.enabled = true;
+
+                // Fixed digital gain: 9dB baseline boost
+                apm_config.gain_controller2.fixed_digital.gain_db = 9.0f;
+
+                // Adaptive digital gain: aggressive settings for quiet mics
                 apm_config.gain_controller2.adaptive_digital.enabled = true;
-                std::cout << "✅ AGC enabled\n";
+                apm_config.gain_controller2.adaptive_digital.initial_gain_db = 28.0f;  // Even higher starting gain for better sensitivity (was 25)
+                apm_config.gain_controller2.adaptive_digital.max_gain_db = 50.0f;      // Full boost range
+                apm_config.gain_controller2.adaptive_digital.headroom_db = 2.0f;       // Minimal headroom = louder (default 5)
+                apm_config.gain_controller2.adaptive_digital.max_gain_change_db_per_second = 6.0f;  // Slower adaptation (was 12) - prevents boosting tail-end echo
+
+                std::cout << "✅ AGC enabled: 9dB fixed + adaptive (initial=28dB, 6dB/s adaptation, headroom=2dB)\n";
             }
             
             // High-pass filter

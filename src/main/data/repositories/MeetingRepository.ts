@@ -106,6 +106,12 @@ export class MeetingRepository {
     return currentMeetingId;
   }
 
+  // Clear current meeting state without saving (for discard scenarios)
+  clearCurrentMeeting(): void {
+    currentMeetingId = null;
+    meetingStartTime = null;
+  }
+
   async endCurrentMeeting(): Promise<Meeting | null> {
     const db = getDatabase();
     if (!currentMeetingId) return null;
@@ -279,6 +285,13 @@ export class MeetingRepository {
     db.run('UPDATE meetings SET title = ? WHERE id = ?', [title, id]);
     saveDatabase();
     logger.info('Updated meeting title', { id, title });
+  }
+
+  updateAttendees(id: string, attendeeEmails: string[]): void {
+    const db = getDatabase();
+    db.run('UPDATE meetings SET attendee_emails = ? WHERE id = ?', [JSON.stringify(attendeeEmails), id]);
+    saveDatabase();
+    logger.info('Updated meeting attendees', { id, attendeeCount: attendeeEmails.length });
   }
 
   updateChapters(id: string, chapters: Meeting['chapters']): void {

@@ -6,14 +6,16 @@ interface SkeletonProps {
 export function Skeleton({ className = '' }: SkeletonProps) {
   return (
     <div
-      className={`animate-pulse bg-slate-700/50 rounded ${className}`}
-    />
+      className={`relative overflow-hidden bg-[#1E1E1E] rounded ${className}`}
+    >
+      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/[0.04] to-transparent animate-shimmer" style={{ backgroundSize: '200% 100%' }} />
+    </div>
   );
 }
 
 export function MeetingCardSkeleton() {
   return (
-    <div className="p-4 border-b border-[#1A1A1A]">
+    <div className="p-4 border-b border-[#2A2A2A]">
       <div className="flex items-start justify-between">
         <div className="flex-1 min-w-0 space-y-2">
           <Skeleton className="h-4 w-3/4" />
@@ -35,17 +37,17 @@ export function MeetingCardSkeleton() {
 
 export function PersonCardSkeleton() {
   return (
-    <div className="p-4 border-b border-gray-200">
+    <div className="p-4 border-b border-[#2A2A2A]">
       <div className="flex items-center gap-3">
-        <Skeleton className="w-10 h-10 rounded-full bg-gray-300" />
+        <Skeleton className="w-10 h-10 rounded-full bg-[#1E1E1E]" />
         <div className="flex-1 min-w-0 space-y-2">
-          <Skeleton className="h-4 w-2/3 bg-gray-300" />
-          <Skeleton className="h-3 w-1/2 bg-gray-300" />
+          <Skeleton className="h-4 w-2/3 bg-[#1E1E1E]" />
+          <Skeleton className="h-3 w-1/2 bg-[#1E1E1E]" />
         </div>
       </div>
       <div className="flex items-center gap-4 mt-2">
-        <Skeleton className="h-3 w-20 bg-gray-300" />
-        <Skeleton className="h-3 w-16 bg-gray-300" />
+        <Skeleton className="h-3 w-20 bg-[#1E1E1E]" />
+        <Skeleton className="h-3 w-16 bg-[#1E1E1E]" />
       </div>
     </div>
   );

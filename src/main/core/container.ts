@@ -1,6 +1,7 @@
-import { MeetingRepository, CalloutRepository, SettingsRepository, PeopleRepository } from '../data/repositories';
-import { OpenAIProvider } from '../providers/OpenAIProvider';
-import { GeminiProvider } from '../providers/GeminiProvider';
+import { MeetingRepository, CalloutRepository, SettingsRepository, PeopleRepository, BranchRepository } from '../data/repositories';
+import { BackendAIProvider } from '../providers/BackendAIProvider';
+import { initializeBackendAPI, getBackendAPI, type BackendConfig } from '../providers/BackendAPIProvider';
+import type { AIProvider } from '../providers/OpenAIProvider';
 import { createLogger } from './logger';
 import { CalendarService } from '../services/CalendarService';
 import { CalloutService } from '../services/CalloutService';
@@ -9,6 +10,7 @@ import { HubSpotService } from '../services/HubSpotService';
 import { SalesforceService } from '../services/SalesforceService';
 import { MeetingNotificationService } from '../services/MeetingNotificationService';
 import { PrepService } from '../services/PrepService';
+import { CompanyInfoService } from '../services/CompanyInfoService';
 
 const logger = createLogger('Container');
 
@@ -17,7 +19,8 @@ export interface AppContainer {
   calloutRepo: CalloutRepository;
   settingsRepo: SettingsRepository;
   peopleRepo: PeopleRepository;
-  aiProvider: OpenAIProvider | GeminiProvider | null;
+  branchRepo: BranchRepository;
+  aiProvider: AIProvider | null;
   calendarService: CalendarService;
   calloutService: CalloutService;
   noteGenerationService: NoteGenerationService;
@@ -25,30 +28,36 @@ export interface AppContainer {
   salesforceService: SalesforceService;
   meetingNotificationService: MeetingNotificationService;
   prepService: PrepService;
+  companyInfoService: CompanyInfoService;
+  backendConfig: BackendConfig | null;
 }
 
 let container: AppContainer | null = null;
 
-
-export function initializeContainer(): AppContainer {
+/**
+ * Initialize the application container.
+ * This is now an async function to support fetching config from the backend.
+ */
+export async function initializeContainer(): Promise<AppContainer> {
   const meetingRepo = new MeetingRepository();
   const calloutRepo = new CalloutRepository();
   const settingsRepo = new SettingsRepository();
   const peopleRepo = new PeopleRepository();
+  const branchRepo = new BranchRepository();
   const calendarService = new CalendarService(settingsRepo);
-  
+
   // Inject peopleRepo into meetingRepo for attendee syncing
   meetingRepo.setPeopleRepository(peopleRepo);
-  
+
   // Inject People API fetcher for smart name resolution
-  meetingRepo.setPeopleApiFetcher((email: string) => 
+  meetingRepo.setPeopleApiFetcher((email: string) =>
     calendarService.fetchPersonNameFromGoogle(email)
   );
 
   // Initialize default settings
   settingsRepo.initializeDefaults();
 
-  // Create AI provider if API key is available
+  // Get settings
   let settings = settingsRepo.getSettings();
 
   // Sanitize: perma-remove Birthdays calendar from visible calendars if previously stored
@@ -67,37 +76,29 @@ export function initializeContainer(): AppContainer {
     logger.warn('Failed to sanitize visible calendars', { error: (err as Error).message });
   }
 
-  // Use Gemini by default if API key is available, otherwise fall back to OpenAI
-  const geminiApiKey = process.env.GEMINI_API_KEY;
-  const geminiModel = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
+  // Initialize the backend API
+  initializeBackendAPI();
+  logger.info('Backend API initialized');
 
-  let aiProvider: OpenAIProvider | GeminiProvider | null = null;
-
-  if (geminiApiKey) {
-    aiProvider = new GeminiProvider({
-      apiKey: geminiApiKey,
-      model: geminiModel,
-    });
-    logger.info('Using Gemini as AI provider', { model: geminiModel });
-  } else if (settings.openAiApiKey) {
-    // Force OpenAI API base URL if still pointing to RouteLLM
-    if (settings.openAiBaseUrl && /routellm\.abacus\.ai/i.test(settings.openAiBaseUrl)) {
-      settingsRepo.updateSettings({
-        openAiBaseUrl: 'https://api.openai.com/v1',
-        openAiModel: settings.openAiModel || 'gpt-4o',
-      });
-      settings = settingsRepo.getSettings();
-    }
-    aiProvider = new OpenAIProvider({
-      apiKey: settings.openAiApiKey,
-      baseURL: settings.openAiBaseUrl || undefined,
-      defaultModel: settings.openAiModel || undefined,
-    });
-    logger.info('Using OpenAI as AI provider');
+  // Fetch configuration from the backend
+  let backendConfig: BackendConfig | null = null;
+  try {
+    backendConfig = await getBackendAPI().fetchConfig();
+    logger.info('Backend config fetched', { features: backendConfig.features });
+  } catch (error) {
+    logger.error('Failed to fetch backend config', error as Error);
+    // Continue with null config - features will be disabled
   }
 
-  if (!aiProvider) {
-    logger.warn('No AI API key configured - AI features disabled');
+  // Initialize AI provider using the backend
+  // AI is routed through the backend, no local API keys needed
+  let aiProvider: AIProvider | null = null;
+
+  if (backendConfig?.features.ai) {
+    aiProvider = new BackendAIProvider();
+    logger.info('Using Backend AI provider (server-side proxy)');
+  } else {
+    logger.warn('AI features disabled (backend config or connectivity issue)');
   }
 
   // Initialize note generation service with aiProvider getter (avoids circular dependency)
@@ -116,11 +117,18 @@ export function initializeContainer(): AppContainer {
   // Initialize prep service
   const prepService = new PrepService();
 
+  // Initialize company info service
+  const companyInfoService = new CompanyInfoService();
+
+  // Inject CompanyInfoService into peopleRepo for automatic organization detection
+  peopleRepo.setCompanyInfoService(companyInfoService);
+
   container = {
     meetingRepo,
     calloutRepo,
     settingsRepo,
     peopleRepo,
+    branchRepo,
     aiProvider,
     calendarService,
     calloutService,
@@ -129,6 +137,8 @@ export function initializeContainer(): AppContainer {
     salesforceService,
     meetingNotificationService,
     prepService,
+    companyInfoService,
+    backendConfig,
   };
 
   logger.info('Container initialized');
@@ -147,14 +157,31 @@ export function getContainer(): AppContainer {
 }
 
 /**
- * Reinitialize the AI provider with new settings
- * Called when settings are updated
+ * Refresh the backend configuration.
+ * Can be called to re-fetch feature flags from the backend.
  */
-export function refreshAIProvider(config: { apiKey: string; baseURL?: string; defaultModel?: string }): void {
+export async function refreshBackendConfig(): Promise<BackendConfig | null> {
   if (!container) {
     throw new Error('Container not initialized');
   }
 
-  container.aiProvider = config.apiKey ? new OpenAIProvider(config) : null;
-  logger.info('AI provider refreshed', { configured: !!config.apiKey });
+  try {
+    const config = await getBackendAPI().fetchConfig();
+    container.backendConfig = config;
+
+    // Update AI provider based on new config
+    if (config.features.ai && !container.aiProvider) {
+      container.aiProvider = new BackendAIProvider();
+      logger.info('AI provider enabled after config refresh');
+    } else if (!config.features.ai && container.aiProvider) {
+      container.aiProvider = null;
+      logger.info('AI provider disabled after config refresh');
+    }
+
+    logger.info('Backend config refreshed', { features: config.features });
+    return config;
+  } catch (error) {
+    logger.error('Failed to refresh backend config', error as Error);
+    return null;
+  }
 }

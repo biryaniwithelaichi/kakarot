@@ -10,8 +10,8 @@ export default function CompletionStep({ userName, onFinish }: CompletionStepPro
   return (
     <div className="text-center space-y-6">
       <div className="flex justify-center mb-4">
-        <div className="w-20 h-20 rounded-full bg-green-500/10 flex items-center justify-center">
-          <Check className="w-10 h-10 text-green-500" />
+        <div className="w-20 h-20 rounded-full bg-[#F0EBE3]/10 flex items-center justify-center">
+          <Check className="w-10 h-10 text-[#F0EBE3]" />
         </div>
       </div>
 
@@ -27,7 +27,7 @@ export default function CompletionStep({ userName, onFinish }: CompletionStepPro
       <div className="pt-8">
         <button
           onClick={onFinish}
-          className="w-full py-3 px-6 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium transition-colors"
+          className="w-full py-3 px-6 bg-[#C17F3E] hover:bg-[#D4923F] text-white rounded-lg font-medium transition-colors"
         >
           Go to Home
         </button>

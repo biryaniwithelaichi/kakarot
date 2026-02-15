@@ -29,15 +29,15 @@ export class MeetingNotificationService {
 
     logger.info('Starting meeting notification service');
     
-    // Check every 10 seconds for meetings starting in 1 minute (reduced from 15s for faster detection)
+    // Check every 60 seconds for meetings starting soon to avoid rate limiting
     this.checkInterval = setInterval(() => {
       this.checkUpcomingMeetings();
-    }, 10000);
+    }, 60000);
 
     // Check immediately on start
     this.checkUpcomingMeetings();
     
-    logger.info('Meeting notification service started - checking every 10 seconds');
+    logger.info('Meeting notification service started - checking every 60 seconds');
   }
 
   /**
@@ -67,7 +67,7 @@ export class MeetingNotificationService {
       const now = Date.now();
       const oneMinuteMs = 60 * 1000;
 
-      if (meetings.length === 0) {
+      if (!meetings || meetings.length === 0) {
         logger.debug('No upcoming meetings found');
         return;
       }
@@ -113,7 +113,7 @@ export class MeetingNotificationService {
         // Only notify at the 1-minute mark (or if app starts with < 60s remaining)
         if (!alreadyScheduled) {
           if (timeUntilMeeting > oneMinuteMs) {
-            const delayMs = timeUntilMeeting - oneMinuteMs;
+            const delayMs = Math.max(timeUntilMeeting - oneMinuteMs, 0);
             const timeout = setTimeout(() => {
               logger.info('Showing scheduled notification (T-60s)', { title: meeting.title });
               this.showMeetingNotification(meeting);
@@ -121,22 +121,16 @@ export class MeetingNotificationService {
             }, delayMs);
 
             this.pendingNotifications.set(meeting.id, { eventId: meeting.id, timeout });
-            logger.info('Scheduled notification', { 
-              eventId: meeting.id, 
+            logger.info('Scheduled notification', {
+              eventId: meeting.id,
               title: meeting.title,
-              delaySeconds: Math.round(delayMs / 1000)
+              delaySeconds: Math.round(delayMs / 1000),
             });
           } else if (withinOneMinuteWindow) {
-            logger.info('Showing notification immediately (inside 60s window)', { 
+            logger.info('Missed the 1-minute window; skipping notification', {
               title: meeting.title,
-              startTime: startDate.toLocaleTimeString()
+              timeUntilMinutes,
             });
-            this.showMeetingNotification(meeting);
-            // Keep a short-lived marker to avoid duplicates
-            const timeout = setTimeout(() => {
-              this.pendingNotifications.delete(meeting.id);
-            }, oneMinuteMs);
-            this.pendingNotifications.set(meeting.id, { eventId: meeting.id, timeout });
           }
         }
       }
@@ -151,44 +145,45 @@ export class MeetingNotificationService {
    */
   private showMeetingNotification(meeting: any): void {
     const startDate = meeting.start instanceof Date ? meeting.start : new Date(meeting.start);
-    const startTime = startDate.toLocaleTimeString([], { 
-      hour: '2-digit', 
-      minute: '2-digit',
-      hour12: true 
-    });
-
+    const endDate =
+      meeting.end instanceof Date
+        ? meeting.end
+        : meeting.end
+          ? new Date(meeting.end)
+          : startDate;
+    const formatTime = (date: Date): string =>
+      date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
+    const timeRange = `${formatTime(startDate)} – ${formatTime(endDate)}`;
     const truncate = (text: string, max = 60): string => (text.length > max ? `${text.slice(0, max - 1)}…` : text);
 
-    logger.debug('Creating notification', { title: meeting.title, startTime, hasLocation: !!meeting.location });
+    logger.debug('Creating notification', {
+      title: meeting.title,
+      timeRange,
+      hasLocation: !!meeting.location,
+    });
 
     const notification = new Notification({
       title: truncate(meeting.title),
-      subtitle: 'Click to join meeting and transcribe',
-      body: startTime,
-      urgency: 'normal',
+      subtitle: timeRange,
+      body: 'Join meeting & open Treeto',
+      urgency: 'critical',
+      closeButtonText: 'Dismiss',
       actions: [
         {
           type: 'button',
-          text: 'Join & Record',
-        },
-        {
-          type: 'button',
-          text: 'Dismiss',
+          text: 'Join Meeting',
         },
       ],
     });
 
     // Handle notification action buttons
     notification.on('action', (event: any) => {
-      const actionIndex = event; // action index (0 or 1)
-      logger.info('Notification action clicked', { action: actionIndex === 0 ? 'Join & Record' : 'Dismiss' });
+      const actionIndex = event;
       if (actionIndex === 0) {
-        // "Join & Record" button
+        logger.info('Notification action clicked (Join Meeting)', { title: meeting.title });
         this.handleJoinMeeting(meeting);
-      } else if (actionIndex === 1) {
-        // "Dismiss" button
-        notification.close();
-        this.pendingNotifications.delete(meeting.id);
+      } else {
+        logger.debug('Notification action ignored', { actionIndex });
       }
     });
 
@@ -204,10 +199,10 @@ export class MeetingNotificationService {
     });
 
     notification.show();
-    logger.info('Showed meeting notification', { 
-      eventId: meeting.id, 
+    logger.info('Showed meeting notification', {
+      eventId: meeting.id,
       title: meeting.title,
-      startTime
+      timeRange,
     });
   }
 

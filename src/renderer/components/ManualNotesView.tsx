@@ -1,19 +1,19 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useAppStore } from '../stores/appStore';
-import { Clock, Users, FolderPlus, BookOpen, ChevronDown, X, Video, Calendar as CalendarIcon } from 'lucide-react';
+import { Clock, Users, BookOpen, ChevronDown, X, Video, Calendar as CalendarIcon } from 'lucide-react';
 import googleMeetPng from '../assets/google-meet.png';
 import googleCalendarPng from '../assets/google-calendar.png';
 import AttendeesList from './AttendeesList';
 
 interface ManualNotesViewProps {
   meetingId?: string;
-  onSelectTab?: (tab: 'notes' | 'prep' | 'interact') => void;
+  onSelectTab?: (tab: 'notes' | 'prep') => void;
   onSaveNotes?: () => void;
   onStartRecording?: () => void;
 }
 
 export default function ManualNotesView({ meetingId, onSelectTab, onSaveNotes, onStartRecording }: ManualNotesViewProps) {
-  const { activeCalendarContext, calendarContext } = useAppStore();
+  const { recordingContext, calendarPreview, setInitialPrepQuery } = useAppStore();
   const [notes, setNotes] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
@@ -23,7 +23,7 @@ export default function ManualNotesView({ meetingId, onSelectTab, onSaveNotes, o
   const saveTimerRef = useRef<NodeJS.Timeout | null>(null);
   const initialLoadRef = useRef(false);
 
-  const meeting = activeCalendarContext || calendarContext;
+  const meeting = recordingContext || calendarPreview;
   
   // Load existing notes on mount
   useEffect(() => {
@@ -254,157 +254,185 @@ export default function ManualNotesView({ meetingId, onSelectTab, onSaveNotes, o
   const endTime = meeting ? new Date(meeting.end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
 
   return (
-    <div className="h-[calc(100vh-12rem)] bg-studio text-slate-ink dark:bg-onyx dark:text-gray-100 flex flex-col">
-      {/* Header Section */}
-      <div className="flex-shrink-0 px-6 py-4 border-b border-slate-200 dark:border-slate-700">
-        {/* Meeting Title */}
-        <h1 className="text-2xl font-semibold text-slate-900 dark:text-white mb-3">
-          {meetingTitle}
-        </h1>
+    <div className="flex-1 h-full bg-gradient-to-br from-[#0C0C0C] via-[#0D0D0F] to-[#0C0C14] text-slate-ink dark:text-[#F0EBE3] flex flex-col overflow-hidden">
+      <div className="w-full flex justify-center flex-1 overflow-hidden px-4 sm:px-6 py-4 sm:py-6">
+        <div className="w-full max-w-4xl flex flex-col flex-1 min-h-0 gap-4">
+          {/* Header Section */}
+          <div className="flex-shrink-0 overflow-visible relative z-10">
+            <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm p-4 sm:p-5 overflow-visible">
+              {/* Meeting Title */}
+              <h1 className="text-2xl font-semibold text-white mb-3">
+                {meetingTitle}
+              </h1>
 
-        {/* Meeting Metadata */}
-        <div className="flex items-center gap-3 text-sm flex-wrap relative">
-          <div className="relative">
-            <button 
-              ref={timeButtonRef}
-              onClick={() => setShowTimePopover(!showTimePopover)}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/60 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 hover:bg-white/80 dark:hover:bg-slate-700/80 transition text-slate-600 dark:text-slate-400"
-            >
-              <Clock className="w-4 h-4" />
-              <span>{meetingTime}</span>
-              <ChevronDown className="w-4 h-4 opacity-50" />
-            </button>
-
-            {showTimePopover && (
-              <div
-                ref={timePopoverRef}
-                className="absolute top-full left-0 mt-2 bg-slate-900 dark:bg-slate-950 rounded-xl border border-slate-800 dark:border-slate-700 shadow-2xl z-50 overflow-hidden min-w-max"
-              >
-                {/* Header */}
-                <div className="p-4 border-b border-slate-800 flex items-center justify-between">
-                  <h3 className="text-base font-semibold text-white">Meeting Time</h3>
-                  <button
-                    onClick={() => setShowTimePopover(false)}
-                    className="p-1 text-slate-400 hover:text-slate-200 transition rounded hover:bg-slate-800/50"
+              {/* Meeting Metadata */}
+              <div className="flex items-center gap-3 text-sm flex-wrap relative">
+                <div className="relative">
+                  <button 
+                    ref={timeButtonRef}
+                    onClick={() => setShowTimePopover(!showTimePopover)}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/10 border border-white/10 hover:bg-white/15 transition text-slate-200"
                   >
-                    <X className="w-4 h-4" />
+                    <Clock className="w-4 h-4" />
+                    <span>{meetingTime}</span>
+                    <ChevronDown className="w-4 h-4 opacity-50" />
                   </button>
-                </div>
 
-                {/* Content */}
-                <div className="p-4 space-y-4">
-                  <div>
-                    <p className="text-xs text-slate-400 uppercase font-medium mb-1">Date</p>
-                    <p className="text-sm text-white font-medium">{formattedDate}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-400 uppercase font-medium mb-1">Time</p>
-                    <p className="text-sm text-white font-medium">{formattedTime} – {endTime}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-400 uppercase font-medium mb-1">Duration</p>
-                    <p className="text-sm text-white font-medium">{duration} minutes</p>
-                  </div>
+                  {showTimePopover && (
+                    <div
+                      ref={timePopoverRef}
+                      className="absolute top-full left-0 mt-2 bg-[#0C0C0C] dark:bg-[#0C0C0C] rounded-xl border border-slate-800 dark:border-[#2A2A2A] shadow-2xl z-50 overflow-hidden min-w-max"
+                    >
+                      {/* Header */}
+                      <div className="p-4 border-b border-slate-800 flex items-center justify-between">
+                        <h3 className="text-base font-semibold text-white">Meeting Time</h3>
+                        <button
+                          onClick={() => setShowTimePopover(false)}
+                          className="p-1 text-slate-400 hover:text-slate-200 transition rounded hover:bg-[#1E1E1E]/50"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
 
-                  {/* Meeting Platform */}
-                  {meetingPlatform && (
-                    <div className="pt-2 border-t border-slate-800">
-                      <button
-                        onClick={handleJoinMeeting}
-                        className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white text-xs font-medium rounded-lg transition"
-                      >
-                        <div className="w-7 h-7 flex items-center justify-center">
-                          {renderPlatformLogo(meetingPlatform.type)}
+                      {/* Content */}
+                      <div className="p-4 space-y-4">
+                        <div>
+                          <p className="text-xs text-slate-400 uppercase font-medium mb-1">Date</p>
+                          <p className="text-sm text-white font-medium">{formattedDate}</p>
                         </div>
-                        Join {meetingPlatform.name}
-                      </button>
+                        <div>
+                          <p className="text-xs text-slate-400 uppercase font-medium mb-1">Time</p>
+                          <p className="text-sm text-white font-medium">{formattedTime} – {endTime}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-slate-400 uppercase font-medium mb-1">Duration</p>
+                          <p className="text-sm text-white font-medium">{duration} minutes</p>
+                        </div>
+
+                        {/* Meeting Platform */}
+                        {meetingPlatform && (
+                          <div className="pt-2 border-t border-slate-800">
+                            <button
+                              onClick={handleJoinMeeting}
+                              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-[#C17F3E] to-[#C17F3E] hover:from-[#D4923F] hover:to-[#D4923F] text-white text-xs font-medium rounded-lg transition"
+                            >
+                              <div className="w-7 h-7 flex items-center justify-center">
+                                {renderPlatformLogo(meetingPlatform.type)}
+                              </div>
+                              Join {meetingPlatform.name}
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Calendar Provider */}
+                        <div className="pt-2 border-t border-slate-800">
+                          <button 
+                            onClick={handleOpenCalendar}
+                            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-[#1E1E1E] hover:bg-[#2A2A2A] text-white text-xs font-medium rounded-lg transition"
+                            style={calendarProvider.type !== 'default' ? { backgroundColor: `${calendarProvider.color}20`, borderColor: calendarProvider.color } : undefined}
+                          >
+                            <div className="w-7 h-7 flex items-center justify-center">
+                              {calendarProvider.type === 'default' ? (
+                                <CalendarIcon className="w-4 h-4" />
+                              ) : (
+                                renderCalendarLogo(calendarProvider.type)
+                              )}
+                            </div>
+                            Open in {calendarProvider.name}
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   )}
+                </div>
+                
+                <AttendeesList 
+                  attendeeEmails={
+                    meeting?.attendees
+                      ? meeting.attendees.map((a: any) => 
+                          typeof a === 'string' ? a : a.email
+                        )
+                      : []
+                  } 
+                />
+              </div>
+            </div>
+          </div>
 
-                  {/* Calendar Provider */}
-                  <div className="pt-2 border-t border-slate-800">
-                    <button 
-                      onClick={handleOpenCalendar}
-                      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-white text-xs font-medium rounded-lg transition"
-                      style={calendarProvider.type !== 'default' ? { backgroundColor: `${calendarProvider.color}20`, borderColor: calendarProvider.color } : undefined}
+          {/* Notes Editor */}
+          <div className="flex-1 min-h-0 relative z-0">
+            <div className="h-full rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm p-4 sm:p-5 flex flex-col">
+              <div className="flex-1 min-h-0 overflow-y-auto">
+                <textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Write notes..."
+                  className="w-full h-full resize-none bg-transparent text-lg text-white placeholder-slate-400 focus:outline-none leading-relaxed"
+                />
+              </div>
+
+              {/* Bottom Bar */}
+              <div className="flex-shrink-0 pt-4 mt-4 border-t border-white/10 flex items-center justify-between">
+                <div className="flex items-center gap-3 text-xs text-slate-400">
+                  <span>{notes.length} characters</span>
+                  {isSaving && (
+                    <span className="text-amber-400">Saving...</span>
+                  )}
+                  {!isSaving && lastSaved && (
+                    <span className="text-emerald-400">
+                      Saved {lastSaved.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  )}
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  {onStartRecording && (
+                    <button
+                      onClick={onStartRecording}
+                      className="px-3 py-2 rounded-lg bg-[#1E1E1E] dark:bg-[#2A2A2A] hover:bg-[#2A2A2A] dark:hover:bg-[#C17F3E] text-slate-700 dark:text-slate-300 text-sm font-medium transition-colors"
                     >
-                      <div className="w-7 h-7 flex items-center justify-center">
-                        {calendarProvider.type === 'default' ? (
-                          <CalendarIcon className="w-4 h-4" />
-                        ) : (
-                          renderCalendarLogo(calendarProvider.type)
-                        )}
-                      </div>
-                      Open in {calendarProvider.name}
+                      Transcribe Now
                     </button>
-                  </div>
+                  )}
+                  <button
+                    onClick={() => {
+                      // Build attendee names for the prep query
+                      const attendeeNames = meeting?.attendees
+                        ?.map((a: any) => {
+                          if (typeof a === 'string') {
+                            // If it's just an email, extract name from email
+                            const localPart = a.split('@')[0];
+                            return localPart.split(/[._-]/)
+                              .filter((part: string) => part.length > 0)
+                              .map((part: string) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+                              .join(' ');
+                          }
+                          // If it's an object with name, prefer that
+                          if (a.name) return a.name;
+                          // Fallback to extracting from email
+                          const localPart = a.email.split('@')[0];
+                          return localPart.split(/[._-]/)
+                            .filter((part: string) => part.length > 0)
+                            .map((part: string) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+                            .join(' ');
+                        })
+                        .filter(Boolean)
+                        .join(', ');
+
+                      if (attendeeNames) {
+                        setInitialPrepQuery(`Help me prepare for a meeting with ${attendeeNames}`);
+                      }
+                      onSelectTab?.('prep');
+                    }}
+                    className="px-4 py-2 rounded-lg bg-emerald-mist hover:bg-emerald-mist/90 text-onyx font-medium transition-colors flex items-center gap-2"
+                  >
+                    <BookOpen className="w-4 h-4" />
+                    Prep
+                  </button>
                 </div>
               </div>
-            )}
+            </div>
           </div>
-          
-          {meeting?.attendees && meeting.attendees.length > 0 ? (
-            <AttendeesList 
-              attendeeEmails={
-                meeting.attendees.map((a: any) => 
-                  typeof a === 'string' ? a : a.email
-                )
-              } 
-            />
-          ) : (
-            <button className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/60 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 hover:bg-white/80 dark:hover:bg-slate-700/80 transition text-slate-600 dark:text-slate-400 whitespace-nowrap">
-              <Users className="w-4 h-4" />
-              Add attendees
-            </button>
-          )}
-
-          <button className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/60 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 hover:bg-white/80 dark:hover:bg-slate-700/80 transition text-slate-600 dark:text-slate-400">
-            <FolderPlus className="w-4 h-4" />
-            Add to folder
-          </button>
-        </div>
-      </div>
-
-      {/* Notes Editor */}
-      <div className="flex-1 min-h-0 px-6 py-4 overflow-y-auto">
-        <textarea
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          placeholder="Write notes..."
-          className="w-full min-h-full resize-none bg-transparent text-lg text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none leading-relaxed"
-        />
-      </div>
-
-      {/* Bottom Bar */}
-      <div className="flex-shrink-0 px-6 py-4 border-t border-slate-200 dark:border-slate-700 bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm flex items-center justify-between">
-        <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
-          <span>{notes.length} characters</span>
-          {isSaving && (
-            <span className="text-amber-600 dark:text-amber-400">Saving...</span>
-          )}
-          {!isSaving && lastSaved && (
-            <span className="text-emerald-600 dark:text-emerald-400">
-              Saved {lastSaved.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-            </span>
-          )}
-        </div>
-        
-        <div className="flex items-center gap-2">
-          {onStartRecording && (
-            <button
-              onClick={onStartRecording}
-              className="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 text-sm font-medium transition-colors"
-            >
-              Transcribe Now
-            </button>
-          )}
-          <button
-            onClick={() => onSelectTab?.('prep')}
-            className="px-4 py-2 rounded-lg bg-emerald-mist hover:bg-emerald-mist/90 text-onyx font-medium transition-colors flex items-center gap-2"
-          >
-            <BookOpen className="w-4 h-4" />
-            Prep
-          </button>
         </div>
       </div>
     </div>

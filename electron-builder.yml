@@ -1,8 +1,9 @@
-appId: com.kakarot.app
-productName: Kakarot
+appId: com.treeto.app
+productName: Treeto
 directories:
   output: release
   buildResources: build
+icon: build/icon.icns
 
 files:
   - dist/**/*
@@ -16,16 +17,18 @@ files:
 mac:
   category: public.app-category.productivity
   target:
-    - target: dir
+    - target: dmg
       arch: [arm64]
   extraResources:
     - from: node_modules/audiotee/bin/audiotee
       to: audiotee
+    - from: build/.env.production
+      to: .env
   # Required for system audio capture
   extendInfo:
-    NSMicrophoneUsageDescription: "Kakarot needs microphone access to transcribe your voice during meetings."
-    NSAudioCaptureUsageDescription: "Kakarot needs system audio access to transcribe meeting participants."
-    NSScreenCaptureUsageDescription: "Kakarot may need screen recording permission for audio capture."
+    NSMicrophoneUsageDescription: "Treeto needs microphone access to transcribe your voice during meetings."
+    NSAudioCaptureUsageDescription: "Treeto needs system audio access to transcribe meeting participants."
+    NSScreenCaptureUsageDescription: "Treeto may need screen recording permission for audio capture."
   # Entitlements for audio capture
   entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.plist

@@ -4,6 +4,7 @@ export {
   formatDuration,
   formatTime,
   formatDateTime,
+  formatMeetingDate,
   getSpeakerLabel,
   formatDateShort,
   formatTimeShort,

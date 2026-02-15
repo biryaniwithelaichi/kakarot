@@ -31,26 +31,24 @@ export function registerCRMHandlers(): void {
       let result;
 
       if (provider === 'salesforce') {
-        // Use OAuth credentials from environment or settings
+        // Use OAuth client ID from environment or settings (secret is on backend)
         const clientId = process.env.SALESFORCE_CLIENT_ID || settings.crmOAuthSalesforceClientId || '';
-        const clientSecret = process.env.SALESFORCE_CLIENT_SECRET || settings.crmOAuthSalesforceClientSecret || '';
 
-        if (!clientId || !clientSecret) {
-          throw new Error('Salesforce OAuth credentials not configured');
+        if (!clientId) {
+          throw new Error('Salesforce OAuth client ID not configured');
         }
 
-        const oauthProvider = new SalesforceOAuthProvider(clientId, clientSecret);
+        const oauthProvider = new SalesforceOAuthProvider(clientId);
         result = await oauthProvider.authenticate(mainWindowRef);
       } else {
-        // HubSpot OAuth
+        // HubSpot OAuth - client ID only (secret is on backend)
         const clientId = process.env.HUBSPOT_CLIENT_ID || settings.crmOAuthHubSpotClientId || '';
-        const clientSecret = process.env.HUBSPOT_CLIENT_SECRET || settings.crmOAuthHubSpotClientSecret || '';
 
-        if (!clientId || !clientSecret) {
-          throw new Error('HubSpot OAuth credentials not configured');
+        if (!clientId) {
+          throw new Error('HubSpot OAuth client ID not configured');
         }
 
-        const oauthProvider = new HubSpotOAuthProvider(clientId, clientSecret);
+        const oauthProvider = new HubSpotOAuthProvider(clientId);
         result = await oauthProvider.authenticate(mainWindowRef);
       }
 
@@ -124,8 +122,19 @@ export function registerCRMHandlers(): void {
         throw new Error(`${activeCRM} token not found`);
       }
 
-      // Find matching contacts
-      const matches = await emailMatcher.matchEmailsToCRM(meeting.participants, activeCRM as 'salesforce' | 'hubspot', crmToken);
+      // Find matching contacts (prefer attendeeEmails; participants is deprecated)
+      const candidateEmails = (meeting.attendeeEmails && meeting.attendeeEmails.length > 0)
+        ? meeting.attendeeEmails
+        : meeting.participants;
+      const emails = (candidateEmails || [])
+        .map((email) => email.trim().toLowerCase())
+        .filter((email) => email.includes('@'));
+
+      const matches = await emailMatcher.matchEmailsToCRM(
+        emails,
+        activeCRM as 'salesforce' | 'hubspot',
+        crmToken
+      );
 
       if (matches.length === 0) {
         logger.warn('No matching contacts found in CRM', { meetingId });

@@ -5,13 +5,15 @@
       "cflags!": ["-fno-exceptions"],
       "cflags_cc!": ["-fno-exceptions"],
       "sources": [
-        "native/aec/audio_capture.mm",
-        "native/aec/system_audio_listener.mm",
-        "native/aec/bindings.mm",
-        "native/aec/webrtc_stub.cpp"
+        "native/src/audio_capture_native.cc",
+        "native/src/aec_processor.cc"
       ],
       "include_dirs": [
-        "<!@(node -p \"require('node-addon-api').include\")"
+        "<!@(node -p \"require('node-addon-api').include\")",
+        "native/webrtc/include"
+      ],
+      "libraries": [
+        "<(module_root_dir)/native/webrtc/lib/libwebrtc.a"
       ],
       "defines": [
         "NAPI_DISABLE_CPP_EXCEPTIONS"

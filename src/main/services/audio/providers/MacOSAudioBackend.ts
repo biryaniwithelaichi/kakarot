@@ -124,7 +124,16 @@ export class MacOSAudioBackend extends BaseAudioBackend {
     this.capturing = false;
 
     try {
-      await this.audiotee.stop();
+      // Set a timeout to forcefully stop if it takes too long
+      const stopPromise = this.audiotee.stop();
+      const timeoutPromise = new Promise<void>((resolve) => 
+        setTimeout(() => {
+          logger.warn('AudioTee stop timeout - may not have stopped cleanly');
+          resolve();
+        }, 2000)
+      );
+      
+      await Promise.race([stopPromise, timeoutPromise]);
     } catch (error) {
       logger.error('Error stopping AudioTee', error as Error);
     }

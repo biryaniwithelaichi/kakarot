@@ -10,10 +10,10 @@ export default function AudioLevelMeter({ label, level }: AudioLevelMeterProps) 
 
   return (
     <div className="flex items-center justify-end gap-2">
-      <span className="text-[10px] text-slate-500 dark:text-slate-400">{label}</span>
-      <div className="w-24 h-2 rounded-full bg-slate-200/60 dark:bg-slate-700/50 overflow-hidden">
+      <span className="text-[10px] text-[#5C5750] font-medium tracking-wider uppercase">{label}</span>
+      <div className="w-24 h-1.5 rounded-full bg-[#1E1E1E] overflow-hidden">
         <div
-          className="h-full rounded-full bg-slate-500/60 dark:bg-slate-300/40 transition-all"
+          className="h-full rounded-full bg-[#C17F3E]/60 transition-all duration-75"
           style={{ width: `${width}%` }}
         />
       </div>

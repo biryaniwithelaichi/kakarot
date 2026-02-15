@@ -1,8 +1,9 @@
 import { BrowserWindow } from 'electron';
-import axios from 'axios';
 import { createLogger } from '../core/logger';
+import { BACKEND_BASE_URL } from './BackendAPIProvider';
 
 const logger = createLogger('HubSpotOAuthProvider');
+const CLOSE_URL = 'kakarot://close-oauth';
 
 export interface HubSpotOAuthToken {
   accessToken: string;
@@ -13,12 +14,10 @@ export interface HubSpotOAuthToken {
 
 export class HubSpotOAuthProvider {
   private clientId: string;
-  private clientSecret: string;
   private redirectUri: string;
 
-  constructor(clientId: string, clientSecret: string, redirectUri = 'http://localhost:3000/oauth/hubspot') {
+  constructor(clientId: string, redirectUri = 'http://localhost:3000/oauth/hubspot') {
     this.clientId = clientId;
-    this.clientSecret = clientSecret;
     this.redirectUri = redirectUri;
   }
 
@@ -32,7 +31,51 @@ export class HubSpotOAuthProvider {
         modal: true,
       });
 
-      const scopes = ['crm.objects.contacts.read', 'crm.objects.contacts.write', 'crm.objects.deals.read'];
+      const injectCloseButton = () => {
+        const js = `
+          (function() {
+            if (document.getElementById('kakarot-oauth-close')) return;
+            const btn = document.createElement('button');
+            btn.id = 'kakarot-oauth-close';
+            btn.setAttribute('aria-label', 'Close');
+            btn.textContent = '\u00D7';
+            btn.style.position = 'fixed';
+            btn.style.top = '12px';
+            btn.style.right = '12px';
+            btn.style.zIndex = '2147483647';
+            btn.style.width = '28px';
+            btn.style.height = '28px';
+            btn.style.borderRadius = '14px';
+            btn.style.border = '1px solid rgba(0,0,0,0.2)';
+            btn.style.background = 'rgba(255,255,255,0.92)';
+            btn.style.color = '#111';
+            btn.style.fontSize = '18px';
+            btn.style.lineHeight = '26px';
+            btn.style.cursor = 'pointer';
+            btn.style.boxShadow = '0 2px 8px rgba(0,0,0,0.2)';
+            btn.onmouseenter = () => { btn.style.opacity = '0.9'; };
+            btn.onmouseleave = () => { btn.style.opacity = '1'; };
+            btn.onclick = () => { window.location.href = '${CLOSE_URL}'; };
+            (document.body || document.documentElement).appendChild(btn);
+          })();
+        `;
+
+        authWindow.webContents.executeJavaScript(js).catch(() => {
+          // Ignore injection errors on restrictive pages
+        });
+      };
+
+      const scopes = [
+        'crm.objects.contacts.read',
+        'crm.objects.contacts.write',
+        'crm.objects.deals.read',
+        'crm.schemas.deals.read',
+        'crm.objects.custom.read',
+        'crm.objects.invoices.read',
+        'crm.objects.companies.read',
+        'crm.objects.leads.read',
+        'crm.schemas.companies.read',
+      ];
       const authUrl = `https://app.hubspot.com/oauth/authorize?client_id=${this.clientId}&redirect_uri=${encodeURIComponent(
         this.redirectUri
       )}&scope=${encodeURIComponent(scopes.join(' '))}`;
@@ -53,7 +96,7 @@ export class HubSpotOAuthProvider {
 
         logger.info('Authorization code received', { code: code.substring(0, 10) + '...' });
         authWindow.removeAllListeners('closed');
-        
+
         this.exchangeCodeForToken(code)
           .then((token) => {
             authWindow.destroy();
@@ -67,10 +110,16 @@ export class HubSpotOAuthProvider {
 
       authWindow.webContents.on('will-redirect', (event, url) => {
         logger.debug('OAuth redirect detected', { url });
-        
+
+        if (url.startsWith(CLOSE_URL)) {
+          event.preventDefault();
+          authWindow.close();
+          return;
+        }
+
         if (url.startsWith(this.redirectUri)) {
           event.preventDefault();
-          
+
           const urlObj = new URL(url);
           const code = urlObj.searchParams.get('code');
           const error = urlObj.searchParams.get('error');
@@ -92,10 +141,16 @@ export class HubSpotOAuthProvider {
 
       authWindow.webContents.on('will-navigate', (event, url) => {
         logger.debug('OAuth navigation detected', { url });
-        
+
+        if (url.startsWith(CLOSE_URL)) {
+          event.preventDefault();
+          authWindow.close();
+          return;
+        }
+
         if (url.startsWith(this.redirectUri)) {
           event.preventDefault();
-          
+
           const urlObj = new URL(url);
           const code = urlObj.searchParams.get('code');
           const error = urlObj.searchParams.get('error');
@@ -115,6 +170,10 @@ export class HubSpotOAuthProvider {
         }
       });
 
+      authWindow.webContents.on('did-finish-load', () => {
+        injectCloseButton();
+      });
+
       authWindow.on('closed', () => {
         if (!isProcessingCode) {
           reject(new Error('OAuth window closed'));
@@ -125,21 +184,26 @@ export class HubSpotOAuthProvider {
 
   private async exchangeCodeForToken(code: string): Promise<HubSpotOAuthToken> {
     try {
-      const params = new URLSearchParams({
-        grant_type: 'authorization_code',
-        client_id: this.clientId,
-        client_secret: this.clientSecret,
-        redirect_uri: this.redirectUri,
-        code,
+      // Exchange code for token via backend (keeps client_secret secure on server)
+      const backendEndpoint = `${BACKEND_BASE_URL}/api/auth/hubspot`;
+      logger.info('Exchanging code via backend', { endpoint: backendEndpoint });
+
+      const response = await fetch(backendEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          code,
+          redirect_uri: this.redirectUri,
+        }),
       });
 
-      const response = await axios.post('https://api.hubapi.com/oauth/v1/token', params.toString(), {
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Token exchange failed: ${errorText}`);
+      }
 
-      const { access_token, refresh_token, expires_in } = response.data;
+      const data = await response.json();
+      const { access_token, refresh_token, expires_in } = data;
 
       const token: HubSpotOAuthToken = {
         accessToken: access_token,
@@ -148,7 +212,7 @@ export class HubSpotOAuthProvider {
         connectedAt: Date.now(),
       };
 
-      logger.info('HubSpot token exchanged successfully');
+      logger.info('HubSpot token exchanged successfully via backend');
       return token;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
@@ -163,14 +227,26 @@ export class HubSpotOAuthProvider {
     }
 
     try {
-      const response = await axios.post('https://api.hubapi.com/oauth/v1/token', {
-        grant_type: 'refresh_token',
-        client_id: this.clientId,
-        client_secret: this.clientSecret,
-        refresh_token: token.refreshToken,
+      // Refresh token via backend (keeps client_secret secure on server)
+      const backendEndpoint = `${BACKEND_BASE_URL}/api/auth/hubspot`;
+      logger.info('Refreshing token via backend');
+
+      const response = await fetch(backendEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          grant_type: 'refresh_token',
+          refresh_token: token.refreshToken,
+        }),
       });
 
-      const { access_token, expires_in } = response.data;
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Token refresh failed: ${errorText}`);
+      }
+
+      const data = await response.json();
+      const { access_token, expires_in } = data;
 
       return {
         ...token,

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import WelcomeStep from './WelcomeStep';
 import SignInStep from './SignInStep';
 import AudioPermissionsStep from './AudioPermissionsStep';
@@ -21,33 +21,36 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   const steps: OnboardingStep[] = ['welcome', 'signin', 'audio'];
   const currentStepIndex = steps.indexOf(currentStep);
 
-  const _goToStep = (step: OnboardingStep) => {
-    setCurrentStep(step);
-  };
-  void _goToStep; // Reserved for step navigation
+  function previousStep(): void {
+    const prevIndex = currentStepIndex - 1;
+    if (prevIndex >= 0) {
+      setUserData(null);
+      setCurrentStep(steps[prevIndex]);
+    }
+  }
 
-  const nextStep = () => {
+  function nextStep(): void {
     const nextIndex = currentStepIndex + 1;
     if (nextIndex < steps.length) {
       setCurrentStep(steps[nextIndex]);
     } else {
       onComplete();
     }
-  };
+  }
 
   return (
-    <div className="fixed inset-0 bg-gray-950 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-[#0C0C0C] flex items-center justify-center z-50 animate-fade-in">
       <div className="w-full max-w-2xl mx-auto px-6">
         {/* Progress indicator */}
         {currentStep !== 'welcome' && (
           <div className="flex items-center justify-center gap-2 mb-8">
-            {steps.slice(1).map((step, _index) => (
+            {steps.slice(1).map((step) => (
               <div
                 key={step}
-                className={`h-2 rounded-full transition-all ${
+                className={`h-2 rounded-full transition-all duration-300 ease-out-expo ${
                   steps.indexOf(step) <= currentStepIndex
-                    ? 'w-8 bg-primary-500'
-                    : 'w-2 bg-gray-700'
+                    ? 'w-8 bg-[#C17F3E]'
+                    : 'w-2 bg-[#2A2A2A]'
                 }`}
               />
             ))}
@@ -55,7 +58,10 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
         )}
 
         {/* Step content */}
-        <div className="bg-gray-900 rounded-2xl p-8 shadow-xl border border-gray-800">
+        <div
+          key={currentStep}
+          className="bg-[#161616] rounded-2xl p-8 shadow-xl border border-[#2A2A2A] animate-step-enter"
+        >
           {currentStep === 'welcome' && (
             <WelcomeStep onContinue={nextStep} />
           )}
@@ -65,6 +71,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                 setUserData(data);
                 nextStep();
               }}
+              onBack={previousStep}
             />
           )}
           {currentStep === 'audio' && (

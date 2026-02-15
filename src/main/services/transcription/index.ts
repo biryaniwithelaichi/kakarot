@@ -2,55 +2,76 @@ export type { ITranscriptionProvider, TranscriptCallback } from './Transcription
 export { BaseDualStreamProvider } from './BaseDualStreamProvider';
 export { AssemblyAIProvider } from './AssemblyAIProvider';
 export { DeepgramProvider } from './DeepgramProvider';
+export type { DeepgramProviderOptions } from './DeepgramProvider';
+export { BackendTranscriptionProvider } from './BackendTranscriptionProvider';
 
-import type { TranscriptionProvider } from '@shared/types';
 import type { ITranscriptionProvider } from './TranscriptionProvider';
-import { AssemblyAIProvider } from './AssemblyAIProvider';
 import { DeepgramProvider } from './DeepgramProvider';
+import { createLogger } from '../../core/logger';
 
-export function createTranscriptionProvider(
-  provider: TranscriptionProvider,
-  assemblyAiKey: string,
-  deepgramKey: string,
-  hostedTokenManager?: { getAssemblyAIToken: () => Promise<string | null> },
-  useHostedTokens?: boolean
-): ITranscriptionProvider {
-  switch (provider) {
-    case 'deepgram':
-      if (!deepgramKey) {
-        throw new Error('Deepgram API key not configured');
-      }
-      return new DeepgramProvider(deepgramKey);
+const logger = createLogger('TranscriptionFactory');
 
-    case 'assemblyai':
-    default:
-      if (useHostedTokens && hostedTokenManager) {
-        return new AssemblyAIProviderWithHostedTokens(hostedTokenManager);
-      }
-
-      if (!assemblyAiKey) {
-        throw new Error('AssemblyAI API key not configured');
-      }
-      return new AssemblyAIProvider(assemblyAiKey);
-  }
+export interface TranscriptionProviderOptions {
+  /** JWT token from backend (preferred - keeps API key secure on server) */
+  token?: string;
+  /** Direct API key (legacy - less secure, key stored locally) */
+  apiKey?: string;
 }
 
-class AssemblyAIProviderWithHostedTokens extends AssemblyAIProvider {
-  private hostedTokenManager: { getAssemblyAIToken: () => Promise<string | null> };
-
-  constructor(hostedTokenManager: { getAssemblyAIToken: () => Promise<string | null> }) {
-    super('');
-    this.hostedTokenManager = hostedTokenManager;
+/**
+ * Creates a Deepgram transcription provider using WebSocket streaming for low latency.
+ *
+ * Preferred usage (secure):
+ *   1. Fetch temporary token from backend via DeepgramTokenService
+ *   2. Pass token to createTranscriptionProvider({ token })
+ *   3. Token is valid for 30 seconds, but WebSocket stays connected
+ *
+ * Features:
+ * - WebSocket for real-time streaming (not HTTP batching)
+ * - Interim results enabled for immediate partial transcripts (~500ms)
+ * - 16kHz sample rate for efficiency
+ * - Raw binary audio encoding
+ * - Dual stream support (mic + system audio)
+ *
+ * Latency: ~500-1000ms for partial results, ~1-2s for final results
+ */
+export function createTranscriptionProvider(
+  options?: TranscriptionProviderOptions
+): ITranscriptionProvider {
+  if (options?.token) {
+    // Preferred: Use temporary JWT token from backend
+    logger.info('Creating Deepgram provider with JWT token (secure - API key stays on server)');
+    return new DeepgramProvider({ token: options.token });
   }
 
-  async connect(): Promise<void> {
-    const token = await this.hostedTokenManager.getAssemblyAIToken();
-    if (!token) {
-      throw new Error('Hosted AssemblyAI token unavailable');
-    }
-    // Reinitialize client with fresh token before connecting
-    const { AssemblyAI } = await import('assemblyai');
-    (this as any).client = new AssemblyAI({ apiKey: token });
-    return super.connect();
+  if (options?.apiKey) {
+    // Fallback: Use direct API key (less secure)
+    logger.info('Creating Deepgram provider with API key (legacy)');
+    return new DeepgramProvider({ apiKey: options.apiKey });
   }
+
+  // Last resort: environment variable
+  const envKey = process.env.DEEPGRAM_API_KEY || '';
+  if (envKey) {
+    logger.info('Creating Deepgram provider with env API key');
+    return new DeepgramProvider({ apiKey: envKey });
+  }
+
+  logger.warn('No Deepgram credentials provided - transcription will fail');
+  return new DeepgramProvider({ apiKey: '' });
+}
+
+/**
+ * @deprecated Use createTranscriptionProvider({ token }) with DeepgramTokenService instead.
+ * This function is kept for backwards compatibility.
+ */
+export function createTranscriptionProviderLegacy(
+  _assemblyAiKey?: string,
+  deepgramKey?: string,
+  _hostedTokenManager?: { getAssemblyAIToken: () => Promise<string | null> },
+  _useHostedTokens?: boolean
+): ITranscriptionProvider {
+  const apiKey = deepgramKey || process.env.DEEPGRAM_API_KEY || '';
+  logger.info('Creating Deepgram provider (legacy function)', { keyPresent: !!apiKey });
+  return new DeepgramProvider({ apiKey });
 }

@@ -39,6 +39,7 @@ private:
     AudioDeviceIOProcID io_proc_id_;
     Napi::ThreadSafeFunction tsfn_;
     bool is_capturing_;
+    bool tsfn_created_;
     std::string selected_device_id_;
     
     // AEC processor
@@ -58,10 +59,6 @@ Napi::Object AudioCaptureAddon::Init(Napi::Env env, Napi::Object exports) {
         InstanceMethod("stop", &AudioCaptureAddon::Stop)
     });
     
-    Napi::FunctionReference* constructor = new Napi::FunctionReference();
-    *constructor = Napi::Persistent(func);
-    env.SetInstanceData(constructor);
-    
     exports.Set("AudioCaptureAddon", func);
     return exports;
 }
@@ -71,7 +68,8 @@ AudioCaptureAddon::AudioCaptureAddon(const Napi::CallbackInfo& info)
       mic_audio_unit_(nullptr),
       device_id_(kAudioObjectUnknown),
       io_proc_id_(nullptr),
-      is_capturing_(false) {
+      is_capturing_(false),
+      tsfn_created_(false) {
     
     std::cout << "✅ AudioCaptureAddon created" << std::endl;
     
@@ -79,7 +77,7 @@ AudioCaptureAddon::AudioCaptureAddon(const Napi::CallbackInfo& info)
     AECConfig config;
     config.enable_aec = true;
     config.enable_ns = true;
-    config.enable_agc = false;
+    config.enable_agc = true;  // ✅ Enable AGC for mic sensitivity
     config.frame_duration_ms = 10;
     
     try {
@@ -125,7 +123,8 @@ Napi::Value AudioCaptureAddon::StartMicrophoneCapture(const Napi::CallbackInfo& 
         "MicrophoneCapture",
         0,
         1);
-    
+    tsfn_created_ = true;
+
     std::cout << "🎤 Starting AUHAL microphone capture (Granola pattern)..." << std::endl;
     
     OSStatus status;
@@ -295,7 +294,7 @@ Napi::Value AudioCaptureAddon::StartMicrophoneCapture(const Napi::CallbackInfo& 
             AudioCaptureAddon* self = static_cast<AudioCaptureAddon*>(inClientData);
             
             // Safety checks
-            if (!self || !self->is_capturing_ || !self->tsfn_ || !inInputData || inInputData->mNumberBuffers == 0) {
+            if (!self || !self->is_capturing_ || !self->tsfn_created_ || !inInputData || inInputData->mNumberBuffers == 0) {
                 return noErr;
             }
             
@@ -415,8 +414,9 @@ Napi::Value AudioCaptureAddon::StopMicrophoneCapture(const Napi::CallbackInfo& i
         mic_audio_unit_ = nullptr;
     }
     
-    if (tsfn_) {
+    if (tsfn_created_) {
         tsfn_.Release();
+        tsfn_created_ = false;
     }
     
     std::cout << "✅ Microphone capture stopped" << std::endl;

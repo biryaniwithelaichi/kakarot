@@ -19,6 +19,7 @@ export interface ChatOptions {
 
 export interface AIProvider {
   chat(messages: ChatMessage[], options?: ChatOptions): Promise<string>;
+  chatStream(messages: ChatMessage[], options?: ChatOptions): AsyncIterable<string>;
   complete(prompt: string, model?: string): Promise<string>;
 }
 
@@ -83,6 +84,36 @@ export class OpenAIProvider implements AIProvider {
       });
 
       return content;
+    } catch (error) {
+      endTiming(timingId);
+      throw error;
+    }
+  }
+
+  async *chatStream(messages: ChatMessage[], options: ChatOptions = {}): AsyncIterable<string> {
+    const timingId = startTiming('openai.chatStream', { model: options.model || this.defaultModel });
+
+    try {
+      const client = await this.getClient();
+      const stream = await client.chat.completions.create({
+        model: options.model || this.defaultModel,
+        messages,
+        temperature: options.temperature ?? 0.3,
+        max_tokens: options.maxTokens ?? 1000,
+        stream: true,
+      });
+
+      for await (const chunk of stream) {
+        const content = chunk.choices[0]?.delta?.content;
+        if (content) {
+          yield content;
+        }
+      }
+
+      endTiming(timingId);
+      logger.debug('Stream completion finished', {
+        model: options.model || this.defaultModel,
+      });
     } catch (error) {
       endTiming(timingId);
       throw error;

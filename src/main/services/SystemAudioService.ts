@@ -52,13 +52,13 @@ setAECProcessor(processor: AECProcessor | null): void {
 
     let chunkCount = 0;
     this.backend.on('data', (chunk: AudioChunk) => {
+      if (!this.capturing || !this.transcriptionProvider) {
+        return;
+      }
+
       chunkCount++;
       if (chunkCount <= 3 || chunkCount % 50 === 0) {
         logger.debug('Audio chunk received', { chunk: chunkCount, bytes: chunk.data.length });
-      }
-
-      if (!this.capturing || !this.transcriptionProvider) {
-        return;
       }
 
       // Convert Node.js Buffer to Float32Array for AEC processing
@@ -89,8 +89,8 @@ setAECProcessor(processor: AECProcessor | null): void {
         uint8Array.byteOffset + uint8Array.byteLength
       );
 
-      // Calculate RMS level for UI visualization
-      const level = this.calculateRmsLevel(chunk.data);
+      // Calculate RMS amplitude for UI visualization
+      const level = this.getAmplitude(float32Samples);
 
       if (this.audioLevelCallback) {
         this.audioLevelCallback(level);
@@ -159,23 +159,15 @@ setAECProcessor(processor: AECProcessor | null): void {
     return this.capturing;
   }
 
-  // Calculate RMS level from 16-bit signed integer PCM data
-  private calculateRmsLevel(buffer: Buffer): number {
-    const samples = new Int16Array(
-      buffer.buffer,
-      buffer.byteOffset,
-      buffer.byteLength / 2
-    );
-
+  // Calculate RMS amplitude from Float32 samples (normalized -1.0 to 1.0)
+  public getAmplitude(samples: Float32Array): number {
     let sumSquares = 0;
     for (let i = 0; i < samples.length; i++) {
-      // Normalize to -1.0 to 1.0 range
-      const normalized = samples[i] / 32768;
-      sumSquares += normalized * normalized;
+      const sample = samples[i];
+      sumSquares += sample * sample;
     }
 
     const rms = Math.sqrt(sumSquares / samples.length);
-    // Convert to 0-1 range with some scaling for better visualization
     return Math.min(1, rms * 3);
   }
 

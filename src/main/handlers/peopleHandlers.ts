@@ -117,5 +117,102 @@ export function registerPeopleHandlers(): void {
     }
   });
 
+  // Get companies extracted from email domains
+  ipcMain.handle(IPC_CHANNELS.PEOPLE_GET_COMPANIES, async () => {
+    logger.debug('Getting companies');
+    try {
+      const companies = peopleRepo.getCompanies();
+      logger.info('Retrieved companies', { count: companies.length });
+      return companies;
+    } catch (error) {
+      logger.error('Failed to get companies', { error: (error as Error).message });
+      throw error;
+    }
+  });
+
+  // Sync contacts from calendar events (past and upcoming)
+  ipcMain.handle(IPC_CHANNELS.PEOPLE_SYNC_FROM_CALENDAR, async () => {
+    logger.info('Starting calendar contacts sync');
+    const { calendarService, settingsRepo } = getContainer();
+
+    try {
+      // Fetch events from 6 months ago to 6 months in the future
+      const now = new Date();
+      const sixMonthsAgo = new Date(now.getTime() - 6 * 30 * 24 * 60 * 60 * 1000);
+      const sixMonthsFromNow = new Date(now.getTime() + 6 * 30 * 24 * 60 * 60 * 1000);
+
+      const events = await calendarService.fetchEventsInRange(sixMonthsAgo, sixMonthsFromNow);
+      logger.info('Fetched calendar events for sync', { count: events.length });
+
+      // Extract unique attendees from all events
+      const attendeeMap = new Map<string, { email: string; name?: string }>();
+      for (const event of events) {
+        if (event.attendees) {
+          for (const attendee of event.attendees) {
+            if (attendee.email && !attendeeMap.has(attendee.email.toLowerCase())) {
+              attendeeMap.set(attendee.email.toLowerCase(), {
+                email: attendee.email.toLowerCase(),
+                name: attendee.name,
+              });
+            }
+          }
+        }
+      }
+
+      const uniqueAttendees = Array.from(attendeeMap.values());
+      logger.info('Found unique attendees', { count: uniqueAttendees.length });
+
+      // Create People API fetcher for name resolution
+      const peopleApiFetcher = (email: string) => calendarService.fetchPersonNameFromGoogle(email);
+
+      // Upsert each attendee into the people database
+      let synced = 0;
+      for (const attendee of uniqueAttendees) {
+        await peopleRepo.upsertFromCalendarAttendee(
+          attendee.email,
+          attendee.name,
+          undefined,
+          peopleApiFetcher
+        );
+        synced++;
+      }
+
+      // Store the last sync timestamp
+      settingsRepo.updateSettings({ lastCalendarContactsSync: Date.now() });
+
+      logger.info('Calendar contacts sync complete', { synced, total: uniqueAttendees.length });
+      return { synced, total: uniqueAttendees.length };
+    } catch (error) {
+      logger.error('Failed to sync contacts from calendar', { error: (error as Error).message });
+      throw error;
+    }
+  });
+
+  // Cleanup names with numbers
+  ipcMain.handle(IPC_CHANNELS.PEOPLE_CLEANUP_NAMES, async () => {
+    logger.debug('Cleaning up names with numbers');
+    try {
+      const result = peopleRepo.cleanupNamesWithNumbers();
+      logger.info('Name cleanup complete', result);
+      return result;
+    } catch (error) {
+      logger.error('Failed to cleanup names', { error: (error as Error).message });
+      throw error;
+    }
+  });
+
+  // Populate missing organizations from email domains
+  ipcMain.handle(IPC_CHANNELS.PEOPLE_POPULATE_ORGANIZATIONS, async () => {
+    logger.info('Starting organization population');
+    try {
+      const result = await peopleRepo.populateMissingOrganizations();
+      logger.info('Organization population complete', result);
+      return result;
+    } catch (error) {
+      logger.error('Failed to populate organizations', { error: (error as Error).message });
+      throw error;
+    }
+  });
+
   logger.info('People handlers registered');
 }

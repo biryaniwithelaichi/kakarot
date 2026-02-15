@@ -1,6 +1,6 @@
-import { ipcMain } from 'electron';
+import { ipcMain, app, BrowserWindow } from 'electron';
 import { IPC_CHANNELS } from '@shared/ipcChannels';
-import { getContainer, refreshAIProvider } from '../core/container';
+import { getContainer } from '../core/container';
 import type { AppSettings } from '@shared/types';
 
 export function registerSettingsHandlers(): void {
@@ -10,17 +10,25 @@ export function registerSettingsHandlers(): void {
     return settingsRepo.getSettings();
   });
 
-  ipcMain.handle(IPC_CHANNELS.SETTINGS_UPDATE, (_, settings: Partial<AppSettings>) => {
+  ipcMain.handle(IPC_CHANNELS.SETTINGS_UPDATE, (event, settings: Partial<AppSettings>) => {
     settingsRepo.updateSettings(settings);
+    
+    // Emit settings changed event to all renderer windows
+    const updatedSettings = settingsRepo.getSettings();
+    const windows = BrowserWindow.getAllWindows();
+    windows.forEach((window) => {
+      window.webContents.send(IPC_CHANNELS.SETTINGS_CHANGED, updatedSettings);
+    });
+    
+    // AI provider is now managed server-side via the backend
+    // No local API key refresh needed
+  });
 
-    // Refresh AI provider if API key changed
-    if (settings.openAiApiKey !== undefined) {
-      const currentSettings = settingsRepo.getSettings();
-      refreshAIProvider({
-        apiKey: currentSettings.openAiApiKey,
-        baseURL: currentSettings.openAiBaseUrl || undefined,
-        defaultModel: currentSettings.openAiModel || undefined,
-      });
-    }
+  ipcMain.handle(IPC_CHANNELS.SETTINGS_SET_LOGIN_ITEM, (_, openAtLogin: boolean) => {
+    app.setLoginItemSettings({
+      openAtLogin,
+      openAsHidden: false,
+    });
+    return { success: true };
   });
 }

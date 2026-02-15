@@ -6,7 +6,9 @@ export const IPC_CHANNELS = {
   RECORDING_STOP: 'recording:stop',
   RECORDING_PAUSE: 'recording:pause',
   RECORDING_RESUME: 'recording:resume',
+  RECORDING_DISCARD: 'recording:discard',
   RECORDING_STATE: 'recording:state',
+  RECORDING_AUTO_STOPPED: 'recording:autoStopped',
 
   // Audio
   AUDIO_CHECK_NATIVE: 'audio:check-native',
@@ -18,10 +20,18 @@ export const IPC_CHANNELS = {
   AUDIO_LEVELS: 'audio:levels',
   AUDIO_DATA: 'audio:data',
   AUDIO_GET_SOURCES: 'audio:getSources',
+  MIC_APPS_UPDATE: 'mic:apps',
 
   // Transcription
   TRANSCRIPT_UPDATE: 'transcript:update',
   TRANSCRIPT_FINAL: 'transcript:final',
+  TRANSCRIPT_DEEP_DIVE: 'transcript:deepDive',
+
+  // Notes Deep Dive (for AI-generated notes)
+  NOTES_DEEP_DIVE: 'notes:deepDive',
+
+  // Enhanced Deep Dive (Granola-style zoom with semantic search)
+  ENHANCED_DEEP_DIVE: 'notes:enhancedDeepDive',
 
   // Meetings
   MEETINGS_LIST: 'meetings:list',
@@ -29,6 +39,7 @@ export const IPC_CHANNELS = {
   MEETINGS_DELETE: 'meetings:delete',
   MEETINGS_SEARCH: 'meetings:search',
   MEETINGS_CREATE_DISMISSED: 'meetings:createDismissed',
+  MEETINGS_UPDATE_ATTENDEES: 'meetings:updateAttendees',
 
   // Callout
   CALLOUT_SHOW: 'callout:show',
@@ -37,6 +48,8 @@ export const IPC_CHANNELS = {
   // Settings
   SETTINGS_GET: 'settings:get',
   SETTINGS_UPDATE: 'settings:update',
+  SETTINGS_SET_LOGIN_ITEM: 'settings:setLoginItem',
+  SETTINGS_CHANGED: 'settings:changed',
 
   // Post-processing
   MEETING_SUMMARIZE: 'meeting:summarize',
@@ -52,6 +65,27 @@ export const IPC_CHANNELS = {
 
   // Meeting Prep
   PREP_GENERATE_BRIEFING: 'prep:generateBriefing',
+  PREP_GENERATE_ENHANCED_BRIEFING: 'prep:generateEnhancedBriefing',  // New enhanced prep
+  PREP_GET_TASK_COMMITMENTS: 'prep:getTaskCommitments',
+  PREP_TOGGLE_TASK_COMMITMENT: 'prep:toggleTaskCommitment',
+  PREP_TOGGLE_ACTION_ITEM: 'prep:toggleActionItem',  // For new action items
+  PREP_FETCH_COMPANY_INFO: 'prep:fetchCompanyInfo',
+  PREP_FETCH_CRM_SNAPSHOT: 'prep:fetchCRMSnapshot',  // Fetch CRM deal data
+  // Dynamic prep (signal-driven, role-agnostic)
+  PREP_GENERATE_DYNAMIC: 'prep:generateDynamic',
+  PREP_INFER_OBJECTIVE: 'prep:inferObjective',
+  PREP_RECORD_FEEDBACK: 'prep:recordFeedback',
+  PREP_GET_FEEDBACK_WEIGHTS: 'prep:getFeedbackWeights',
+  PREP_RESET_FEEDBACK_WEIGHTS: 'prep:resetFeedbackWeights',
+  // Conversational prep (Granola-style)
+  PREP_GENERATE_CONVERSATIONAL: 'prep:generateConversational',
+  PREP_QUICK_SEARCH_PERSON: 'prep:quickSearchPerson',
+  // Conversational prep chat (omnibar)
+  PREP_CHAT_SEND: 'prep:chatSend',
+  PREP_CHAT_STREAM_START: 'prep:chatStreamStart',
+  PREP_CHAT_STREAM_CHUNK: 'prep:chatStreamChunk',
+  PREP_CHAT_STREAM_END: 'prep:chatStreamEnd',
+  PREP_CHAT_STREAM_ERROR: 'prep:chatStreamError',
 
   // Knowledge base
   KNOWLEDGE_INDEX: 'knowledge:index',
@@ -66,6 +100,18 @@ export const IPC_CHANNELS = {
   PEOPLE_UPDATE_ORGANIZATION: 'people:updateOrganization',
   PEOPLE_GET_BY_MEETING: 'people:getByMeeting',
   PEOPLE_STATS: 'people:stats',
+  PEOPLE_GET_COMPANIES: 'people:getCompanies',
+  PEOPLE_SYNC_FROM_CALENDAR: 'people:syncFromCalendar',
+  PEOPLE_CLEANUP_NAMES: 'people:cleanupNames',
+  PEOPLE_POPULATE_ORGANIZATIONS: 'people:populateOrganizations',
+
+  // Branches (reusable prompt templates)
+  BRANCHES_LIST: 'branches:list',
+  BRANCHES_GET: 'branches:get',
+  BRANCHES_CREATE: 'branches:create',
+  BRANCHES_UPDATE: 'branches:update',
+  BRANCHES_DELETE: 'branches:delete',
+  BRANCHES_EXECUTE: 'branches:execute',
 
   // Calendar
   CALENDAR_CONNECT: 'calendar:connect',
@@ -86,4 +132,11 @@ export const IPC_CHANNELS = {
 
   // Dialog
   DIALOG_SELECT_FOLDER: 'dialog:selectFolder',
+
+  // Indicator
+  INDICATOR_AUDIO_AMPLITUDE: 'audio-amplitude',
+  INDICATOR_CLICKED: 'indicator:clicked',
+  INDICATOR_DRAG_START: 'indicator:drag-start',
+  INDICATOR_DRAG_MOVE: 'indicator:drag-move',
+  INDICATOR_DRAG_END: 'indicator:drag-end',
 } as const;

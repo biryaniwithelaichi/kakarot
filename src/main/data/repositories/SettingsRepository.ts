@@ -1,5 +1,5 @@
 import { getDatabase, saveDatabase } from '../database';
-import type { AppSettings } from '@shared/types';
+import type { AppSettings, CustomMeetingType } from '@shared/types';
 import { DEFAULT_SETTINGS } from '../../config/constants';
 import { createLogger } from '../../core/logger';
 
@@ -34,21 +34,33 @@ export class SettingsRepository {
 
     const merged = { ...DEFAULT_SETTINGS, ...settings } as AppSettings;
 
-    // API keys: env vars always win (more secure, easier to rotate)
-    if (process.env.ASSEMBLYAI_API_KEY) {
-      merged.assemblyAiApiKey = process.env.ASSEMBLYAI_API_KEY;
-    }
-    if (process.env.DEEPGRAM_API_KEY) {
-      merged.deepgramApiKey = process.env.DEEPGRAM_API_KEY;
-    }
-    if (process.env.OPENAI_API_KEY) {
-      merged.openAiApiKey = process.env.OPENAI_API_KEY;
-    }
-    if (process.env.OPENAI_BASE_URL) {
-      merged.openAiBaseUrl = process.env.OPENAI_BASE_URL;
-    }
-    if (process.env.OPENAI_MODEL) {
-      merged.openAiModel = process.env.OPENAI_MODEL;
+    // API keys are now managed server-side via the Treeto backend.
+    // No local API key loading is needed.
+
+    // Migrate legacy customMeetingTypes (string[]) to customMeetingTypesV2 (CustomMeetingType[])
+    if (merged.customMeetingTypes && merged.customMeetingTypes.length > 0 && !merged.customMeetingTypesMigrated) {
+      const migrated: CustomMeetingType[] = merged.customMeetingTypes.map((name, idx) => ({
+        id: `migrated-${Date.now()}-${idx}`,
+        name,
+        description: '',
+        attendeeRoles: [],
+        isExternal: false,
+        objectives: [],
+        customPrompt: '',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      }));
+
+      // Save migrated types
+      this.updateSettings({
+        customMeetingTypesV2: migrated,
+        customMeetingTypesMigrated: true,
+      });
+
+      merged.customMeetingTypesV2 = migrated;
+      merged.customMeetingTypesMigrated = true;
+
+      logger.info('Migrated legacy custom meeting types', { count: migrated.length });
     }
 
     return merged;

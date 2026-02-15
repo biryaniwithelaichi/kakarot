@@ -8,18 +8,9 @@ DEFS_Debug := \
 	'-DUSING_V8_SHARED=1' \
 	'-DV8_DEPRECATION_WARNINGS=1' \
 	'-D_GLIBCXX_USE_CXX11_ABI=1' \
-	'-DELECTRON_ENSURE_CONFIG_GYPI' \
+	'-D_FILE_OFFSET_BITS=64' \
 	'-D_DARWIN_USE_64_BIT_INODE=1' \
 	'-D_LARGEFILE_SOURCE' \
-	'-D_FILE_OFFSET_BITS=64' \
-	'-DUSING_ELECTRON_CONFIG_GYPI' \
-	'-DV8_COMPRESS_POINTERS' \
-	'-DV8_COMPRESS_POINTERS_IN_ISOLATE_CAGE' \
-	'-DV8_31BIT_SMIS_ON_64BIT_ARCH' \
-	'-DV8_ENABLE_SANDBOX' \
-	'-DOPENSSL_NO_PINSHARED' \
-	'-DOPENSSL_THREADS' \
-	'-DOPENSSL_NO_ASM' \
 	'-DNAPI_DISABLE_CPP_EXCEPTIONS' \
 	'-DBUILDING_NODE_EXTENSION' \
 	'-DDEBUG' \
@@ -29,6 +20,7 @@ DEFS_Debug := \
 CFLAGS_Debug := \
 	-O0 \
 	-gdwarf-2 \
+	-fno-strict-aliasing \
 	-mmacosx-version-min=10.15 \
 	-arch arm64 \
 	-Wall \
@@ -37,8 +29,7 @@ CFLAGS_Debug := \
 	-Wno-unused-parameter
 
 # Flags passed to only C files.
-CFLAGS_C_Debug := \
-	-fno-strict-aliasing
+CFLAGS_C_Debug :=
 
 # Flags passed to only C++ files.
 CFLAGS_CC_Debug := \
@@ -58,14 +49,15 @@ CFLAGS_OBJCC_Debug := \
 	-fobjc-arc
 
 INCS_Debug := \
-	-I/Users/weirdwiz/.electron-gyp/33.4.11/include/node \
-	-I/Users/weirdwiz/.electron-gyp/33.4.11/src \
-	-I/Users/weirdwiz/.electron-gyp/33.4.11/deps/openssl/config \
-	-I/Users/weirdwiz/.electron-gyp/33.4.11/deps/openssl/openssl/include \
-	-I/Users/weirdwiz/.electron-gyp/33.4.11/deps/uv/include \
-	-I/Users/weirdwiz/.electron-gyp/33.4.11/deps/zlib \
-	-I/Users/weirdwiz/.electron-gyp/33.4.11/deps/v8/include \
-	-I/Users/weirdwiz/src/kakarot/node_modules/node-addon-api
+	-I/Users/moxo/Library/Caches/node-gyp/25.5.0/include/node \
+	-I/Users/moxo/Library/Caches/node-gyp/25.5.0/src \
+	-I/Users/moxo/Library/Caches/node-gyp/25.5.0/deps/openssl/config \
+	-I/Users/moxo/Library/Caches/node-gyp/25.5.0/deps/openssl/openssl/include \
+	-I/Users/moxo/Library/Caches/node-gyp/25.5.0/deps/uv/include \
+	-I/Users/moxo/Library/Caches/node-gyp/25.5.0/deps/zlib \
+	-I/Users/moxo/Library/Caches/node-gyp/25.5.0/deps/v8/include \
+	-I/Users/moxo/Desktop/treeto-master/node_modules/node-addon-api \
+	-I$(srcdir)/native/webrtc/include
 
 DEFS_Release := \
 	'-DNODE_GYP_MODULE_NAME=audio_capture_native' \
@@ -73,18 +65,9 @@ DEFS_Release := \
 	'-DUSING_V8_SHARED=1' \
 	'-DV8_DEPRECATION_WARNINGS=1' \
 	'-D_GLIBCXX_USE_CXX11_ABI=1' \
-	'-DELECTRON_ENSURE_CONFIG_GYPI' \
+	'-D_FILE_OFFSET_BITS=64' \
 	'-D_DARWIN_USE_64_BIT_INODE=1' \
 	'-D_LARGEFILE_SOURCE' \
-	'-D_FILE_OFFSET_BITS=64' \
-	'-DUSING_ELECTRON_CONFIG_GYPI' \
-	'-DV8_COMPRESS_POINTERS' \
-	'-DV8_COMPRESS_POINTERS_IN_ISOLATE_CAGE' \
-	'-DV8_31BIT_SMIS_ON_64BIT_ARCH' \
-	'-DV8_ENABLE_SANDBOX' \
-	'-DOPENSSL_NO_PINSHARED' \
-	'-DOPENSSL_THREADS' \
-	'-DOPENSSL_NO_ASM' \
 	'-DNAPI_DISABLE_CPP_EXCEPTIONS' \
 	'-DBUILDING_NODE_EXTENSION'
 
@@ -92,6 +75,7 @@ DEFS_Release := \
 CFLAGS_Release := \
 	-O3 \
 	-gdwarf-2 \
+	-fno-strict-aliasing \
 	-mmacosx-version-min=10.15 \
 	-arch arm64 \
 	-Wall \
@@ -100,8 +84,7 @@ CFLAGS_Release := \
 	-Wno-unused-parameter
 
 # Flags passed to only C files.
-CFLAGS_C_Release := \
-	-fno-strict-aliasing
+CFLAGS_C_Release :=
 
 # Flags passed to only C++ files.
 CFLAGS_CC_Release := \
@@ -121,20 +104,19 @@ CFLAGS_OBJCC_Release := \
 	-fobjc-arc
 
 INCS_Release := \
-	-I/Users/weirdwiz/.electron-gyp/33.4.11/include/node \
-	-I/Users/weirdwiz/.electron-gyp/33.4.11/src \
-	-I/Users/weirdwiz/.electron-gyp/33.4.11/deps/openssl/config \
-	-I/Users/weirdwiz/.electron-gyp/33.4.11/deps/openssl/openssl/include \
-	-I/Users/weirdwiz/.electron-gyp/33.4.11/deps/uv/include \
-	-I/Users/weirdwiz/.electron-gyp/33.4.11/deps/zlib \
-	-I/Users/weirdwiz/.electron-gyp/33.4.11/deps/v8/include \
-	-I/Users/weirdwiz/src/kakarot/node_modules/node-addon-api
+	-I/Users/moxo/Library/Caches/node-gyp/25.5.0/include/node \
+	-I/Users/moxo/Library/Caches/node-gyp/25.5.0/src \
+	-I/Users/moxo/Library/Caches/node-gyp/25.5.0/deps/openssl/config \
+	-I/Users/moxo/Library/Caches/node-gyp/25.5.0/deps/openssl/openssl/include \
+	-I/Users/moxo/Library/Caches/node-gyp/25.5.0/deps/uv/include \
+	-I/Users/moxo/Library/Caches/node-gyp/25.5.0/deps/zlib \
+	-I/Users/moxo/Library/Caches/node-gyp/25.5.0/deps/v8/include \
+	-I/Users/moxo/Desktop/treeto-master/node_modules/node-addon-api \
+	-I$(srcdir)/native/webrtc/include
 
 OBJS := \
-	$(obj).target/$(TARGET)/native/aec/audio_capture.o \
-	$(obj).target/$(TARGET)/native/aec/system_audio_listener.o \
-	$(obj).target/$(TARGET)/native/aec/bindings.o \
-	$(obj).target/$(TARGET)/native/aec/webrtc_stub.o
+	$(obj).target/$(TARGET)/native/src/audio_capture_native.o \
+	$(obj).target/$(TARGET)/native/src/aec_processor.o
 
 # Add to the list of files we specially track dependencies for.
 all_deps += $(OBJS)
@@ -149,24 +131,15 @@ $(OBJS): GYP_OBJCXXFLAGS := $(DEFS_$(BUILDTYPE)) $(INCS_$(BUILDTYPE))  $(CFLAGS_
 
 # Suffix rules, putting all outputs into $(obj).
 
-$(obj).$(TOOLSET)/$(TARGET)/%.o: $(srcdir)/%.mm FORCE_DO_CMD
-	@$(call do_cmd,objcxx,1)
-
-$(obj).$(TOOLSET)/$(TARGET)/%.o: $(srcdir)/%.cpp FORCE_DO_CMD
+$(obj).$(TOOLSET)/$(TARGET)/%.o: $(srcdir)/%.cc FORCE_DO_CMD
 	@$(call do_cmd,cxx,1)
 
 # Try building from generated source, too.
 
-$(obj).$(TOOLSET)/$(TARGET)/%.o: $(obj).$(TOOLSET)/%.mm FORCE_DO_CMD
-	@$(call do_cmd,objcxx,1)
-
-$(obj).$(TOOLSET)/$(TARGET)/%.o: $(obj).$(TOOLSET)/%.cpp FORCE_DO_CMD
+$(obj).$(TOOLSET)/$(TARGET)/%.o: $(obj).$(TOOLSET)/%.cc FORCE_DO_CMD
 	@$(call do_cmd,cxx,1)
 
-$(obj).$(TOOLSET)/$(TARGET)/%.o: $(obj)/%.mm FORCE_DO_CMD
-	@$(call do_cmd,objcxx,1)
-
-$(obj).$(TOOLSET)/$(TARGET)/%.o: $(obj)/%.cpp FORCE_DO_CMD
+$(obj).$(TOOLSET)/$(TARGET)/%.o: $(obj)/%.cc FORCE_DO_CMD
 	@$(call do_cmd,cxx,1)
 
 # End of this set of suffix rules
@@ -200,6 +173,7 @@ LIBTOOLFLAGS_Release := \
 	-Wl,-search_paths_first
 
 LIBS := \
+	/Users/moxo/Desktop/treeto-master/native/webrtc/lib/libwebrtc.a \
 	-framework AudioToolbox \
 	-framework CoreAudio \
 	-framework CoreFoundation \
