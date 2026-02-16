@@ -4,6 +4,8 @@
  * Resamples audio to target sample rate (16kHz for transcription)
  */
 
+import { createLogger } from "@renderer/lib/logger";
+
 export interface PcmChunk {
   samples: Float32Array;
   timestampStart: number;
@@ -12,6 +14,8 @@ export interface PcmChunk {
 }
 
 export type ChunkCallback = (chunk: PcmChunk) => void;
+
+const logger = createLogger("PcmChunker");
 
 export class PcmChunker {
   private buffer: Float32Array[] = [];
@@ -126,11 +130,11 @@ export class PcmChunker {
 
     this.onChunk(chunk);
 
-    console.log(
-      `[pcm-chunker] Chunk emitted: ${this.source}, ` +
-        `${((timestampEnd - timestampStart) / 1000).toFixed(2)}s, ` +
-        `${chunkSamples.length} samples`
-    );
+    logger.debug("Chunk emitted", {
+      source: this.source,
+      durationSec: Number(((timestampEnd - timestampStart) / 1000).toFixed(2)),
+      samples: chunkSamples.length,
+    });
   }
 
   /**
@@ -159,7 +163,7 @@ export class PcmChunker {
     };
 
     this.onChunk(chunk);
-    console.log(`[pcm-chunker] Partial chunk flushed: ${samples.length} samples`);
+    logger.debug("Partial chunk flushed", { samples: samples.length });
 
     this.buffer = [];
     this.totalSamples = 0;

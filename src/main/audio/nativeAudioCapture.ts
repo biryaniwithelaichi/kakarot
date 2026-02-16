@@ -1,4 +1,5 @@
 import { EventEmitter } from "events";
+import { createLogger } from "@main/core/logger";
 
 // Native module callback type - receives (buffer, timestamp, source)
 type AudioCallback = (buffer: Float32Array, timestamp: number, source: string) => void;
@@ -22,6 +23,7 @@ export interface AudioCaptureEvents {
 }
 
 let nativeModule: NativeAudioModule | null = null;
+const logger = createLogger("NativeAudioCapture");
 
 // Try to load the native module
 function loadNativeModule(): NativeAudioModule | null {
@@ -41,17 +43,17 @@ function loadNativeModule(): NativeAudioModule | null {
       try {
         // eslint-disable-next-line @typescript-eslint/no-require-imports
         nativeModule = require(modulePath) as NativeAudioModule;
-        console.log("[NativeAudioCapture] Module loaded from:", modulePath);
+        logger.debug("Module loaded", { modulePath });
         return nativeModule;
       } catch {
         // Try next path
       }
     }
 
-    console.warn("[NativeAudioCapture] Native module not found in any path");
+    logger.warn("Native module not found in any path");
     return null;
   } catch (err) {
-    console.warn("[NativeAudioCapture] Failed to load native module:", err);
+    logger.warn("Failed to load native module", { error: err instanceof Error ? err.message : String(err) });
     return null;
   }
 }
@@ -82,13 +84,13 @@ export class NativeAudioCapture extends EventEmitter {
   async start(): Promise<boolean> {
     const module = loadNativeModule();
     if (!module) {
-      console.error("[NativeAudioCapture] Native module not available");
+      logger.error("Native module not available");
       this.emit("error", new Error("Native audio module not available"));
       return false;
     }
 
     if (this.isCapturing) {
-      console.warn("[NativeAudioCapture] Already capturing");
+      logger.warn("Already capturing");
       return true;
     }
 
@@ -108,7 +110,7 @@ export class NativeAudioCapture extends EventEmitter {
             this.emit("processedAudio", buffer, timestamp);
             break;
           default:
-            console.warn("[NativeAudioCapture] Unknown source:", source);
+            logger.warn("Unknown source", { source });
         }
       };
 
@@ -116,15 +118,15 @@ export class NativeAudioCapture extends EventEmitter {
 
       if (success) {
         this.isCapturing = true;
-        console.log("[NativeAudioCapture] Started successfully");
+        logger.info("Started successfully");
       } else {
-        console.error("[NativeAudioCapture] Failed to start");
+        logger.error("Failed to start");
         this.emit("error", new Error("Failed to start audio capture"));
       }
 
       return success;
     } catch (err) {
-      console.error("[NativeAudioCapture] Error starting:", err);
+      logger.error("Error starting", err);
       this.emit("error", err instanceof Error ? err : new Error(String(err)));
       return false;
     }
@@ -142,9 +144,9 @@ export class NativeAudioCapture extends EventEmitter {
     try {
       module.stopAudioCapture();
       this.isCapturing = false;
-      console.log("[NativeAudioCapture] Stopped");
+      logger.info("Stopped");
     } catch (err) {
-      console.error("[NativeAudioCapture] Error stopping:", err);
+      logger.error("Error stopping", err);
     }
   }
 

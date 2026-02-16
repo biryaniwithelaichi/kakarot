@@ -81,22 +81,23 @@ function NoteLine({ content, meetingId, isListItem, listPrefix }: NoteLineProps)
         {isListItem && listPrefix && (
           <span className="text-slate-400 flex-shrink-0 select-none">{listPrefix}</span>
         )}
-        <span className="flex-1">{content}</span>
-
-        {showDeepDive && (
-          <button
-            ref={triggerRef}
-            onClick={handleDeepDive}
-            className={`flex-shrink-0 p-1 rounded-full transition-all duration-200 ${
-              isHovered || isOpen
-                ? 'opacity-100 bg-[#4ea8dd]/20 hover:bg-[#4ea8dd]/30'
-                : 'opacity-0 pointer-events-none'
-            }`}
-            title="Deep dive into this note"
-          >
-            <Search className="w-3.5 h-3.5 text-[#4ea8dd]" />
-          </button>
-        )}
+        <span className="min-w-0">
+          <span>{content}</span>
+          {showDeepDive && (
+            <button
+              ref={triggerRef}
+              onClick={handleDeepDive}
+              className={`inline-flex align-middle ml-2 p-1.5 rounded-full transition-all duration-200 ${
+                isHovered || isOpen
+                  ? 'opacity-100 bg-[#4ea8dd]/20 hover:bg-[#4ea8dd]/30'
+                  : 'opacity-0 pointer-events-none'
+              }`}
+              title="Deep dive into this note"
+            >
+              <Search className="w-4 h-4 text-[#4ea8dd]" />
+            </button>
+          )}
+        </span>
       </div>
 
       {/* Popover Card */}

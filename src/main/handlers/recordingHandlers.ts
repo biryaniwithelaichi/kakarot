@@ -12,6 +12,7 @@ import { AECSync } from '../audio/AECSync';
 import { showCalloutWindow } from '../windows/calloutWindow';
 import { AUDIO_CONFIG, matchesQuestionPattern, FEATURE_FLAGS } from '../config/constants';
 import { getDatabase, saveDatabase } from '../data/database';
+import { isMeetingApp } from '../utils/meetingAppDetection';
 import type { CalendarAttendee, RecordingState } from '@shared/types';
 import type { IndicatorWindow } from '../windows/IndicatorWindow';
 
@@ -35,6 +36,7 @@ let isPaused = false;
 let lastMicApps: string[] = [];
 let meetingAppSeen = false;
 let autoStopTimer: NodeJS.Timeout | null = null;
+let maxDurationTimer: NodeJS.Timeout | null = null;
 let indicatorAmplitudeTimer: NodeJS.Timeout | null = null;
 let latestSystemAmplitude = 0;
 let latestMicAmplitude = 0;
@@ -63,28 +65,34 @@ export function registerRecordingHandlers(
     .filter(Boolean)
     .map((token) => token.toLowerCase());
   const AUTO_STOP_GRACE_MS = 5000;
-  const MEETING_APP_BUNDLE_IDS = new Set([
-    'com.google.chrome',
-    'com.google.chrome.canary',
-    'com.microsoft.edgemac',
-    'com.microsoft.edge',
-    'com.brave.browser',
-    'com.vivaldi.vivaldi',
-    'company.thebrowser.browser', // Arc
-    'org.mozilla.firefox',
-    'com.apple.safari',
-    'us.zoom.xos',
-    'com.microsoft.teams',
-    'com.microsoft.teams2',
-    'com.webex.meetingmanager',
-    'com.cisco.webexmeetingsapp',
-  ]);
+  const MAX_TRANSCRIPTION_DURATION_MS = 2 * 60 * 60 * 1000; // 2 hours
 
   const clearAutoStopTimer = (): void => {
     if (autoStopTimer) {
       clearTimeout(autoStopTimer);
       autoStopTimer = null;
     }
+  };
+
+  const clearMaxDurationTimer = (): void => {
+    if (maxDurationTimer) {
+      clearTimeout(maxDurationTimer);
+      maxDurationTimer = null;
+    }
+  };
+
+  const startMaxDurationTimer = (): void => {
+    clearMaxDurationTimer();
+    maxDurationTimer = setTimeout(() => {
+      maxDurationTimer = null;
+      if (stopInProgress) {
+        return;
+      }
+      logger.info('Auto-stopping recording (max duration reached)', {
+        maxDurationMs: MAX_TRANSCRIPTION_DURATION_MS,
+      });
+      void stopRecording('auto');
+    }, MAX_TRANSCRIPTION_DURATION_MS);
   };
 
   const startIndicatorAmplitudeLoop = (): void => {
@@ -115,21 +123,6 @@ export function registerRecordingHandlers(
   const isSelfApp = (appIdOrName: string): boolean => {
     const lower = appIdOrName.toLowerCase();
     return selfAppTokens.some((token) => lower.includes(token));
-  };
-
-  const normalizeAppId = (entry: string): string => {
-    const trimmed = entry.trim();
-    const colonIndex = trimmed.indexOf(':');
-    const value = colonIndex >= 0 ? trimmed.slice(colonIndex + 1) : trimmed;
-    return value.toLowerCase();
-  };
-
-  const isMeetingApp = (entry: string): boolean => {
-    const normalized = normalizeAppId(entry);
-    if (MEETING_APP_BUNDLE_IDS.has(normalized)) {
-      return true;
-    }
-    return false;
   };
 
   const getMicEntries = (apps: string[]): string[] => {
@@ -210,6 +203,7 @@ export function registerRecordingHandlers(
     }
     stopInProgress = true;
     clearAutoStopTimer();
+    clearMaxDurationTimer();
     stopIndicatorAmplitudeLoop();
     stopMicActivityMonitor();
     if (reason === 'auto') {
@@ -441,6 +435,7 @@ export function registerRecordingHandlers(
     setRecordingState('recording');
     startMicActivityMonitor();
     startIndicatorAmplitudeLoop();
+    startMaxDurationTimer();
 
     // Kick off provider setup asynchronously so UI can navigate immediately.
     void (async () => {

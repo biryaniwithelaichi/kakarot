@@ -2,6 +2,8 @@ import { ipcMain, desktopCapturer } from 'electron';
 import { IPC_CHANNELS } from '@shared/ipcChannels';
 import { getContainer } from '../core/container';
 import { ExportService } from '../services/ExportService';
+import { CRMEmailMatcher } from '../services/CRMEmailMatcher';
+import { CRMNoteSyncService } from '../services/CRMNoteSyncService';
 import { createLogger } from '../core/logger';
 
 const logger = createLogger('MeetingHandlers');
@@ -49,14 +51,72 @@ export function registerMeetingHandlers(): void {
     return meetingRepo.findById(id);
   });
 
-  ipcMain.handle(IPC_CHANNELS.MEETINGS_UPDATE_ATTENDEES, (_, id: string, attendeeEmails: string[]) => {
+  ipcMain.handle(IPC_CHANNELS.MEETINGS_UPDATE_ATTENDEES, async (_, id: string, attendeeEmails: string[]) => {
     logger.info('Updating meeting attendees', { id, attendeeEmails });
     const meeting = meetingRepo.findById(id);
     if (!meeting) {
       throw new Error('Meeting not found');
     }
     meetingRepo.updateAttendees(id, attendeeEmails);
-    return meetingRepo.findById(id);
+    const updated = meetingRepo.findById(id);
+
+    if (updated) {
+      const { settingsRepo } = getContainer();
+      const settings = settingsRepo.getSettings();
+      const hasNotes = Boolean(
+        updated.notesMarkdown || updated.notesPlain || updated.overview || updated.summary
+      );
+
+      if (hasNotes && settings.crmNotesBehavior === 'always') {
+        try {
+          let activeCRM: 'salesforce' | 'hubspot' | null = null;
+          if (settings.crmConnections?.salesforce) {
+            activeCRM = 'salesforce';
+          } else if (settings.crmConnections?.hubspot) {
+            activeCRM = 'hubspot';
+          }
+
+          if (activeCRM && settings.crmConnections) {
+            const crmToken = settings.crmConnections[activeCRM as keyof typeof settings.crmConnections];
+            if (crmToken) {
+              const candidateEmails = (updated.attendeeEmails && updated.attendeeEmails.length > 0)
+                ? updated.attendeeEmails
+                : updated.participants;
+              const emails = (candidateEmails || [])
+                .map((email) => email.trim().toLowerCase())
+                .filter((email) => email.includes('@'));
+
+              if (emails.length > 0) {
+                const emailMatcher = new CRMEmailMatcher();
+                const noteSyncService = new CRMNoteSyncService();
+                const matches = await emailMatcher.matchEmailsToCRM(
+                  emails,
+                  activeCRM as 'salesforce' | 'hubspot',
+                  crmToken
+                );
+
+                if (matches.length > 0) {
+                  await noteSyncService.pushNotes(updated, matches, activeCRM as 'salesforce' | 'hubspot', crmToken);
+                  logger.info('Notes pushed to CRM after attendee update', {
+                    meetingId: updated.id,
+                    matchCount: matches.length,
+                  });
+                } else {
+                  logger.warn('No matching contacts found for attendee update CRM push', {
+                    meetingId: updated.id,
+                  });
+                }
+              }
+            }
+          }
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'Unknown error';
+          logger.warn('Failed to push notes to CRM after attendee update', { id, error: message });
+        }
+      }
+    }
+
+    return updated;
   });
 
   ipcMain.handle(IPC_CHANNELS.MEETING_SUMMARIZE, async (_, id: string) => {
