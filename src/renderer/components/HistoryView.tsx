@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useLayoutEffect, useMemo, useRef } from 'react';
 import { useAppStore } from '../stores/appStore';
 import type { Meeting } from '@shared/types';
 import { Search, Trash2, Folder, Users, MessageCircle, Send, X } from 'lucide-react';
@@ -6,15 +6,113 @@ import { formatDuration, getAvatarColor, getInitials } from '../lib/formatters';
 import { MeetingListSkeleton } from './Skeleton';
 import { ConfirmDialog } from './ConfirmDialog';
 import MeetingDetailView from './MeetingDetailView';
+import { FixedSizeList as List, type ListChildComponentProps } from 'react-window';
+import { useShallow } from 'zustand/shallow';
+
+const MEETING_ROW_HEIGHT = 92;
+
+const useElementSize = (): [React.RefObject<HTMLDivElement>, { width: number; height: number }] => {
+  const ref = useRef<HTMLDivElement>(null);
+  const [size, setSize] = useState({ width: 0, height: 0 });
+
+  useLayoutEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (!entry) return;
+      const { width, height } = entry.contentRect;
+      setSize((prev) => (prev.width === width && prev.height === height ? prev : { width, height }));
+    });
+
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+
+  return [ref, size];
+};
+
+type MeetingRowData = {
+  rows: Array<{
+    id: string;
+    title: string;
+    durationLabel: string;
+    attendeeEmails: string[];
+    avatars: Array<{ email: string; initials: string; color: string }>;
+    extraCount: number;
+  }>;
+  selectedMeetingId: string | null;
+  onSelect: (meetingId: string) => void;
+  onDelete: (id: string, e: React.MouseEvent) => void;
+};
+
+const MeetingRow = ({ index, style, data }: ListChildComponentProps<MeetingRowData>) => {
+  const meeting = data.rows[index];
+  const isSelected = data.selectedMeetingId === meeting.id;
+  return (
+    <div
+      style={style}
+      onClick={() => data.onSelect(meeting.id)}
+      className={`p-4 border-b border-[#2A2A2A] cursor-pointer transition-colors ${
+        isSelected ? 'bg-[#2A2A2A] border-l-2 border-l-[#3d96cb]' : 'hover:bg-[#1E1E1E]'
+      }`}
+    >
+      <div className="flex items-start justify-between">
+        <div className="flex-1 min-w-0">
+          <h3 className="text-sm font-semibold text-slate-100 truncate">
+            {meeting.title}
+          </h3>
+          <p className="text-xs text-slate-400 mt-1">
+            {meeting.durationLabel}
+          </p>
+          {meeting.attendeeEmails.length > 0 && (
+            <div className="flex items-center gap-1 mt-2">
+              <Users className="w-3 h-3 text-slate-500" />
+              <div className="flex -space-x-1">
+                {meeting.avatars.map((avatar, idx) => (
+                  <div
+                    key={idx}
+                    className={`w-5 h-5 rounded-full ${avatar.color} flex items-center justify-center text-white text-[10px] font-medium border border-slate-900`}
+                    title={avatar.email}
+                  >
+                    {avatar.initials}
+                  </div>
+                ))}
+                {meeting.extraCount > 0 && (
+                  <div className="w-5 h-5 rounded-full bg-[#2A2A2A] flex items-center justify-center text-slate-200 text-[9px] font-medium border border-slate-900">
+                    +{meeting.extraCount}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+        <button
+          onClick={(e) => data.onDelete(meeting.id, e)}
+          className="text-slate-500 hover:text-red-400 p-1"
+        >
+          <Trash2 className="w-4 h-4" />
+        </button>
+      </div>
+    </div>
+  );
+};
 
 export default function HistoryView() {
-  const { meetings, setMeetings, selectedMeeting, setSelectedMeeting } = useAppStore();
+  const { meetings, setMeetings, selectedMeeting, setSelectedMeeting } = useAppStore(useShallow((state) => ({
+    meetings: state.meetings,
+    setMeetings: state.setMeetings,
+    selectedMeeting: state.selectedMeeting,
+    setSelectedMeeting: state.setSelectedMeeting,
+  })));
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; meetingId: string | null }>({
     isOpen: false,
     meetingId: null,
   });
+  const [listRef, listSize] = useElementSize();
 
   // Chat state
   const [showChatPopover, setShowChatPopover] = useState(false);
@@ -75,10 +173,10 @@ export default function HistoryView() {
     }
   };
 
-  const handleSelectMeeting = async (meeting: Meeting) => {
-    const fullMeeting = await window.kakarot.meetings.get(meeting.id);
+  const handleSelectMeetingId = useCallback(async (meetingId: string) => {
+    const fullMeeting = await window.kakarot.meetings.get(meetingId);
     setSelectedMeeting(fullMeeting);
-  };
+  }, [setSelectedMeeting]);
 
   const handleDeleteMeeting = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -99,6 +197,23 @@ export default function HistoryView() {
     loadMeetings();
   }, [loadMeetings]);
 
+  const meetingRows = useMemo(() => meetings.map((meeting) => {
+    const attendeeEmails = meeting.attendeeEmails || [];
+    const avatars = attendeeEmails.slice(0, 3).map((email) => ({
+      email,
+      initials: getInitials(email),
+      color: getAvatarColor(email),
+    }));
+    return {
+      id: meeting.id,
+      title: meeting.title,
+      durationLabel: formatDuration(meeting.duration),
+      attendeeEmails,
+      avatars,
+      extraCount: Math.max(0, attendeeEmails.length - 3),
+    };
+  }), [meetings]);
+
   return (
     <div className="h-full flex bg-[#0C0C0C] text-slate-100 rounded-2xl border border-[#2A2A2A] shadow-[0_8px_30px_rgba(0,0,0,0.35)] overflow-hidden">
       {/* Meeting list sidebar */}
@@ -117,62 +232,28 @@ export default function HistoryView() {
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-hidden" ref={listRef}>
           {isLoading ? (
             <MeetingListSkeleton count={6} />
           ) : meetings.length === 0 ? (
             <div className="p-4 text-center text-slate-500">No meetings yet</div>
           ) : (
-            meetings.map((meeting, index) => (
-              <div
-                key={meeting.id}
-                onClick={() => handleSelectMeeting(meeting)}
-                className={`p-4 border-b border-[#2A2A2A] cursor-pointer transition-all duration-200 animate-stagger-in ${
-                  selectedMeeting?.id === meeting.id
-                    ? 'bg-[#2A2A2A] border-l-2 border-l-[#3d96cb]'
-                    : 'hover:bg-[#1E1E1E]'
-                }`}
-                style={{ animationDelay: `${index * 30}ms` }}
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-sm font-semibold text-slate-100 truncate">
-                      {meeting.title}
-                    </h3>
-                    <p className="text-xs text-slate-400 mt-1">
-                      {formatDuration(meeting.duration)}
-                    </p>
-                    {meeting.attendeeEmails && meeting.attendeeEmails.length > 0 && (
-                      <div className="flex items-center gap-1 mt-2">
-                        <Users className="w-3 h-3 text-slate-500" />
-                        <div className="flex -space-x-1">
-                          {meeting.attendeeEmails.slice(0, 3).map((email, idx) => (
-                            <div
-                              key={idx}
-                              className={`w-5 h-5 rounded-full ${getAvatarColor(email)} flex items-center justify-center text-white text-[10px] font-medium border border-slate-900`}
-                              title={email}
-                            >
-                              {getInitials(email)}
-                            </div>
-                          ))}
-                          {meeting.attendeeEmails.length > 3 && (
-                            <div className="w-5 h-5 rounded-full bg-[#2A2A2A] flex items-center justify-center text-slate-200 text-[9px] font-medium border border-slate-900">
-                              +{meeting.attendeeEmails.length - 3}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  <button
-                    onClick={(e) => handleDeleteMeeting(meeting.id, e)}
-                    className="text-slate-500 hover:text-red-400 p-1"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            ))
+            <List
+              height={listSize.height || 1}
+              width={listSize.width || 1}
+              itemCount={meetingRows.length}
+              itemSize={MEETING_ROW_HEIGHT}
+              itemData={{
+                rows: meetingRows,
+                selectedMeetingId: selectedMeeting?.id ?? null,
+                onSelect: handleSelectMeetingId,
+                onDelete: handleDeleteMeeting,
+              }}
+              itemKey={(index, data) => data.rows[index].id}
+              overscanCount={8}
+            >
+              {MeetingRow}
+            </List>
           )}
         </div>
       </div>

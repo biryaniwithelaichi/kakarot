@@ -370,7 +370,7 @@ A core teaching that underpins all of these principles is the idea that **fear a
 
 ### 2. Meetings: A Framework for Efficiency
 
-Meetings are often seen as a drain on productivity, but the Mochary Method provides a structured approach to make them essential and efficient. The key is to shift as much work as possible to asynchronous preparation, reserving synchronous time for what is truly necessary.
+Meetings are often seen as a drain on productivity, but the leadership coaching provides a structured approach to make them essential and efficient. The key is to shift as much work as possible to asynchronous preparation, reserving synchronous time for what is truly necessary.
 
 #### The Anatomy of an Effective Meeting
 Every meeting must have a **Meeting Owner** who is responsible for its success. The owner is a crucial role, ensuring all necessary steps are taken, including:
@@ -381,7 +381,7 @@ Every meeting must have a **Meeting Owner** who is responsible for its success. 
 * **Feedback**: The meeting should conclude with a request for written feedback on the meeting itself. This builds trust and provides valuable insights for improvement.
 
 #### Rethinking the 1-on-1 and Group Meetings
-One of the most significant shifts in the Mochary Method is the elimination of traditional 1-on-1 meetings in favor of **Group 1-1s**. This approach brings all direct reports into a single meeting, which has several benefits:
+One of the most significant shifts in the leadership coaching is the elimination of traditional 1-on-1 meetings in favor of **Group 1-1s**. This approach brings all direct reports into a single meeting, which has several benefits:
 * **Time Savings**: It consolidates discussions, saving hours per week for the CEO.
 * **Increased Transparency**: Information is no longer siloed, and everyone benefits from shared insights and feedback.
 * **Faster Decision-Making**: Key stakeholders are present, allowing for real-time decisions.
@@ -392,7 +392,7 @@ The curriculum also details a specific **1-on-1 template** that can be used for 
 
 ### 3. Fostering a Culture of Feedback and Trust
 
-A strong company culture is built on trust, and trust is built through transparent and frequent feedback. The Mochary Method provides detailed guidelines for both giving and receiving feedback, transforming a potentially uncomfortable process into a valuable gift.
+A strong company culture is built on trust, and trust is built through transparent and frequent feedback. The leadership coaching provides detailed guidelines for both giving and receiving feedback, transforming a potentially uncomfortable process into a valuable gift.
 
 #### The 5 A's of Receiving Feedback
 When you, as a leader, receive feedback, you must handle it with care to encourage more of it. The five A's provide a clear process:
@@ -455,7 +455,7 @@ To support this, the curriculum suggests a **Calendar Cadence** that protects un
 
 ### 6. Tools for Organizational Excellence
 
-To scale successfully, you need a robust management system. The Mochary Method offers several tools to create a streamlined and transparent organization.
+To scale successfully, you need a robust management system. The leadership coaching offers several tools to create a streamlined and transparent organization.
 
 #### Getting Things Done (GTD) and Inbox Zero
 **Getting Things Done** is a personal productivity system that helps you manage all your tasks and commitments. It involves processing all your inboxes daily, writing down the "next action" for any task over two minutes, and organizing these actions into clear lists.
@@ -479,7 +479,7 @@ The **RAPID** framework is a tool for making complex, cross-functional decisions
 
 ### 7. Personal Development for the CEO
 
-Being a great leader is an ongoing process of self-improvement. The Mochary Method provides tools to help a CEO continually grow.
+Being a great leader is an ongoing process of self-improvement. The leadership coaching provides tools to help a CEO continually grow.
 
 #### Mental Health and Rest
 The intense demands of a CEO role can lead to burnout. The curriculum normalizes this struggle and provides tools for recovery. The **Energy Audit** helps you consciously design your work life to be energizing. This includes finding ways to "get bored" and disconnect from distractions to allow for mental rest and creativity.
@@ -497,7 +497,7 @@ Before generating your output, first read all provided context, carefully consid
 
 You are a leadership coaching advisor. Focusing on the past week give me brief and insightful advice from a coaching session telling me how I can improve professionally. I've included notes on your curriculum above for easy reference. Be very specific and concrete with your suggestions and examples.
 
-Open with a sharp and short analytical introduction about how I'm doing right now, applying Matt Mochary's wisdom and coaching style.
+Open with a sharp and short analytical introduction about how I'm doing right now, applying the above wisdom and coaching style.
 
 You should output no more than 5 points, combining insights and recommendations. Use markdown; ## for headings and write in prose beneath it.`,
       thumbnailUrl: null,

@@ -3459,9 +3459,137 @@ CRITICAL RULES:
       };
     }
 
-    const { aiProvider, meetingRepo } = getContainer();
+    const { aiProvider, meetingRepo, peopleRepo } = getContainer();
     if (!aiProvider) throw new Error('AI provider not available');
     if (!meetingRepo) throw new Error('Meeting repository not available');
+
+    // Fast-path: multi-person queries explicitly listing multiple emails
+    const extractedEmails = this.extractEmailsFromMessage(processedMessage);
+    if (extractedEmails.length >= 2) {
+      const participants = extractedEmails.map((email) => {
+        const person = peopleRepo?.getByEmail(email);
+        return {
+          name: person?.name || email,
+          email,
+          organization: person?.organization || null,
+          meetingCount: person?.meetingCount ?? 0,
+        };
+      });
+
+      let allMeetings = this.filterMeetingsByAnyAttendee(meetingRepo.findAll(), extractedEmails)
+        .sort((a: Meeting, b: Meeting) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .slice(0, 12);
+
+      if (classifiedQuery.dateRange) {
+        const filteredMeetings = this.filterMeetingsByDateRange(allMeetings, classifiedQuery.dateRange);
+        if (filteredMeetings.length > 0) {
+          allMeetings = filteredMeetings;
+        }
+      }
+
+      let meetingsForContext = allMeetings;
+      let calendarContext = '';
+
+      const calendarEvents = await this.fetchUpcomingCalendarEvents();
+      if (calendarEvents.length > 0) {
+        const focused = this.findBestUpcomingEventByAttendees(calendarEvents, extractedEmails);
+        const focusedContext = focused
+          ? this.buildFocusedCalendarContext(focused.event, extractedEmails, focused.overlap)
+          : '';
+        const isCalendarQuery = this.detectCalendarIntent(processedMessage);
+        const fullContext = isCalendarQuery ? this.buildCalendarContext(calendarEvents) : '';
+        calendarContext = [focusedContext, fullContext].filter(Boolean).join('\n\n');
+
+        if (focused?.event?.title) {
+          const keywords = this.getTitleKeywords(focused.event.title);
+          const filteredByTitle = this.filterMeetingsByTitleKeywords(allMeetings, keywords);
+          if (filteredByTitle.length > 0) {
+            meetingsForContext = filteredByTitle;
+          } else {
+            meetingsForContext = [];
+          }
+        }
+      }
+
+      const sharedMeetings = this.findSharedMeetingsByEmails(meetingsForContext, participants);
+      const hasMeetingNotes = meetingsForContext.some(m => this.hasSubstantiveMeetingContent(m));
+      const meetingContext = this.buildMultiPersonContextForChat(
+        participants,
+        meetingsForContext,
+        sharedMeetings,
+        { hasMeetingNotes }
+      );
+      const meetingReferences = meetingsForContext.slice(0, 5).map((m, idx) => ({
+        meetingId: m.id,
+        title: m.title || `Meeting ${idx + 1}`,
+        date: new Date(m.createdAt).toLocaleDateString(),
+      }));
+
+      const userWasAttendee = meetingsForContext.some(m => this.wasUserAttendee(m, userContext));
+      const enrichedUserContext: UserContext = {
+        ...userContext,
+        wasAttendee: userWasAttendee,
+      };
+
+      const systemPrompt = this.buildChatSystemPrompt(
+        null,
+        meetingContext,
+        enrichedUserContext,
+        classifiedQuery,
+        undefined,
+        calendarContext
+      );
+
+      const conversationMessages = existingConversation?.messages || [];
+      const chatMessages: Array<{ role: 'user' | 'assistant' | 'system'; content: string }> = [
+        { role: 'system', content: systemPrompt },
+        ...conversationMessages.map(m => ({ role: m.role as 'user' | 'assistant', content: m.content })),
+        { role: 'user', content: processedMessage },
+      ];
+
+      const temperature = this.getTemperatureForQueryType(classifiedQuery.type);
+      const response = await aiProvider.chat(chatMessages, {
+        model: 'gpt-4o',
+        temperature,
+        maxTokens: 1500,
+      });
+
+      const responseMessage: PrepChatMessage = {
+        id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+        role: 'assistant',
+        content: response,
+        timestamp: new Date().toISOString(),
+        meetingReferences: meetingReferences.length > 0 ? meetingReferences : undefined,
+      };
+
+      const conversationId = existingConversation?.id || `conv-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+      const userMessage: PrepChatMessage = {
+        id: `msg-${Date.now() - 1}-${Math.random().toString(36).slice(2, 9)}`,
+        role: 'user',
+        content: input.message,
+        timestamp: new Date().toISOString(),
+      };
+
+      const updatedConversation: PrepConversation = {
+        id: conversationId,
+        messages: [...(existingConversation?.messages || []), userMessage, responseMessage],
+        createdAt: existingConversation?.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      logger.info('Prep chat response generated (multi-person)', {
+        conversationId,
+        participantCount: participants.length,
+        responseLength: response.length,
+        processingTimeMs: Date.now() - startTime,
+      });
+
+      return {
+        conversationId,
+        message: responseMessage,
+        conversation: updatedConversation,
+      };
+    }
 
     // ============================================================
     // OPTIMIZATION: Single LLM extraction upfront (avoids 2-3 duplicate calls)
@@ -3896,9 +4024,129 @@ CRITICAL RULES:
         return;
       }
 
-      const { aiProvider, meetingRepo } = getContainer();
+      const { aiProvider, meetingRepo, peopleRepo } = getContainer();
       if (!aiProvider) throw new Error('AI provider not available');
       if (!meetingRepo) throw new Error('Meeting repository not available');
+
+      // Fast-path: multi-person queries explicitly listing multiple emails
+      const extractedEmails = this.extractEmailsFromMessage(processedMessage);
+      if (extractedEmails.length >= 2) {
+        const participants = extractedEmails.map((email) => {
+          const person = peopleRepo?.getByEmail(email);
+          return {
+            name: person?.name || email,
+            email,
+            organization: person?.organization || null,
+            meetingCount: person?.meetingCount ?? 0,
+          };
+        });
+
+        let allMeetings = this.filterMeetingsByAnyAttendee(meetingRepo.findAll(), extractedEmails)
+          .sort((a: Meeting, b: Meeting) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+          .slice(0, 12);
+
+        if (classifiedQuery.dateRange) {
+          const filteredMeetings = this.filterMeetingsByDateRange(allMeetings, classifiedQuery.dateRange);
+          if (filteredMeetings.length > 0) allMeetings = filteredMeetings;
+        }
+
+        let meetingsForContext = allMeetings;
+        let calendarContext = '';
+
+        const calendarEvents = await this.fetchUpcomingCalendarEvents();
+        if (calendarEvents.length > 0) {
+          const focused = this.findBestUpcomingEventByAttendees(calendarEvents, extractedEmails);
+          const focusedContext = focused
+            ? this.buildFocusedCalendarContext(focused.event, extractedEmails, focused.overlap)
+            : '';
+          const isCalendarQuery = this.detectCalendarIntent(processedMessage);
+          const fullContext = isCalendarQuery ? this.buildCalendarContext(calendarEvents) : '';
+          calendarContext = [focusedContext, fullContext].filter(Boolean).join('\n\n');
+
+          if (focused?.event?.title) {
+            const keywords = this.getTitleKeywords(focused.event.title);
+            const filteredByTitle = this.filterMeetingsByTitleKeywords(allMeetings, keywords);
+            if (filteredByTitle.length > 0) {
+              meetingsForContext = filteredByTitle;
+            } else {
+              meetingsForContext = [];
+            }
+          }
+        }
+
+        const sharedMeetings = this.findSharedMeetingsByEmails(meetingsForContext, participants);
+        const hasMeetingNotes = meetingsForContext.some(m => this.hasSubstantiveMeetingContent(m));
+        const meetingContext = this.buildMultiPersonContextForChat(
+          participants,
+          meetingsForContext,
+          sharedMeetings,
+          { hasMeetingNotes }
+        );
+        const meetingReferences = meetingsForContext.slice(0, 5).map((m, idx) => ({
+          meetingId: m.id,
+          title: m.title || `Meeting ${idx + 1}`,
+          date: new Date(m.createdAt).toLocaleDateString(),
+        }));
+
+        const userWasAttendee = meetingsForContext.some(m => this.wasUserAttendee(m, userContext));
+        const enrichedUserContext: UserContext = { ...userContext, wasAttendee: userWasAttendee };
+
+        const systemPrompt = this.buildChatSystemPrompt(
+          null,
+          meetingContext,
+          enrichedUserContext,
+          classifiedQuery,
+          undefined,
+          calendarContext
+        );
+
+        const conversationMessages = existingConversation?.messages || [];
+        const chatMessages: Array<{ role: 'user' | 'assistant' | 'system'; content: string }> = [
+          { role: 'system', content: systemPrompt },
+          ...conversationMessages.map(m => ({ role: m.role as 'user' | 'assistant', content: m.content })),
+          { role: 'user', content: processedMessage },
+        ];
+
+        const temperature = this.getTemperatureForQueryType(classifiedQuery.type);
+        const conversationId = existingConversation?.id || `conv-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+
+        onStart({ conversationId, meetingReferences });
+
+        let fullResponse = '';
+        for await (const chunk of aiProvider.chatStream(chatMessages, {
+          model: 'gpt-4o',
+          temperature,
+          maxTokens: 1500,
+        })) {
+          fullResponse += chunk;
+          onChunk(chunk);
+        }
+
+        const responseMessage: PrepChatMessage = {
+          id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+          role: 'assistant',
+          content: fullResponse,
+          timestamp: new Date().toISOString(),
+          meetingReferences: meetingReferences.length > 0 ? meetingReferences : undefined,
+        };
+
+        const userMessage: PrepChatMessage = {
+          id: `msg-${Date.now() - 1}-${Math.random().toString(36).slice(2, 9)}`,
+          role: 'user',
+          content: input.message,
+          timestamp: new Date().toISOString(),
+        };
+
+        const updatedConversation: PrepConversation = {
+          id: conversationId,
+          messages: [...(existingConversation?.messages || []), userMessage, responseMessage],
+          createdAt: existingConversation?.createdAt || new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+
+        onEnd({ conversationId, message: responseMessage, conversation: updatedConversation });
+        return;
+      }
 
       // Single LLM extraction upfront
       const llmExtraction = await this.extractEntityWithLLM(processedMessage, existingConversation);
@@ -4245,6 +4493,27 @@ When information conflicts between meetings:
 
 ${userIdentitySection}
 ${queryTypeInstructions}
+## FACTUALITY RULES (CRITICAL)
+1. Only assert facts explicitly present in CALENDAR CONTEXT, MEETING HISTORY, or CRM DATA.
+2. Never invent action items, owners, dates, or discussion topics.
+3. Do NOT infer discussion details from meeting titles alone. If only a title exists, say "No notes available."
+4. If MEETING HISTORY says no notes are available, do not claim "recent discussions" or "updates."
+5. If CALENDAR CONTEXT includes "FOCUSED UPCOMING MEETING", lead with its exact date/time in the opening sentence.
+
+## MULTI-PERSON PREP ARCHITECTURE
+1. Attendee identification and context gathering from meeting history and CRM.
+2. Relationship mapping: Known (rich history), Partial (limited history), Unknown (no history).
+3. Synthesis strategy:
+   - Lots in common: focus on shared themes and progression.
+   - Nothing in common: rely on meeting title/purpose and universal prep.
+   - Mixed overlap: segment advice by subgroups and call out context gaps.
+4. Output structure (in order):
+   - Meeting context (calendar details first)
+   - People insights (grouped by Known/Partial/Unknown)
+   - Shared history (if any, with citations)
+   - Prep areas and data to bring
+   - Questions to ask
+
 ## RESPONSE STYLE (MANDATORY)
 
 1. **NO PREAMBLES** - Never start with "I'd be happy to help", "Sure!", "Great question", "Let me help you", etc. Dive straight into the answer.
@@ -4751,6 +5020,232 @@ If there's no meeting data for a person, check if CRM data is available and use 
       }
     }
     return null;
+  }
+
+  /**
+   * Extract attendee emails from a message, preserving order and removing duplicates
+   */
+  private extractEmailsFromMessage(message: string): string[] {
+    const emailRegex = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi;
+    const matches = message.match(emailRegex) || [];
+    const seen = new Set<string>();
+    const emails: string[] = [];
+
+    for (const raw of matches) {
+      const email = raw.toLowerCase();
+      if (!seen.has(email)) {
+        seen.add(email);
+        emails.push(email);
+      }
+    }
+
+    return emails;
+  }
+
+  private getMeetingAttendeeEmails(meeting: Meeting): string[] {
+    const emails: string[] = [];
+    if (Array.isArray(meeting.attendeeEmails)) {
+      emails.push(...meeting.attendeeEmails);
+    }
+
+    if (meeting.participants) {
+      try {
+        const participants = typeof meeting.participants === 'string'
+          ? JSON.parse(meeting.participants)
+          : meeting.participants;
+        if (Array.isArray(participants)) {
+          for (const p of participants) {
+            if (typeof p === 'string') {
+              emails.push(p);
+            } else if (p && typeof p.email === 'string') {
+              emails.push(p.email);
+            }
+          }
+        }
+      } catch {
+        // ignore malformed participants data
+      }
+    }
+
+    const normalized = emails
+      .map((e) => e.toLowerCase())
+      .filter((e) => e.includes('@'));
+    return Array.from(new Set(normalized));
+  }
+
+  private filterMeetingsByAnyAttendee(meetings: Meeting[], attendeeEmails: string[]): Meeting[] {
+    const emailSet = new Set(attendeeEmails.map(e => e.toLowerCase()));
+    return meetings.filter((m) => {
+      const attendees = this.getMeetingAttendeeEmails(m);
+      return attendees.some(e => emailSet.has(e));
+    });
+  }
+
+  private buildMultiPersonContextForChat(
+    participants: Array<{ name: string; email: string; organization?: string | null; meetingCount?: number | null }>,
+    meetings: Meeting[],
+    sharedMeetings: Array<{ title: string; date: string; participantsPresent: string[] }>,
+    contextFlags?: { hasMeetingNotes: boolean }
+  ): string {
+    const participantLines = participants.map((p) => {
+      const org = p.organization ? ` (${p.organization})` : '';
+      return `- ${p.name} <${p.email}>${org}`;
+    }).join('\n');
+
+    const known = participants.filter(p => (p.meetingCount ?? 0) >= 2);
+    const partial = participants.filter(p => (p.meetingCount ?? 0) === 1);
+    const unknown = participants.filter(p => (p.meetingCount ?? 0) === 0);
+
+    const knownLine = known.length > 0
+      ? known.map(p => `${p.name} (${p.meetingCount})`).join(', ')
+      : 'None';
+    const partialLine = partial.length > 0
+      ? partial.map(p => `${p.name} (${p.meetingCount})`).join(', ')
+      : 'None';
+    const unknownLine = unknown.length > 0
+      ? unknown.map(p => p.name).join(', ')
+      : 'None';
+
+    const sharedLines = sharedMeetings.length > 0
+      ? sharedMeetings.map(m => `- "${m.title}" (${m.date}) - ${m.participantsPresent.join(', ')}`).join('\n')
+      : 'No shared meetings found.';
+
+    return [
+      `REQUESTED PARTICIPANTS:`,
+      participantLines,
+      ``,
+      `ATTENDEE CONTEXT:`,
+      `Known (2+ meetings): ${knownLine}`,
+      `Partial (1 meeting): ${partialLine}`,
+      `Unknown (no meetings): ${unknownLine}`,
+      ``,
+      contextFlags?.hasMeetingNotes
+        ? `MEETING NOTES STATUS: Notes/summaries available. Only use explicit details.`
+        : `MEETING NOTES STATUS: No summaries/notes found for these participants. Do NOT infer prior discussion topics.`,
+      ``,
+      `SHARED MEETINGS (2+ participants):`,
+      sharedLines,
+      ``,
+      `MEETING HISTORY:`,
+      meetings.length > 0 ? this.buildMeetingContextForChat(meetings) : 'No past meetings found for these participants.',
+    ].join('\n');
+  }
+
+  private getCalendarAttendeeEmails(event: CalendarEvent): string[] {
+    const attendees = event.attendees || [];
+    const emails = attendees.map((a: any) => {
+      if (typeof a === 'string') return a;
+      return a?.email;
+    }).filter((e: any) => typeof e === 'string');
+
+    return Array.from(new Set(emails.map((e: string) => e.toLowerCase())));
+  }
+
+  private hasSubstantiveMeetingContent(meeting: Meeting): boolean {
+    if (meeting.summary && meeting.summary.trim().length > 0) return true;
+    if (meeting.actionItems && meeting.actionItems.length > 0) return true;
+    if (meeting.overview && meeting.overview.trim().length > 0) return true;
+    if (meeting.notesMarkdown && meeting.notesMarkdown.trim().length > 0) return true;
+    if (meeting.notesPlain && meeting.notesPlain.trim().length > 0) return true;
+    if (typeof meeting.notes === 'string' && meeting.notes.trim().length > 0) return true;
+    if (meeting.noteEntries && meeting.noteEntries.length > 0) return true;
+    if (meeting.transcript && meeting.transcript.length > 0) return true;
+    return false;
+  }
+
+  private getTitleKeywords(title: string): string[] {
+    const stop = new Set([
+      'the', 'and', 'with', 'from', 'about', 'update', 'sync', 'meeting', 'call',
+      'standup', 'stand-up', 'weekly', 'monthly', 'project', 'review', 'discussion',
+      'check', 'checkin', 'check-in', 'prep', 'planning', 'retrospective', 'retro',
+    ]);
+    return title
+      .toLowerCase()
+      .split(/[^a-z0-9]+/)
+      .filter(w => w.length > 3 && !stop.has(w));
+  }
+
+  private filterMeetingsByTitleKeywords(meetings: Meeting[], keywords: string[]): Meeting[] {
+    if (keywords.length === 0) return meetings;
+    return meetings.filter((m) => {
+      const text = `${m.title || ''} ${m.summary || ''}`.toLowerCase();
+      return keywords.some(k => text.includes(k));
+    });
+  }
+
+  private findBestUpcomingEventByAttendees(
+    events: CalendarEvent[],
+    attendeeEmails: string[],
+  ): { event: CalendarEvent; overlap: number } | null {
+    const target = new Set(attendeeEmails.map(e => e.toLowerCase()));
+    let best: { event: CalendarEvent; overlap: number } | null = null;
+
+    for (const event of events) {
+      const attendees = this.getCalendarAttendeeEmails(event);
+      const overlap = attendees.filter(e => target.has(e)).length;
+      if (overlap === 0) continue;
+
+      if (!best || overlap > best.overlap) {
+        best = { event, overlap };
+      } else if (best && overlap === best.overlap) {
+        const bestStart = new Date(best.event.start).getTime();
+        const currentStart = new Date(event.start).getTime();
+        if (currentStart < bestStart) {
+          best = { event, overlap };
+        }
+      }
+    }
+
+    return best;
+  }
+
+  private buildFocusedCalendarContext(
+    event: CalendarEvent,
+    attendeeEmails: string[],
+    overlapCount: number
+  ): string {
+    const start = new Date(event.start);
+    const end = new Date(event.end);
+    const dateStr = start.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+    const timeStr = `${start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })} - ${end.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`;
+    const durationMin = Math.round((end.getTime() - start.getTime()) / (1000 * 60));
+
+    const attendees = attendeeEmails.map(e => e.toLowerCase());
+    return [
+      `FOCUSED UPCOMING MEETING:`,
+      `Title: ${event.title || 'Untitled Event'}`,
+      `When: ${dateStr} at ${timeStr} (${durationMin} min)`,
+      event.location ? `Location: ${event.location}` : '',
+      `Matched Attendees: ${overlapCount}/${attendees.length}`,
+    ].filter(Boolean).join('\n');
+  }
+
+  private findSharedMeetingsByEmails(
+    meetings: Meeting[],
+    participants: Array<{ name: string; email: string }>,
+  ): Array<{ title: string; date: string; participantsPresent: string[] }> {
+    const results: Array<{ title: string; date: string; participantsPresent: string[] }> = [];
+    const participantMap = new Map<string, string>();
+    for (const p of participants) {
+      participantMap.set(p.email.toLowerCase(), p.name);
+    }
+
+    for (const meeting of meetings) {
+      const attendees = this.getMeetingAttendeeEmails(meeting);
+      const present = attendees
+        .map(e => participantMap.get(e))
+        .filter((name): name is string => Boolean(name));
+
+      if (present.length >= 2) {
+        results.push({
+          title: meeting.title || 'Untitled Meeting',
+          date: new Date(meeting.createdAt).toLocaleDateString(),
+          participantsPresent: Array.from(new Set(present)),
+        });
+      }
+    }
+
+    return results.slice(0, 5);
   }
 
   /**

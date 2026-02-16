@@ -10,7 +10,7 @@ interface UpcomingMeetingsListProps {
   onViewMore?: () => void;
 }
 
-export default function UpcomingMeetingsList({ meetings, isCalendarConnected = false, onNavigateSettings, onSelectMeeting: _onSelectMeeting, onTakeNotes, onViewMore }: UpcomingMeetingsListProps) {
+export default function UpcomingMeetingsList({ meetings, isCalendarConnected = false, onNavigateSettings, onSelectMeeting, onTakeNotes, onViewMore }: UpcomingMeetingsListProps) {
   const formatDate = (date: Date): string => {
     const d = new Date(date);
     return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase();
@@ -33,12 +33,17 @@ export default function UpcomingMeetingsList({ meetings, isCalendarConnected = f
     return d.toDateString() === tomorrow.toDateString();
   };
 
-  const renderMeeting = (meeting: CalendarEvent, index?: number): JSX.Element => (
+  const renderMeeting = (meeting: CalendarEvent): JSX.Element => (
     <button
       key={meeting.id}
-      onClick={() => onTakeNotes?.(meeting)}
-      className="w-full px-3 py-2 rounded-lg bg-[#1E1E1E] border border-[#2A2A2A] hover:bg-[#2A2A2A] transition-all duration-200 text-left hover:shadow-elevated active:scale-[0.98] animate-stagger-in"
-      style={{ animationDelay: `${(index ?? 0) * 40}ms` }}
+      onClick={() => {
+        if (onSelectMeeting) {
+          onSelectMeeting(meeting);
+          return;
+        }
+        onTakeNotes?.(meeting);
+      }}
+      className="w-full px-3 py-2 rounded-lg bg-[#1E1E1E] border border-[#2A2A2A] hover:bg-[#2A2A2A] transition-all duration-200 text-left hover:shadow-elevated active:scale-[0.98]"
     >
       <div className="flex items-start gap-2.5">
         <div className="flex-shrink-0 px-2 py-1 rounded bg-[#4ea8dd]/10 border border-[#4ea8dd]/15">
@@ -63,7 +68,7 @@ export default function UpcomingMeetingsList({ meetings, isCalendarConnected = f
     label: string;
     meetings: CalendarEvent[];
     emptyMessage?: string;
-    renderMeeting: (meeting: CalendarEvent, index: number) => JSX.Element;
+    renderMeeting: (meeting: CalendarEvent) => JSX.Element;
   }): JSX.Element => (
     <div>
       <h4 className="text-[10px] uppercase tracking-[0.2em] font-medium text-[#5C5750] mb-2 px-1">
@@ -71,7 +76,7 @@ export default function UpcomingMeetingsList({ meetings, isCalendarConnected = f
       </h4>
       <div className="space-y-2">
         {props.meetings.length > 0 ? (
-          props.meetings.map((meeting, index) => props.renderMeeting(meeting, index))
+          props.meetings.map((meeting) => props.renderMeeting(meeting))
         ) : (
           <p className="text-xs text-slate-500 px-1">{props.emptyMessage}</p>
         )}

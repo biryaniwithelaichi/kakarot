@@ -106,10 +106,6 @@ export default function Sidebar({ pillarTab, onPillarTabChange }: SidebarProps) 
         isOpen={isPopoverOpen}
         onClose={() => setIsPopoverOpen(false)}
         anchorEl={logoRef.current}
-        onSelectMessage={() => {
-          setModalMode('message');
-          setIsModalOpen(true);
-        }}
         onSelectFeedback={() => {
           setModalMode('feedback');
           setIsModalOpen(true);

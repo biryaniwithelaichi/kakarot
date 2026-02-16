@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useLayoutEffect, useMemo, useRef } from 'react';
 import { Search, Mail, Building2, Calendar, Clock, FileText, Edit2, X, Check, RefreshCw, MessageSquare } from 'lucide-react';
 import type { Person, Meeting, GeneratedStructuredNotes } from '@shared/types';
 import { formatDuration, getAvatarColor, getInitials, formatLastMeeting } from '../lib/formatters';
@@ -6,9 +6,97 @@ import { PersonListSkeleton } from './Skeleton';
 import { useAppStore } from '../stores/appStore';
 import { NotesWithDeepDive } from './NotesWithDeepDive';
 import { StructuredNotesView } from './StructuredNotesView';
+import { FixedSizeList as List, type ListChildComponentProps } from 'react-window';
+import { useShallow } from 'zustand/shallow';
+
+const CONTACT_ROW_HEIGHT = 96;
+
+const useElementSize = (): [React.RefObject<HTMLDivElement>, { width: number; height: number }] => {
+  const ref = useRef<HTMLDivElement>(null);
+  const [size, setSize] = useState({ width: 0, height: 0 });
+
+  useLayoutEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (!entry) return;
+      const { width, height } = entry.contentRect;
+      setSize((prev) => (prev.width === width && prev.height === height ? prev : { width, height }));
+    });
+
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+
+  return [ref, size];
+};
+
+type PeopleRowData = {
+  rows: Array<{
+    email: string;
+    name: string | null;
+    organization: string | null;
+    meetingCount: number;
+    durationLabel: string;
+    avatarColor: string;
+    initials: string;
+  }>;
+  selectedEmail: string | null;
+  onSelect: (email: string) => void;
+};
+
+
+const PeopleRow = React.memo(({ index, style, data }: ListChildComponentProps<PeopleRowData>) => {
+  const person = data.rows[index];
+  const isSelected = data.selectedEmail === person.email;
+  return (
+    <div
+      style={style}
+      onClick={() => data.onSelect(person.email)}
+      className={`p-4 border-b border-[#2A2A2A] cursor-pointer transition-colors ${
+        isSelected ? 'bg-[#2A2A2A] border-l-2 border-l-[#3d96cb]' : 'hover:bg-[#1E1E1E]'
+      }`}
+    >
+      <div className="flex items-center gap-3">
+        <div className={`w-10 h-10 rounded-full ${person.avatarColor} flex items-center justify-center text-white font-medium text-sm flex-shrink-0`}>
+          {person.initials}
+        </div>
+        <div className="flex-1 min-w-0">
+          <h3 className="text-sm font-medium text-slate-100 truncate">
+            {person.name || person.email}
+          </h3>
+          {person.name && (
+            <p className="text-xs text-slate-500 truncate">{person.email}</p>
+          )}
+          {person.organization && (
+            <p className="text-xs text-slate-400 truncate mt-0.5">{person.organization}</p>
+          )}
+        </div>
+      </div>
+      <div className="flex items-center gap-4 mt-2 text-xs text-slate-500">
+        <span className="flex items-center gap-1">
+          <Calendar className="w-3 h-3" />
+          {person.meetingCount} {person.meetingCount === 1 ? 'meeting' : 'meetings'}
+        </span>
+        <span className="flex items-center gap-1">
+          <Clock className="w-3 h-3" />
+          {person.durationLabel}
+        </span>
+      </div>
+    </div>
+  );
+});
+
 
 export default function PeopleView() {
-  const { setSelectedMeeting, navigate } = useAppStore();
+  const { setSelectedMeeting, navigate, selectedPersonEmail, setSelectedPersonEmail } = useAppStore(useShallow((state) => ({
+    setSelectedMeeting: state.setSelectedMeeting,
+    navigate: state.navigate,
+    selectedPersonEmail: state.selectedPersonEmail,
+    setSelectedPersonEmail: state.setSelectedPersonEmail,
+  })));
   const [people, setPeople] = useState<Person[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
@@ -20,6 +108,7 @@ export default function PeopleView() {
   const [isLoadingMeetings, setIsLoadingMeetings] = useState(false);
   const [showNotesPopup, setShowNotesPopup] = useState(false);
   const [selectedMeetingForModal, setSelectedMeetingForModal] = useState<Meeting | null>(null);
+  const [listRef, listSize] = useElementSize();
 
   const loadPeople = useCallback(async () => {
     setIsLoading(true);
@@ -72,6 +161,36 @@ export default function PeopleView() {
     }
   }, []);
 
+  useEffect(() => {
+    if (!selectedPersonEmail) return;
+    const email = selectedPersonEmail.toLowerCase();
+    (async () => {
+      try {
+        const person = await window.kakarot.people.get(email);
+        if (person) {
+          setSelectedPerson(person);
+          setEditingField(null);
+          loadContactMeetings(person.email);
+          return;
+        }
+        const results = await window.kakarot.people.search(email);
+        setPeople(results);
+        if (results.length > 0) {
+          setSelectedPerson(results[0]);
+          setEditingField(null);
+          loadContactMeetings(results[0].email);
+        } else {
+          setSelectedPerson(null);
+        }
+        setSearchQuery(email);
+      } catch (error) {
+        console.error('Failed to open contact:', error);
+      } finally {
+        setSelectedPersonEmail(null);
+      }
+    })();
+  }, [selectedPersonEmail, loadContactMeetings, setSelectedPersonEmail]);
+
   const handleSearch = async () => {
     if (searchQuery.trim()) {
       const results = await window.kakarot.people.search(searchQuery);
@@ -81,11 +200,18 @@ export default function PeopleView() {
     }
   };
 
-  const handleSelectPerson = (person: Person) => {
+  const handleSelectPerson = useCallback((person: Person) => {
     setSelectedPerson(person);
     setEditingField(null);
     loadContactMeetings(person.email);
-  };
+  }, [loadContactMeetings]);
+
+  const handleSelectPersonEmail = useCallback((email: string) => {
+    const person = people.find((p) => p.email === email);
+    if (person) {
+      handleSelectPerson(person);
+    }
+  }, [people, handleSelectPerson]);
 
   const handleMeetingClick = (meeting: Meeting) => {
     // Switch to history view and select the meeting
@@ -147,9 +273,22 @@ export default function PeopleView() {
     setEditValue('');
   };
 
-  const getPersonInitials = (person: Person): string => {
-    return getInitials(person.email, person.name);
-  };
+  const peopleRows = useMemo(() => people.map((person) => ({
+    email: person.email,
+    name: person.name || null,
+    organization: person.organization || null,
+    meetingCount: person.meetingCount,
+    durationLabel: formatDuration(person.totalDuration),
+    avatarColor: getAvatarColor(person.email),
+    initials: getInitials(person.email, person.name),
+  })), [people]);
+
+  const peopleItemData = useMemo(() => ({
+    rows: peopleRows,
+    selectedEmail: selectedPerson?.email ?? null,
+    onSelect: handleSelectPersonEmail,
+  }), [peopleRows, selectedPerson?.email, handleSelectPersonEmail]);
+
 
   return (
     <React.Fragment>
@@ -189,7 +328,7 @@ export default function PeopleView() {
         </div>
 
         {/* People list */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-hidden" ref={listRef}>
           {isLoading ? (
             <PersonListSkeleton count={6} />
           ) : people.length === 0 ? (
@@ -203,44 +342,17 @@ export default function PeopleView() {
               </p>
             </div>
           ) : (
-            people.map((person) => (
-              <div
-                key={person.email}
-                onClick={() => handleSelectPerson(person)}
-                className={`p-4 border-b border-[#2A2A2A] cursor-pointer transition-colors ${
-                  selectedPerson?.email === person.email
-                    ? 'bg-[#2A2A2A] border-l-2 border-l-[#3d96cb]'
-                    : 'hover:bg-[#1E1E1E]'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-full ${getAvatarColor(person.email)} flex items-center justify-center text-white font-medium text-sm flex-shrink-0`}>
-                    {getPersonInitials(person)}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-sm font-medium text-slate-100 truncate">
-                      {person.name || person.email}
-                    </h3>
-                    {person.name && (
-                      <p className="text-xs text-slate-500 truncate">{person.email}</p>
-                    )}
-                    {person.organization && (
-                      <p className="text-xs text-slate-400 truncate mt-0.5">{person.organization}</p>
-                    )}
-                  </div>
-                </div>
-                <div className="flex items-center gap-4 mt-2 text-xs text-slate-500">
-                  <span className="flex items-center gap-1">
-                    <Calendar className="w-3 h-3" />
-                    {person.meetingCount} {person.meetingCount === 1 ? 'meeting' : 'meetings'}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Clock className="w-3 h-3" />
-                    {formatDuration(person.totalDuration)}
-                  </span>
-                </div>
-              </div>
-            ))
+            <List
+              height={listSize.height || 1}
+              width={listSize.width || 1}
+              itemCount={peopleRows.length}
+              itemSize={CONTACT_ROW_HEIGHT}
+              itemData={peopleItemData}
+              itemKey={(index, data) => data.rows[index].email}
+              overscanCount={6}
+            >
+              {PeopleRow}
+            </List>
           )}
         </div>
       </div>

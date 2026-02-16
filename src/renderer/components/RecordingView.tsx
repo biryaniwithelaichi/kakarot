@@ -55,6 +55,15 @@ export default function RecordingView({ onSelectTab }: RecordingViewProps) {
     }
   }, [isRecording, startCapture]);
 
+  // Ensure title reflects calendar context when recording starts outside this view
+  React.useEffect(() => {
+    if (!recordingContext?.title) return;
+    setTitleInput((prev) => {
+      const trimmed = prev.trim();
+      return trimmed ? prev : recordingContext.title;
+    });
+  }, [recordingContext]);
+
   // Track previous recording state
   const prevRecordingStateRef = React.useRef<string>(recordingState);
 
@@ -219,11 +228,20 @@ export default function RecordingView({ onSelectTab }: RecordingViewProps) {
         calendarProvider: contextToUse.provider,
       } : undefined;
 
-      const meetingId = await window.kakarot.recording.start(calendarContextData);
-      setCurrentMeetingId(meetingId);
-      await startCapture();
+      const startPromise = window.kakarot.recording.start(calendarContextData);
+      startCapture().catch((error) => {
+        console.error('[RecordingView] Error starting mic capture:', error);
+      });
       setCalendarPreview(null);
       navigate('recording', { replace: true });
+
+      startPromise
+        .then((meetingId) => {
+          setCurrentMeetingId(meetingId);
+        })
+        .catch((error) => {
+          console.error('[RecordingView] Error starting recording (async):', error);
+        });
     } catch (error) {
       console.error('[RecordingView] Error starting recording:', error);
     }
@@ -303,30 +321,8 @@ export default function RecordingView({ onSelectTab }: RecordingViewProps) {
 
   // Manual notes view for upcoming meetings (no recording)
   if (isIdle && calendarPreview && !recordingContext) {
-    return (
-      <>
-        <ManualNotesView
-          meetingId={upcomingMeetingId || undefined}
-          onSelectTab={onSelectTab}
-          onSaveNotes={() => {
-            setRecordingContext(null);
-            navigate('home', { replace: true });
-          }}
-          onStartRecording={() => {
-            const calEvent = calendarPreview;
-            if (calEvent) handleStartRecording(calEvent);
-          }}
-        />
-        {calendarPreview && isIdle && (
-          <MeetingContextPreview
-            meeting={calendarPreview}
-            onDismiss={() => setCalendarPreview(null)}
-            onPrep={handlePrepMeeting}
-            onTranscribeNow={(m) => handleStartRecording(m)}
-          />
-        )}
-      </>
-    );
+    navigate('home', { replace: true });
+    return null;
   }
 
   // Active recording

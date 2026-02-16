@@ -1,10 +1,9 @@
 import React, { useRef, useEffect } from 'react';
-import { MessageCircle, MessageSquare } from 'lucide-react';
+import { MessageSquare } from 'lucide-react';
 
 interface FeedbackPopoverProps {
   isOpen: boolean;
   onClose: () => void;
-  onSelectMessage: () => void;
   onSelectFeedback: () => void;
   anchorEl: HTMLElement | null;
 }
@@ -12,7 +11,6 @@ interface FeedbackPopoverProps {
 export default function FeedbackPopover({
   isOpen,
   onClose,
-  onSelectMessage,
   onSelectFeedback,
   anchorEl,
 }: FeedbackPopoverProps) {
@@ -39,12 +37,13 @@ export default function FeedbackPopover({
 
   if (!isOpen || !anchorEl) return null;
 
-  // Position the popover to the right of the anchor element
+  // Position the popover near the anchor element
   const rect = anchorEl.getBoundingClientRect();
   const style = {
     position: 'fixed' as const,
-    left: `${rect.right + 8}px`,
-    bottom: `${window.innerHeight - rect.bottom}px`,
+    left: `${rect.left + rect.width / 2 + 8}px`,
+    top: `${rect.top + rect.height / 2}px`,
+    transform: 'translateY(-50%)',
   };
 
   return (
@@ -54,16 +53,6 @@ export default function FeedbackPopover({
       className="z-50 w-56 bg-[#161616] border border-white/10 rounded-xl shadow-2xl overflow-hidden animate-popover-in-up"
     >
       <div className="py-1">
-        <button
-          onClick={() => {
-            onSelectMessage();
-            onClose();
-          }}
-          className="w-full px-4 py-3 flex items-center gap-3 text-left text-slate-200 hover:bg-white/5 transition"
-        >
-          <MessageCircle className="w-4 h-4 text-[#4ea8dd]" />
-          <span className="text-sm font-medium">Leave a Message</span>
-        </button>
         <button
           onClick={() => {
             onSelectFeedback();

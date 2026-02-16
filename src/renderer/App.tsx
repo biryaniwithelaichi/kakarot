@@ -15,6 +15,23 @@ import type { AudioLevels, AppSettings, CalendarEvent, Meeting } from '../shared
 import ThemeToggle from './components/ThemeToggle';
 import ToastContainer from './components/Toast';
 
+const getEventKey = (event: CalendarEvent): string => {
+  const start = new Date(event.start).getTime();
+  const end = new Date(event.end).getTime();
+  const status = event.status ? event.status.toLowerCase() : '';
+  const cancelled = event.isCancelled ? '1' : '0';
+  return [event.id, start, end, event.title, status, cancelled].join('|');
+};
+
+const areCalendarEventsEqual = (a: CalendarEvent[], b: CalendarEvent[]): boolean => {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i += 1) {
+    if (getEventKey(a[i]) !== getEventKey(b[i])) return false;
+  }
+  return true;
+};
+
 export default function App() {
   const {
     view,
@@ -63,8 +80,16 @@ export default function App() {
         return isWithinWindow && !dismissedIds.has(event.id);
       });
 
-      setUpcomingCalendarEvents(upcoming);
-      setLiveCalendarEvents(live);
+      const currentUpcoming = useAppStore.getState().upcomingCalendarEvents;
+      const currentLive = useAppStore.getState().liveCalendarEvents;
+
+      if (!areCalendarEventsEqual(upcoming, currentUpcoming)) {
+        setUpcomingCalendarEvents(upcoming);
+      }
+
+      if (!areCalendarEventsEqual(live, currentLive)) {
+        setLiveCalendarEvents(live);
+      }
     },
     [setLiveCalendarEvents, setUpcomingCalendarEvents]
   );
@@ -95,7 +120,7 @@ export default function App() {
 
     try {
       const events = await window.kakarot.calendar.getUpcoming();
-      setCachedCalendarEvents(events);
+      setCachedCalendarEvents((prev) => (areCalendarEventsEqual(prev, events) ? prev : events));
       classifyCalendarEvents(events, currentDismissedIds);
 
       const settings = await window.kakarot.settings.get() as AppSettings;
@@ -183,7 +208,7 @@ export default function App() {
 
   const isOnHome = navStack.length <= 1 && view === 'home' && pillarTab === 'notes';
 
-  // Start recording: kick off IPC recording, then navigate to RecordingView
+  // Start recording: fire IPC recording, then navigate to RecordingView immediately
   const handleStartRecording = async (event?: CalendarEvent) => {
     if (event) {
       useAppStore.getState().setCalendarPreview(event);
@@ -201,10 +226,16 @@ export default function App() {
 
     try {
       useAppStore.getState().clearLiveTranscript();
-      const meetingId = await window.kakarot.recording.start(calendarContextData);
-      useAppStore.getState().setCurrentMeetingId(meetingId);
+      const startPromise = window.kakarot.recording.start(calendarContextData);
       useAppStore.getState().setCalendarPreview(null);
       navigate('recording');
+      startPromise
+        .then((meetingId) => {
+          useAppStore.getState().setCurrentMeetingId(meetingId);
+        })
+        .catch((error) => {
+          console.error('[App] Error starting recording (async):', error);
+        });
     } catch (error) {
       console.error('[App] Error starting recording:', error);
     }

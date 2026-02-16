@@ -15,6 +15,8 @@ export default function FeedbackModal({ isOpen, onClose, mode }: FeedbackModalPr
   const [message, setMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const feedbackEndpoint =
+    'https://script.google.com/macros/s/AKfycbxlhxnicPeTZii53gdsbSc1BDYp8RsZtO4EAlwcZ1hfIpXu98PkAAKME4eYihe5AlKeDw/exec';
 
   // Pre-fill from user profile if available
   useEffect(() => {
@@ -32,17 +34,25 @@ export default function FeedbackModal({ isOpen, onClose, mode }: FeedbackModalPr
     setSubmitStatus('idle');
 
     try {
-      // TODO: Implement actual feedback submission endpoint
-      // For now, we'll just simulate an API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      console.log('Feedback submitted:', {
+      const payload = {
         type: mode,
         name,
         email,
         message,
         timestamp: new Date().toISOString(),
+      };
+
+      const response = await fetch(feedbackEndpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+        },
+        body: new URLSearchParams(payload).toString(),
       });
+
+      if (!response.ok) {
+        throw new Error(`Feedback request failed: ${response.status}`);
+      }
 
       setSubmitStatus('success');
       setTimeout(() => {

@@ -50,12 +50,11 @@ export default function PreviousMeetingsList({ meetings, onViewNotes, onViewCale
             <p className="text-sm text-slate-500">No previous meetings</p>
           </div>
         ) : (
-          meetings.map((meeting, index) => (
+          meetings.map((meeting) => (
             <button
               key={meeting.id}
               onClick={() => handleMeetingClick(meeting)}
-              className="w-full px-3 py-2 rounded-lg bg-[#1E1E1E] border border-[#2A2A2A] hover:bg-[#2A2A2A] transition-all duration-200 text-left hover:shadow-elevated active:scale-[0.98] animate-stagger-in"
-              style={{ animationDelay: `${index * 40}ms` }}
+              className="w-full px-3 py-2 rounded-lg bg-[#1E1E1E] border border-[#2A2A2A] hover:bg-[#2A2A2A] transition-all duration-200 text-left hover:shadow-elevated active:scale-[0.98]"
             >
               <div className="flex items-start gap-2.5">
                 <div className="flex-shrink-0 px-2 py-1 rounded bg-[#2A2A2A] border border-[#2A2A2A]">
