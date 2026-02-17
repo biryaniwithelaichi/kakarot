@@ -1,4 +1,3 @@
-import { v4 as uuidv4 } from 'uuid';
 import { BaseDualStreamProvider } from './BaseDualStreamProvider';
 import { createLogger } from '../../core/logger';
 import { getBackendAPI } from '../../providers/BackendAPIProvider';

@@ -109,7 +109,7 @@ export class CompanyInfoService {
         website,
         fetchedAt: Date.now(),
       };
-    } catch (error) {
+    } catch {
       // Try www subdomain if main domain fails
       if (!domain.startsWith('www.')) {
         try {

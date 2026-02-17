@@ -25,6 +25,7 @@ interface OAuthConfig {
   scope: string;
   redirectUri?: string;
   extraAuthParams?: Record<string, string>;
+  requiredScopes?: string[];
 }
 
 // Request throttling configuration
@@ -93,6 +94,10 @@ export class CalendarService {
           tokenUrl: 'https://oauth2.googleapis.com/token',
           clientId,
           scope: 'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/contacts.readonly',
+          requiredScopes: [
+            'https://www.googleapis.com/auth/calendar.readonly',
+            'https://www.googleapis.com/auth/contacts.readonly',
+          ],
           extraAuthParams: {
             access_type: 'offline',
             prompt: 'consent',
@@ -394,6 +399,15 @@ export class CalendarService {
     }
 
     const tokenJson = await tokenResponse.json();
+    if (config.requiredScopes && config.requiredScopes.length > 0) {
+      const grantedScopes = (tokenJson.scope || '').split(' ').filter(Boolean);
+      const missingScopes = config.requiredScopes.filter(
+        (scope) => !grantedScopes.includes(scope)
+      );
+      if (missingScopes.length > 0) {
+        throw new Error(`MISSING_SCOPES:${missingScopes.join(' ')}`);
+      }
+    }
     const tokens: OAuthTokens = {
       accessToken: tokenJson.access_token,
       refreshToken: tokenJson.refresh_token,
@@ -1223,5 +1237,4 @@ export class CalendarService {
     }
   }
 }
-
 

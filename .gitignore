@@ -7,11 +7,15 @@ release/
 out/
 public/
 remotion/
-build/.env.production
 
-# Environment
-.env
-.env.local
+# Native build artifacts
+*.node
+build/Release/
+build/Debug/
+
+# Environment (catch all variants except the example)
+.env*
+!.env.example
 
 # Local data (runtime storage, not src/main/data/)
 /data/

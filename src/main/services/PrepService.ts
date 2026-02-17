@@ -16,7 +16,6 @@ import type {
   ParticipantIntel,
   ActionItemStatus,
   TimelineEvent,
-  CRMSnapshot,
   ConfidenceMetrics,
   LastSeenContext,
   UnresolvedThread,
@@ -34,20 +33,16 @@ import type {
   InferredObjective,
   DynamicPrepResult,
   DynamicPrepParticipant,
-  PrepContext,
   SignalWeight,
   // Multi-person synthesis types
   MeetingSynthesis,
-  SynthesisTopic,
   // Conversational prep types
   QuickPrepInput,
   ConversationalPrepResult,
-  ConversationalParticipantBrief,
   ProjectContext,
   OwnershipActions,
   SuggestedQuestion,
   InferredTrait,
-  PrepCitation,
   Person,
   // Conversational chat types
   PrepChatInput,
@@ -867,7 +862,7 @@ RESPONSE FORMAT:
    */
   private filterLowConfidenceContent(
     prepData: MeetingPrepOutput,
-    contexts: Record<string, ParticipantContext>
+    _contexts: Record<string, ParticipantContext>
   ): MeetingPrepOutput {
     return {
       ...prepData,
@@ -2526,7 +2521,7 @@ If no discrepancies, return: { "discrepancies": [] }`;
     insightId: string,
     insightCategory: string,
     feedback: 'useful' | 'not_useful' | 'dismissed',
-    participantEmail?: string
+    _participantEmail?: string
   ): Promise<void> {
     const { settingsRepo } = getContainer();
     if (!settingsRepo) return;
@@ -2760,8 +2755,6 @@ Return JSON:
    * - hybrid: Both retrieval and generation needed → balanced approach
    */
   classifyQueryType(message: string): ClassifiedQuery {
-    const lowerMessage = message.toLowerCase();
-
     // Check for greetings first
     if (isGreeting(message)) {
       return {
@@ -4170,7 +4163,6 @@ CRITICAL RULES:
     crmContext?: string,
     calendarContext?: string
   ): string {
-    const personName = personContext?.name || null;
     const bannedList = this.BANNED_PHRASES.map(p => `"${p}"`).join(', ');
 
     // Build user identity section

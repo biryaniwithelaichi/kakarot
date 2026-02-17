@@ -186,7 +186,7 @@ export function isGreeting(message: string): boolean {
  * @param userMessage - The user's greeting message
  * @returns A friendly greeting response
  */
-export function getGreetingResponse(userMessage?: string): string {
+export function getGreetingResponse(_userMessage?: string): string {
   const responses = [
     "Hi! I'm here to help you prepare for meetings and find information from your past conversations. You can ask me about upcoming meetings, search for past discussions, or request meeting notes.",
     "Hello! I can help you with meeting prep, search your meeting history, or answer questions about past conversations. What would you like to know?",
