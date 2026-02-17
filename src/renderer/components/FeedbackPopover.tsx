@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import { useRef, useEffect } from 'react';
 import { MessageSquare } from 'lucide-react';
 
 interface FeedbackPopoverProps {
@@ -16,7 +16,6 @@ export default function FeedbackPopover({
 }: FeedbackPopoverProps) {
   const popoverRef = useRef<HTMLDivElement>(null);
 
-  // Close on outside click
   useEffect(() => {
     if (!isOpen) return;
 
@@ -37,7 +36,6 @@ export default function FeedbackPopover({
 
   if (!isOpen || !anchorEl) return null;
 
-  // Position the popover near the anchor element
   const rect = anchorEl.getBoundingClientRect();
   const style = {
     position: 'fixed' as const,

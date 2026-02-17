@@ -34,10 +34,6 @@ export interface AppContainer {
 
 let container: AppContainer | null = null;
 
-/**
- * Initialize the application container.
- * This is now an async function to support fetching config from the backend.
- */
 export async function initializeContainer(): Promise<AppContainer> {
   const meetingRepo = new MeetingRepository();
   const calloutRepo = new CalloutRepository();
@@ -46,21 +42,14 @@ export async function initializeContainer(): Promise<AppContainer> {
   const branchRepo = new BranchRepository();
   const calendarService = new CalendarService(settingsRepo);
 
-  // Inject peopleRepo into meetingRepo for attendee syncing
   meetingRepo.setPeopleRepository(peopleRepo);
-
-  // Inject People API fetcher for smart name resolution
   meetingRepo.setPeopleApiFetcher((email: string) =>
     calendarService.fetchPersonNameFromGoogle(email)
   );
 
-  // Initialize default settings
   settingsRepo.initializeDefaults();
-
-  // Get settings
   let settings = settingsRepo.getSettings();
 
-  // Sanitize: perma-remove Birthdays calendar from visible calendars if previously stored
   try {
     const BIRTHDAYS_ID = 'addressbook#contacts@group.v.calendar.google.com';
     const googleVisible = settings.visibleCalendars?.google || [];
@@ -76,22 +65,16 @@ export async function initializeContainer(): Promise<AppContainer> {
     logger.warn('Failed to sanitize visible calendars', { error: (err as Error).message });
   }
 
-  // Initialize the backend API
   initializeBackendAPI();
-  logger.info('Backend API initialized');
 
-  // Fetch configuration from the backend
   let backendConfig: BackendConfig | null = null;
   try {
     backendConfig = await getBackendAPI().fetchConfig();
     logger.info('Backend config fetched', { features: backendConfig.features });
   } catch (error) {
     logger.error('Failed to fetch backend config', error as Error);
-    // Continue with null config - features will be disabled
   }
 
-  // Initialize AI provider using the backend
-  // AI is routed through the backend, no local API keys needed
   let aiProvider: AIProvider | null = null;
 
   if (backendConfig?.features.ai) {
@@ -101,26 +84,14 @@ export async function initializeContainer(): Promise<AppContainer> {
     logger.warn('AI features disabled (backend config or connectivity issue)');
   }
 
-  // Initialize note generation service with aiProvider getter (avoids circular dependency)
   const noteGenerationService = new NoteGenerationService(() => container?.aiProvider ?? null);
-
-  // Initialize callout service
   const calloutService = new CalloutService();
-
-  // Initialize CRM services
   const hubSpotService = new HubSpotService();
   const salesforceService = new SalesforceService();
-
-  // Initialize meeting notification service
   const meetingNotificationService = new MeetingNotificationService(calendarService);
-
-  // Initialize prep service
   const prepService = new PrepService();
-
-  // Initialize company info service
   const companyInfoService = new CompanyInfoService();
 
-  // Inject CompanyInfoService into peopleRepo for automatic organization detection
   peopleRepo.setCompanyInfoService(companyInfoService);
 
   container = {
@@ -145,10 +116,6 @@ export async function initializeContainer(): Promise<AppContainer> {
   return container;
 }
 
-/**
- * Get the container instance
- * Throws if container hasn't been initialized
- */
 export function getContainer(): AppContainer {
   if (!container) {
     throw new Error('Container not initialized. Call initializeContainer() first.');
@@ -156,10 +123,6 @@ export function getContainer(): AppContainer {
   return container;
 }
 
-/**
- * Refresh the backend configuration.
- * Can be called to re-fetch feature flags from the backend.
- */
 export async function refreshBackendConfig(): Promise<BackendConfig | null> {
   if (!container) {
     throw new Error('Container not initialized');
@@ -169,7 +132,6 @@ export async function refreshBackendConfig(): Promise<BackendConfig | null> {
     const config = await getBackendAPI().fetchConfig();
     container.backendConfig = config;
 
-    // Update AI provider based on new config
     if (config.features.ai && !container.aiProvider) {
       container.aiProvider = new BackendAIProvider();
       logger.info('AI provider enabled after config refresh');

@@ -48,7 +48,6 @@ export default function HomeView({
     <>
       <div className="flex-1 min-h-0 text-[#F0EBE3] flex flex-col">
         <div className="w-full flex flex-col flex-1 min-h-0">
-          {/* Greeting + Action Row */}
           <div className="flex-shrink-0 mx-auto w-full max-w-2xl px-4 sm:px-6 py-4 space-y-3 animate-view-enter">
             <div>
               <h1 className="text-4xl font-sans font-bold text-[#F0EBE3]">
@@ -80,7 +79,6 @@ export default function HomeView({
             </div>
           </div>
 
-          {/* Dashboard */}
           <div className="w-full flex justify-center flex-1 min-h-0 px-4 sm:px-6">
             <div className="w-full max-w-2xl flex flex-col flex-1 min-h-0">
               {isRecordingActive ? (

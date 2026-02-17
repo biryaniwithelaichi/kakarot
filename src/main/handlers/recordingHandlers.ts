@@ -41,11 +41,55 @@ let indicatorAmplitudeTimer: NodeJS.Timeout | null = null;
 let latestSystemAmplitude = 0;
 let latestMicAmplitude = 0;
 
-// 📊 Audio packet counter for logging
 let micAudioDataCount = 0;
 
-// ✅ REMOVED: Audio buffering logic (MIN_BUFFER_SAMPLES, micAudioBuffer)
-// Audio is now sent immediately to Deepgram for better real-time transcription
+/**
+ * Tear down all audio capture resources in the correct order:
+ * 1. Stop system audio (prevents new callbacks)
+ * 2. Stop mic capture
+ * 3. Wait for in-flight callbacks
+ * 4. Destroy AEC resources
+ * 5. Disconnect transcription
+ */
+async function teardownAudioPipeline(context: string): Promise<void> {
+  if (systemAudioService) {
+    const sas = systemAudioService;
+    systemAudioService = null;
+    await sas.stop().catch((error) => logger.error(`System audio stop error (${context})`, error));
+  }
+
+  if (aecProcessor && aecProcessor.isMicrophoneCapturing()) {
+    aecProcessor.stopMicrophoneCapture();
+  }
+
+  await new Promise((resolve) => setTimeout(resolve, 100));
+
+  if (aecSync) {
+    const finalStats = aecSync.getStats();
+    logger.info('Final AEC sync stats', finalStats);
+    aecSync.clear();
+    aecSync = null;
+  }
+
+  if (aecProcessor) {
+    try {
+      aecProcessor.destroy();
+    } catch (error) {
+      logger.warn('Error destroying AEC processor', { error: (error as Error).message });
+    }
+    aecProcessor = null;
+  }
+
+  micAudioDataCount = 0;
+
+  if (transcriptionProvider) {
+    const tp = transcriptionProvider;
+    transcriptionProvider = null;
+    await tp.disconnect().catch((error) => logger.error(`Transcription disconnect error (${context})`, error));
+  }
+
+  isPaused = false;
+}
 
 export function registerRecordingHandlers(
   mainWindow: BrowserWindow,
@@ -219,60 +263,8 @@ export function registerRecordingHandlers(
 
       setRecordingState('processing');
 
-      // Cancel any pending callouts immediately to prevent timer firing during cleanup
       calloutService?.reset();
-
-      // CRITICAL: Stop audio capture FIRST before cleaning up AEC resources
-      // This prevents race conditions where callbacks try to access null AEC objects
-
-      // Step 1: Stop system audio capture (prevents new callbacks from firing)
-      if (systemAudioService) {
-        const sas = systemAudioService;
-        systemAudioService = null;
-        await sas.stop().catch((error) => logger.error('System audio stop error', error));
-        logger.info('System audio capture stopped');
-      }
-
-      // Step 2: Stop native mic capture
-      if (aecProcessor && aecProcessor.isMicrophoneCapturing()) {
-        logger.info('Stopping native microphone capture');
-        aecProcessor.stopMicrophoneCapture();
-      }
-
-      // Step 3: Wait for any in-flight audio callbacks to complete
-      await new Promise((resolve) => setTimeout(resolve, 100));
-
-      // Step 4: Now safe to clean up AEC resources
-      // Clean up AEC sync
-      if (aecSync) {
-        const finalStats = aecSync.getStats();
-        logger.info('Final AEC sync stats', finalStats);
-        aecSync.clear();
-        aecSync = null;
-      }
-
-      // Clean up AEC processor
-      if (aecProcessor) {
-        try {
-          aecProcessor.destroy();
-        } catch (error) {
-          logger.warn('Error destroying AEC processor', { error: (error as Error).message });
-        }
-        aecProcessor = null;
-      }
-
-      // Reset mic audio counter (no buffer to reset anymore)
-      micAudioDataCount = 0;
-
-      // Disconnect transcription and wait for it to flush
-      if (transcriptionProvider) {
-        const tp = transcriptionProvider;
-        transcriptionProvider = null;
-        await tp.disconnect().catch((error) => logger.error('Transcription disconnect error', error));
-        logger.info('Transcription provider disconnected');
-      }
-
-      isPaused = false;
+      await teardownAudioPipeline('stop');
 
       // Wait for any remaining finals to arrive and be stored
       await new Promise((resolve) => setTimeout(resolve, 1500));
@@ -411,7 +403,6 @@ export function registerRecordingHandlers(
     const { meetingRepo } = getContainer();
     logger.debug('Using transcription provider', { provider: 'Deepgram (WebSocket streaming, low-latency)' });
 
-    // Store calendar context for later linking
     if (calendarContext) {
       activeCalendarContext = calendarContext;
       logger.info('Calendar context attached to recording', {
@@ -420,7 +411,6 @@ export function registerRecordingHandlers(
       });
     }
 
-    // Start meeting with calendar title and attendees if available
     const meetingTitle = calendarContext?.calendarEventTitle;
     const attendeeEmails = calendarContext?.calendarEventAttendees;
     const meetingId = await meetingRepo.startNewMeeting(meetingTitle, attendeeEmails);
@@ -437,23 +427,20 @@ export function registerRecordingHandlers(
     startIndicatorAmplitudeLoop();
     startMaxDurationTimer();
 
-    // Kick off provider setup asynchronously so UI can navigate immediately.
     void (async () => {
-      // Initialize AEC processor for echo cancellation
       try {
         aecProcessor = new AECProcessor({
           enableAec: true,
           enableNs: true,
-          enableAgc: true,  // ✅ ENABLED: Automatically boosts mic volume (important for built-in mics)
+          enableAgc: true,
           frameDurationMs: 10,
           sampleRate: AUDIO_CONFIG.SAMPLE_RATE,
         });
-        logger.info('✅ AEC processor initialized for recording session');
+        logger.info('AEC processor initialized for recording session');
 
-        // Initialize AECSync for render/capture synchronization
         try {
           aecSync = new AECSync(aecProcessor);
-          logger.info('✅ AECSync initialized for recording session');
+          logger.info('AECSync initialized for recording session');
         } catch (error) {
           logger.error('Failed to initialize AECSync', { error: (error as Error).message });
           aecSync = null;
@@ -462,24 +449,15 @@ export function registerRecordingHandlers(
         logger.error('Failed to initialize AEC processor', { error: (error as Error).message });
         aecProcessor = null;
         aecSync = null;
-        // Continue without AEC if initialization fails
       }
 
-      // Fetch temporary Deepgram token from backend (API key stays secure on server)
       const tokenService = getDeepgramTokenService();
       const tokenResponse = await tokenService.getTemporaryToken();
-      logger.info('Deepgram temporary token acquired', {
-        expiresIn: tokenResponse.expires_in,
-      });
+      logger.info('Deepgram token acquired', { expiresIn: tokenResponse.expires_in });
 
-      // Create transcription provider with token (no local API key - fully secure)
       transcriptionProvider = createTranscriptionProvider({ token: tokenResponse.access_token });
-      logger.info('Using transcription provider', {
-        name: transcriptionProvider.name,
-        authMethod: 'JWT token (secure)',
-      });
+      logger.info('Transcription provider created', { name: transcriptionProvider.name });
 
-      // Set up transcript forwarding
       transcriptionProvider.onTranscript((segment, isFinal) => {
         logger.debug('Transcript received', {
           source: segment.source,
@@ -526,15 +504,12 @@ export function registerRecordingHandlers(
           if (transcriptionProvider) {
             systemAudioService = new SystemAudioService();
 
-            // Pass shared AEC processor
             if (aecProcessor) {
               systemAudioService.setAECProcessor(aecProcessor);
             }
 
-            // Feed system audio to AECSync for synchronization
             if (aecSync) {
               systemAudioService.onSystemAudio((samples, timestamp) => {
-                // Null-safety check: aecSync might be cleaned up during shutdown
                 if (aecSync) {
                   aecSync.addRenderAudio(samples, timestamp);
                 }
@@ -551,12 +526,10 @@ export function registerRecordingHandlers(
               .then(() => {
                 logger.info('System audio capture started');
 
-                // ✅ OPTIMIZED: Start native microphone capture with IMMEDIATE streaming
                 if (aecProcessor && transcriptionProvider) {
-                  const tp = transcriptionProvider; // Capture in closure
-                  
+                  const tp = transcriptionProvider;
+
                   const success = aecProcessor.startMicrophoneCapture((samples, timestamp) => {
-                    // This callback runs in main process with native timestamps!
                     micAudioDataCount++;
                     if (micAudioDataCount % AUDIO_CONFIG.PACKET_LOG_INTERVAL === 1) {
                       logger.debug('Native mic audio received', {
@@ -566,19 +539,12 @@ export function registerRecordingHandlers(
                       });
                     }
 
-                    // Skip if paused
-                    if (isPaused || !tp) {
-                      return;
-                    }
+                    if (isPaused || !tp) return;
 
-                    // Process mic audio through AEC with synchronized timestamps
                     let cleanFloat32: Float32Array | null = null;
 
                     if (aecSync) {
-                      // Use synchronized AEC processing with native timestamp!
                       cleanFloat32 = aecSync.processCaptureWithSync(samples, timestamp);
-                      
-                      // Log sync stats occasionally
                       if (micAudioDataCount % 100 === 0) {
                         const stats = aecSync.getStats();
                         logger.debug('AEC sync performance', {
@@ -588,69 +554,39 @@ export function registerRecordingHandlers(
                         });
                       }
                     } else if (aecProcessor && aecProcessor.isReady()) {
-                      // Fallback: direct AEC without sync
                       cleanFloat32 = aecProcessor.processCaptureAudio(samples);
                     }
 
-                    // Update mic amplitude for indicator (use clean audio if available)
+                    // Update mic amplitude for indicator
                     const micSamples = cleanFloat32 ?? samples;
                     let micSumSquares = 0;
                     for (let i = 0; i < micSamples.length; i++) {
-                      const sample = micSamples[i];
-                      micSumSquares += sample * sample;
+                      micSumSquares += micSamples[i] * micSamples[i];
                     }
-                    const micRms = Math.sqrt(micSumSquares / micSamples.length);
-                    latestMicAmplitude = Math.min(1, micRms * 3);
+                    latestMicAmplitude = Math.min(1, Math.sqrt(micSumSquares / micSamples.length) * 3);
 
-                    // ✅ CRITICAL CHANGE: Send audio IMMEDIATELY without buffering
-                    if (cleanFloat32 && cleanFloat32.length > 0) {
-                      // Convert echo-cancelled audio to Int16
-                      const cleanInt16 = new Int16Array(cleanFloat32.length);
-                      for (let i = 0; i < cleanFloat32.length; i++) {
-                        cleanInt16[i] = Math.max(-32768, Math.min(32767, cleanFloat32[i] * 32768));
-                      }
-                      
-                      // 🚀 SEND IMMEDIATELY - No buffering, no delays
-                      // This allows Deepgram's VAD to naturally detect speech boundaries
-                      tp.sendAudio(cleanInt16.buffer as ArrayBuffer, 'mic');
-                      
-                      // Log occasionally for debugging
-                      if (micAudioDataCount % 100 === 1) {
-                        logger.debug('📤 Mic audio sent to Deepgram (AEC - immediate streaming)', { 
-                          samples: cleanInt16.length,
-                          bytes: cleanInt16.buffer.byteLength,
-                          packet: micAudioDataCount
-                        });
-                      }
-                    } else {
-                      // Fallback to raw audio if AEC processing fails
-                      if (micAudioDataCount % 100 === 1) {
-                        logger.warn('AEC processing returned empty, using raw mic audio', { micAudioDataCount });
-                      }
-                      
-                      const rawInt16 = new Int16Array(samples.length);
-                      for (let i = 0; i < samples.length; i++) {
-                        rawInt16[i] = Math.max(-32768, Math.min(32767, samples[i] * 32768));
-                      }
-                      
-                      // 🚀 SEND IMMEDIATELY - No buffering
-                      tp.sendAudio(rawInt16.buffer as ArrayBuffer, 'mic');
-                      
-                      if (micAudioDataCount % 100 === 1) {
-                        logger.debug('📤 Mic audio sent to Deepgram (raw - immediate streaming)', { 
-                          samples: rawInt16.length,
-                          bytes: rawInt16.buffer.byteLength,
-                          packet: micAudioDataCount
-                        });
-                      }
+                    // Convert Float32 to Int16 and send to transcription
+                    const sourceSamples = (cleanFloat32 && cleanFloat32.length > 0) ? cleanFloat32 : samples;
+                    const int16 = new Int16Array(sourceSamples.length);
+                    for (let i = 0; i < sourceSamples.length; i++) {
+                      int16[i] = Math.max(-32768, Math.min(32767, sourceSamples[i] * 32768));
+                    }
+                    tp.sendAudio(int16.buffer as ArrayBuffer, 'mic');
+
+                    if (micAudioDataCount % 100 === 1) {
+                      const mode = (cleanFloat32 && cleanFloat32.length > 0) ? 'AEC' : 'raw';
+                      logger.debug('Mic audio sent to transcription', {
+                        mode,
+                        samples: int16.length,
+                        packet: micAudioDataCount
+                      });
                     }
                   });
 
                   if (success) {
-                    logger.info('✅ Native microphone capture started with immediate streaming (no buffering)');
-                    logger.info('🎯 Audio packets are sent directly to Deepgram for optimal VAD and sentence formation');
+                    logger.info('Native microphone capture started');
                   } else {
-                    logger.error('❌ Failed to start native microphone capture');
+                    logger.error('Failed to start native microphone capture');
                   }
                 }
               })
@@ -673,24 +609,15 @@ export function registerRecordingHandlers(
 
   ipcMain.handle(IPC_CHANNELS.RECORDING_PAUSE, async () => {
     isPaused = true;
-    // Cancel pending callouts - don't show callouts while paused
     calloutService?.cancelPendingCallout();
-    
-    // Pause system audio
-    if (systemAudioService) {
-      systemAudioService.pause();
-    }
-    
-    // Stop microphone capture (we'll restart on resume)
+
+    if (systemAudioService) systemAudioService.pause();
+
     if (aecProcessor && aecProcessor.isMicrophoneCapturing()) {
-      logger.info('Stopping microphone capture on pause');
       aecProcessor.stopMicrophoneCapture();
     }
-    
-    // Pause transcription provider
-    if (transcriptionProvider) {
-      transcriptionProvider.pause?.();
-    }
+
+    transcriptionProvider?.pause?.();
     
     setRecordingState('paused');
   });
@@ -698,14 +625,9 @@ export function registerRecordingHandlers(
   ipcMain.handle(IPC_CHANNELS.RECORDING_RESUME, async () => {
     isPaused = false;
 
-    // Resume system audio
-    if (systemAudioService) {
-      systemAudioService.resume();
-    }
+    if (systemAudioService) systemAudioService.resume();
 
-    // Restart microphone capture if it was stopped
     if (aecProcessor && !aecProcessor.isMicrophoneCapturing()) {
-      logger.info('Restarting microphone capture on resume');
       aecProcessor.startMicrophoneCapture((samples: Float32Array, timestamp: number) => {
         micAudioDataCount += samples.length;
         if (transcriptionProvider && !isPaused) {
@@ -714,10 +636,7 @@ export function registerRecordingHandlers(
       });
     }
 
-    // Resume transcription provider
-    if (transcriptionProvider) {
-      transcriptionProvider.resume?.();
-    }
+    transcriptionProvider?.resume?.();
 
     setRecordingState('recording');
   });
@@ -728,56 +647,10 @@ export function registerRecordingHandlers(
     const { meetingRepo } = getContainer();
     const meetingId = meetingRepo.getCurrentMeetingId();
 
-    // Cancel any pending callouts
     calloutService?.reset();
     activeCalendarContext = null;
     stopMicActivityMonitor();
-
-    // Stop system audio capture
-    if (systemAudioService) {
-      const sas = systemAudioService;
-      systemAudioService = null;
-      await sas.stop().catch((error) => logger.error('System audio stop error on discard', error));
-      logger.info('System audio capture stopped (discard)');
-    }
-
-    // Stop native mic capture
-    if (aecProcessor && aecProcessor.isMicrophoneCapturing()) {
-      logger.info('Stopping native microphone capture (discard)');
-      aecProcessor.stopMicrophoneCapture();
-    }
-
-    // Wait for in-flight audio callbacks
-    await new Promise((resolve) => setTimeout(resolve, 100));
-
-    // Clean up AEC sync
-    if (aecSync) {
-      aecSync.clear();
-      aecSync = null;
-    }
-
-    // Clean up AEC processor
-    if (aecProcessor) {
-      try {
-        aecProcessor.destroy();
-      } catch (error) {
-        logger.warn('Error destroying AEC processor on discard', { error: (error as Error).message });
-      }
-      aecProcessor = null;
-    }
-
-    // Reset mic audio counter
-    micAudioDataCount = 0;
-
-    // Disconnect transcription
-    if (transcriptionProvider) {
-      const tp = transcriptionProvider;
-      transcriptionProvider = null;
-      await tp.disconnect().catch((error) => logger.error('Transcription disconnect error on discard', error));
-      logger.info('Transcription provider disconnected (discard)');
-    }
-
-    isPaused = false;
+    await teardownAudioPipeline('discard');
 
     // Delete the meeting if it exists
     if (meetingId) {

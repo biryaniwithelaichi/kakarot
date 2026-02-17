@@ -7,7 +7,7 @@ import { IndicatorWindow } from './windows/IndicatorWindow';
 import { initializeDatabase, closeDatabase } from './data/database';
 import { initializeContainer, getContainer } from './core/container';
 import { registerAllHandlers } from './handlers';
-import { registerSlackHandlers } from './handlers/SlackHandlers'; // ✅ This works if file is in handlers folder
+import { registerSlackHandlers } from './handlers/SlackHandlers';
 import { createLogger } from './core/logger';
 import { initializeErrorHandler } from './core/errorHandler';
 import { startPerformanceLogging, stopPerformanceLogging } from './utils/performance';
@@ -134,7 +134,6 @@ async function createWindows() {
     }
   };
 
-  // Register existing handlers
   registerAllHandlers(mainWindow, calloutWindow, {
     indicatorWindow,
     onRecordingStateChange: (state) => {
@@ -144,14 +143,9 @@ async function createWindows() {
     },
   });
   
-  // Register NEW Slack Handlers
-  registerSlackHandlers(); 
-
-  const settings = container.settingsRepo.getSettings();
-  let meetingNotificationsStarted = false;
+  registerSlackHandlers();
 
   container.meetingNotificationService.start();
-  meetingNotificationsStarted = true;
 
   mainWindow.on('focus', updateIndicatorVisibility);
   mainWindow.on('blur', updateIndicatorVisibility);
@@ -197,14 +191,8 @@ async function createWindows() {
     indicatorDragState = null;
   });
 
-  mainWindow.webContents.on('ipc-message', (event, channel) => {
+  mainWindow.webContents.on('ipc-message', (_event, channel) => {
     if (channel === IPC_CHANNELS.SETTINGS_UPDATE) {
-      const updatedSettings = container.settingsRepo.getSettings();
-      const hasCalendarNow = updatedSettings.calendarConnections?.google || updatedSettings.calendarConnections?.outlook;
-      if (hasCalendarNow && !meetingNotificationsStarted) {
-        container.meetingNotificationService.start();
-        meetingNotificationsStarted = true;
-      }
       updateIndicatorVisibility();
     }
   });

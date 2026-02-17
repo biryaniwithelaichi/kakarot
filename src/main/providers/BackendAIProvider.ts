@@ -4,10 +4,6 @@ import type { AIProvider, ChatMessage, ChatOptions } from './OpenAIProvider';
 
 const logger = createLogger('BackendAIProvider');
 
-/**
- * AI provider that routes all requests through the Treeto backend.
- * The backend handles authentication and routing to OpenAI.
- */
 export class BackendAIProvider implements AIProvider {
   private model: string;
 
@@ -20,7 +16,6 @@ export class BackendAIProvider implements AIProvider {
     const backendAPI = getBackendAPI();
     const model = options.model || this.model;
 
-    // Convert to backend API format (OpenAI-compatible)
     const request = {
       messages: messages.map(msg => ({
         role: msg.role as 'system' | 'user' | 'assistant',
@@ -49,7 +44,6 @@ export class BackendAIProvider implements AIProvider {
   }
 
   async *chatStream(messages: ChatMessage[], options: ChatOptions = {}): AsyncIterable<string> {
-    // Fallback: Backend streaming not implemented, yield full response
     const response = await this.chat(messages, options);
     yield response;
   }
