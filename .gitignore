@@ -32,3 +32,6 @@ npm-debug.log*
 
 # TypeScript
 *.tsbuildinfo
+resources/.env.production
+.env
+.env.*
