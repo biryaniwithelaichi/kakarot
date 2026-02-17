@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useAppStore } from '../stores/appStore';
-import { Clock, Users, BookOpen, ChevronDown, X, Video, Calendar as CalendarIcon } from 'lucide-react';
+import { Clock, BookOpen, ChevronDown, X, Video, Calendar as CalendarIcon } from 'lucide-react';
 import googleMeetPng from '../assets/google-meet.png';
 import googleCalendarPng from '../assets/google-calendar.png';
 import AttendeesList from './AttendeesList';

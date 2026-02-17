@@ -144,7 +144,7 @@ export class MicActivityMonitor {
       return this.unique(quotedMatches);
     }
 
-    const trimmed = payload.replace(/^[\[(\s]+/, '').replace(/[\])\s]+$/, '');
+    const trimmed = payload.replace(/^[[(\s]+/, '').replace(/[\])\s]+$/, '');
     const commaParts = trimmed
       .split(',')
       .map((part) => part.trim())

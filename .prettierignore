@@ -1,0 +1,8 @@
+dist/
+release/
+out/
+build/
+node_modules/
+native/webrtc/
+*.node
+package-lock.json

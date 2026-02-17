@@ -9,7 +9,7 @@ const logger = createLogger('Deepgram');
 
 // Log SDK version at load time
 try {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const pkg = require('@deepgram/sdk/package.json');
   logger.info('Deepgram SDK loaded', {
     version: pkg.version,

@@ -415,7 +415,7 @@ export function registerRecordingHandlers(
   ipcMain.handle(IPC_CHANNELS.RECORDING_START, async (_, calendarContext?: any) => {
     logger.info('Recording start requested', { hasCalendarContext: !!calendarContext });
     const { meetingRepo, settingsRepo } = getContainer();
-    const settings = settingsRepo.getSettings();
+    settingsRepo.getSettings();
     logger.debug('Using transcription provider', { provider: 'Deepgram (WebSocket streaming, low-latency)' });
 
     // Store calendar context for later linking

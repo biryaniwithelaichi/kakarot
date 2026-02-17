@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ChevronRight, ChevronDown, Search, CheckCircle2, AlertCircle, User, X, Loader2, Quote, Lightbulb } from 'lucide-react';
 import type { GeneratedStructuredNotes, EnhancedDeepDiveResult } from '@shared/types';
-import { formatTimestamp, getSpeakerLabel } from '../lib/formatters';
 import { usePopoverPosition } from '../lib/popoverUtils';
 
 interface StructuredNotesViewProps {
