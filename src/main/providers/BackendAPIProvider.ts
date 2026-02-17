@@ -77,11 +77,6 @@ export interface EmbeddingResponse {
   };
 }
 
-/**
- * Centralized provider for communicating with the Treeto backend API.
- * All API calls are routed through this provider to ensure consistent
- * error handling and authentication.
- */
 export class BackendAPIProvider {
   private baseUrl: string;
 
@@ -90,10 +85,6 @@ export class BackendAPIProvider {
     logger.info('Backend API provider initialized', { baseUrl: this.baseUrl });
   }
 
-  /**
-   * Fetch configuration from the backend.
-   * Used to determine which features are enabled.
-   */
   async fetchConfig(): Promise<BackendConfig> {
     const url = `${this.baseUrl}/api/config`;
     logger.debug('Fetching config', { url });
@@ -127,10 +118,6 @@ export class BackendAPIProvider {
     }
   }
 
-  /**
-   * Send a chat request to the backend AI endpoint.
-   * The backend handles routing to the appropriate AI provider (Gemini/OpenAI).
-   */
   async chat(request: ChatRequest): Promise<ChatResponse> {
     const url = `${this.baseUrl}/api/chat`;
     logger.debug('Sending chat request', { url });
@@ -162,10 +149,6 @@ export class BackendAPIProvider {
     }
   }
 
-  /**
-   * Send audio data to the backend for transcription.
-   * The backend handles routing to the appropriate transcription provider.
-   */
   async transcribe(request: TranscribeRequest): Promise<TranscribeResponse> {
     const url = `${this.baseUrl}/api/transcribe`;
     logger.debug('Sending transcribe request', {
@@ -202,10 +185,6 @@ export class BackendAPIProvider {
     }
   }
 
-  /**
-   * Generate embeddings for text input.
-   * The backend handles routing to the appropriate embedding model.
-   */
   async embedding(request: EmbeddingRequest): Promise<EmbeddingResponse> {
     const url = `${this.baseUrl}/api/embeddings`;
     const inputs = Array.isArray(request.input) ? request.input : [request.input];
@@ -249,7 +228,6 @@ export class BackendAPIProvider {
   }
 }
 
-// Singleton instance
 let backendAPIInstance: BackendAPIProvider | null = null;
 
 export function getBackendAPI(): BackendAPIProvider {

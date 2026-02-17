@@ -106,7 +106,6 @@ export default function App() {
     return () => clearInterval(interval);
   }, [cachedCalendarEvents, dismissedEventIds, classifyCalendarEvents]);
 
-  // Full-height layout logic
   const isLiveRecording = recordingState === 'recording' || recordingState === 'paused';
   const needsFullHeight = view === 'history' || view === 'people' || view === 'recording' || view === 'meeting-detail' || (view === 'home' && (isLiveRecording || pillarTab === 'prep'));
 
@@ -208,7 +207,6 @@ export default function App() {
 
   const isOnHome = navStack.length <= 1 && view === 'home' && pillarTab === 'notes';
 
-  // Start recording: fire IPC recording, then navigate to RecordingView immediately
   const handleStartRecording = async (event?: CalendarEvent) => {
     if (event) {
       useAppStore.getState().setCalendarPreview(event);
@@ -287,7 +285,6 @@ export default function App() {
     <div className="flex h-screen overflow-hidden min-w-[640px] bg-[#0C0C0C]">
       <Sidebar pillarTab={pillarTab} onPillarTabChange={setPillarTab} />
       <div className="flex-1 flex flex-col">
-        {/* Fixed Header */}
         <header className="sticky top-0 z-30 backdrop-blur-md bg-[#0C0C0C]/80 border-b border-[#2A2A2A] drag-region">
           <div className="px-4 sm:px-6 h-[48px] flex items-center">
             <div className="flex items-center no-drag">
@@ -300,7 +297,6 @@ export default function App() {
                 }`}
                 onClick={() => {
                   if (isOnHome) return;
-                  // If on prep tab at home, switch back to notes tab
                   if (view === 'home' && pillarTab === 'prep') {
                     setPillarTab('notes');
                     return;
@@ -317,7 +313,6 @@ export default function App() {
           </div>
         </header>
 
-        {/* Scrollable Content */}
         <main className={`flex-1 ${needsFullHeight ? 'overflow-hidden' : 'overflow-y-auto'}`}>
           <div
             key={`${view}-${pillarTab}`}

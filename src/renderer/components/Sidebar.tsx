@@ -44,7 +44,6 @@ export default function Sidebar({ pillarTab, onPillarTabChange }: SidebarProps) 
   const handleClick = (item: NavItem) => {
     if (item.pillar) {
       onPillarTabChange(item.pillar);
-      // If we're already on the target view, don't push a duplicate nav entry
       if (view === item.view) return;
     }
     navigate(item.view);
@@ -84,7 +83,6 @@ export default function Sidebar({ pillarTab, onPillarTabChange }: SidebarProps) 
         </div>
       )}
 
-      {/* Logo at Bottom */}
       <div className="mt-auto no-drag pt-2">
         <div
           ref={logoRef}

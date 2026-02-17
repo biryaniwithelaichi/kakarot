@@ -151,7 +151,6 @@ export function registerMeetingHandlers(): void {
         throw new Error('Meeting not found');
       }
 
-      // Build context for the AI
       const transcript = meeting.transcript.map((s) => `${s.source === 'mic' ? 'You' : 'Other'}: ${s.text}`).join('\n');
       const notes = meeting.notesMarkdown || meeting.overview || '';
 
@@ -189,7 +188,6 @@ Provide a concise, helpful answer based on the meeting notes and transcript.`;
         throw new Error('Meeting not found');
       }
 
-      // Find the target segment
       const segmentIndex = meeting.transcript.findIndex((s) => s.id === segmentId);
       if (segmentIndex === -1) {
         throw new Error('Transcript segment not found');
@@ -197,17 +195,14 @@ Provide a concise, helpful answer based on the meeting notes and transcript.`;
 
       const targetSegment = meeting.transcript[segmentIndex];
 
-      // Get surrounding context (2 minutes before and after, roughly)
-      const contextWindowMs = 120000; // 2 minutes
+      const contextWindowMs = 120_000;
       const startTime = Math.max(0, targetSegment.timestamp - contextWindowMs);
       const endTime = targetSegment.timestamp + contextWindowMs;
 
-      // Extract segments within the context window
       const contextSegments = meeting.transcript.filter(
         (s) => s.timestamp >= startTime && s.timestamp <= endTime
       );
 
-      // Format the transcript chunk for the AI
       const transcriptChunk = contextSegments
         .map((s) => {
           const speaker = s.source === 'mic' ? 'You' : 'Other';
@@ -272,27 +267,16 @@ Return ONLY the JSON object, no additional text or markdown.`;
     async (_, meetingId: string, noteContent: string) => {
       const { aiProvider, meetingRepo } = getContainer();
 
-      console.log('=== DEEP DIVE START ===');
-      console.log('Meeting ID:', meetingId);
-      console.log('Note Content:', noteContent);
-
       if (!aiProvider) {
-        console.log('ERROR: AI provider not configured');
         throw new Error('AI provider not configured');
       }
 
       const meeting = meetingRepo.findById(meetingId);
       if (!meeting) {
-        console.log('ERROR: Meeting not found');
         throw new Error('Meeting not found');
       }
 
-      console.log('Meeting found:', meeting.title);
-      console.log('Transcript segments:', meeting.transcript?.length || 0);
-
-      // Handle empty transcript
       if (!meeting.transcript || meeting.transcript.length === 0) {
-        console.log('ERROR: No transcript available');
         return {
           context: 'No transcript available for this meeting.',
           verbatimQuote: noteContent,
@@ -301,7 +285,6 @@ Return ONLY the JSON object, no additional text or markdown.`;
         };
       }
 
-      // Format the full transcript for context
       const fullTranscript = meeting.transcript
         .map((s) => {
           const speaker = s.source === 'mic' ? 'You' : 'Other';
@@ -312,7 +295,7 @@ Return ONLY the JSON object, no additional text or markdown.`;
         })
         .join('\n');
 
-      console.log('DEEP DIVE INPUT (transcript length):', fullTranscript.length, 'chars');
+      logger.debug('Notes deep dive', { meetingId, transcriptChars: fullTranscript.length });
 
       const prompt = `You are analyzing a specific note/bullet point from AI-generated meeting notes. The user wants to understand where this note came from in the original transcript and its full context.
 
@@ -340,31 +323,9 @@ Return ONLY the JSON object, no additional text or markdown.`;
       try {
         const response = await aiProvider.complete(prompt, 'gpt-4o');
 
-        console.log('DEEP DIVE RAW AI RESPONSE:', response);
-
-        // Strip markdown code blocks if present (```json ... ``` or ``` ... ```)
-        let cleanedResponse = response.trim();
-
-        // Remove ```json or ``` at the start
-        if (cleanedResponse.startsWith('```json')) {
-          cleanedResponse = cleanedResponse.slice(7);
-        } else if (cleanedResponse.startsWith('```')) {
-          cleanedResponse = cleanedResponse.slice(3);
-        }
-
-        // Remove ``` at the end
-        if (cleanedResponse.endsWith('```')) {
-          cleanedResponse = cleanedResponse.slice(0, -3);
-        }
-
-        cleanedResponse = cleanedResponse.trim();
-
-        console.log('DEEP DIVE CLEANED RESPONSE:', cleanedResponse);
-
-        // Parse the JSON response
+        // Strip markdown code fences if the model wrapped the JSON
+        const cleanedResponse = response.trim().replace(/^```(?:json)?\s*/, '').replace(/\s*```$/, '').trim();
         const parsed = JSON.parse(cleanedResponse);
-
-        console.log('DEEP DIVE PARSED:', parsed);
 
         return {
           context: parsed.context || '',
@@ -373,11 +334,9 @@ Return ONLY the JSON object, no additional text or markdown.`;
           noteContent: noteContent,
         };
       } catch (parseError) {
-        console.log('DEEP DIVE PARSE ERROR:', parseError);
         logger.error('Failed to parse notes deep dive response', {
-          errorMessage: parseError instanceof Error ? parseError.message : 'Unknown error',
+          error: parseError instanceof Error ? parseError.message : 'Unknown error',
           meetingId,
-          noteContent
         });
         return {
           context: 'Unable to generate context analysis.',
@@ -439,7 +398,6 @@ Return ONLY the JSON object, no additional text or markdown.`;
         throw new Error('Meeting not found');
       }
 
-      // Append manual note entry to existing notes
       const noteEntries = meeting.noteEntries || [];
       const newEntry = {
         id: `${meetingId}-manual-${Date.now()}`,
@@ -451,14 +409,12 @@ Return ONLY the JSON object, no additional text or markdown.`;
 
       noteEntries.push(newEntry);
 
-      // Update meeting with new note entries
       meetingRepo.updateNoteEntries(meetingId, noteEntries);
       
       logger.info('Saved manual notes for meeting', { meetingId, entryId: newEntry.id, contentLength: content.length });
     }
   );
 
-  // Desktop sources for audio capture
   ipcMain.handle(IPC_CHANNELS.AUDIO_GET_SOURCES, async () => {
     const sources = await desktopCapturer.getSources({
       types: ['screen', 'window'],

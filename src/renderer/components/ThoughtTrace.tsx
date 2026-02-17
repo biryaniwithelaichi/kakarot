@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { ChevronRight, Brain } from 'lucide-react';
 
 interface ThoughtTraceProps {
@@ -7,10 +7,6 @@ interface ThoughtTraceProps {
   isStreaming?: boolean;
 }
 
-/**
- * ThoughtTrace component - Displays collapsible chain-of-thought reasoning
- * Shows "Thought for [X]s" with expandable internal monologue
- */
 export default function ThoughtTrace({ thinking, thinkingDuration, isStreaming = false }: ThoughtTraceProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 

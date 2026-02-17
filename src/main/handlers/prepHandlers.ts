@@ -18,11 +18,8 @@ import type {
 
 const logger = createLogger('PrepHandlers');
 
-// In-memory store for task completion status (would be better in DB for persistence)
-const taskCompletionStatus: Map<string, { completed: boolean; completedAt?: Date }> = new Map();
-
-// In-memory store for action item completion status (new enhanced prep)
-const actionItemStatus: Map<string, { completed: boolean; completedAt?: string }> = new Map();
+const taskCompletionStatus = new Map<string, { completed: boolean; completedAt?: Date }>();
+const actionItemStatus = new Map<string, { completed: boolean; completedAt?: string }>();
 
 export function registerPrepHandlers(): void {
   // Generate meeting briefing
@@ -88,20 +85,14 @@ export function registerPrepHandlers(): void {
     }
   );
 
-  // Toggle task commitment completion status
   ipcMain.handle(
     IPC_CHANNELS.PREP_TOGGLE_TASK_COMMITMENT,
     async (_event, taskId: string, completed: boolean): Promise<void> => {
-      try {
-        taskCompletionStatus.set(taskId, {
-          completed,
-          completedAt: completed ? new Date() : undefined,
-        });
-        logger.debug('Task commitment toggled', { taskId, completed });
-      } catch (error) {
-        logger.error('Failed to toggle task commitment', { error, taskId });
-        throw error;
-      }
+      taskCompletionStatus.set(taskId, {
+        completed,
+        completedAt: completed ? new Date() : undefined,
+      });
+      logger.debug('Task commitment toggled', { taskId, completed });
     }
   );
 
@@ -124,11 +115,6 @@ export function registerPrepHandlers(): void {
     }
   );
 
-  // ============================================================
-  // NEW ENHANCED PREP HANDLERS
-  // ============================================================
-
-  // Generate enhanced meeting briefing (new format)
   ipcMain.handle(
     IPC_CHANNELS.PREP_GENERATE_ENHANCED_BRIEFING,
     async (_event, input: GenerateMeetingPrepInput): Promise<EnhancedMeetingPrepResult> => {
@@ -163,24 +149,17 @@ export function registerPrepHandlers(): void {
     }
   );
 
-  // Toggle action item completion status (for new enhanced prep)
   ipcMain.handle(
     IPC_CHANNELS.PREP_TOGGLE_ACTION_ITEM,
     async (_event, actionItemId: string, completed: boolean): Promise<void> => {
-      try {
-        actionItemStatus.set(actionItemId, {
-          completed,
-          completedAt: completed ? new Date().toISOString() : undefined,
-        });
-        logger.debug('Action item toggled', { actionItemId, completed });
-      } catch (error) {
-        logger.error('Failed to toggle action item', { error, actionItemId });
-        throw error;
-      }
+      actionItemStatus.set(actionItemId, {
+        completed,
+        completedAt: completed ? new Date().toISOString() : undefined,
+      });
+      logger.debug('Action item toggled', { actionItemId, completed });
     }
   );
 
-  // Fetch CRM snapshot (deal data) for a contact
   ipcMain.handle(
     IPC_CHANNELS.PREP_FETCH_CRM_SNAPSHOT,
     async (_event, email: string): Promise<CRMSnapshot | null> => {
@@ -249,11 +228,6 @@ export function registerPrepHandlers(): void {
     }
   );
 
-  // ============================================================
-  // DYNAMIC PREP HANDLERS - Signal-driven, role-agnostic
-  // ============================================================
-
-  // Generate dynamic prep with signal scoring and dynamic brief
   ipcMain.handle(
     IPC_CHANNELS.PREP_GENERATE_DYNAMIC,
     async (
@@ -303,7 +277,6 @@ export function registerPrepHandlers(): void {
     }
   );
 
-  // Infer meeting objective from context
   ipcMain.handle(
     IPC_CHANNELS.PREP_INFER_OBJECTIVE,
     async (
@@ -363,7 +336,6 @@ export function registerPrepHandlers(): void {
     }
   );
 
-  // Record insight feedback for learning
   ipcMain.handle(
     IPC_CHANNELS.PREP_RECORD_FEEDBACK,
     async (
@@ -401,7 +373,6 @@ export function registerPrepHandlers(): void {
     }
   );
 
-  // Get learned feedback weights
   ipcMain.handle(
     IPC_CHANNELS.PREP_GET_FEEDBACK_WEIGHTS,
     async (_event): Promise<Record<string, number>> => {
@@ -420,7 +391,6 @@ export function registerPrepHandlers(): void {
     }
   );
 
-  // Reset feedback weights to defaults
   ipcMain.handle(
     IPC_CHANNELS.PREP_RESET_FEEDBACK_WEIGHTS,
     async (_event): Promise<void> => {
@@ -440,11 +410,6 @@ export function registerPrepHandlers(): void {
     }
   );
 
-  // ============================================================
-  // CONVERSATIONAL PREP HANDLERS - Granola-style natural output
-  // ============================================================
-
-  // Generate conversational prep (single person, markdown output)
   ipcMain.handle(
     IPC_CHANNELS.PREP_GENERATE_CONVERSATIONAL,
     async (_event, input: { personQuery: string; calendarEventId?: string }) => {
@@ -480,7 +445,6 @@ export function registerPrepHandlers(): void {
     }
   );
 
-  // Quick search for person (autocomplete)
   ipcMain.handle(
     IPC_CHANNELS.PREP_QUICK_SEARCH_PERSON,
     async (_event, query: string) => {
@@ -499,11 +463,6 @@ export function registerPrepHandlers(): void {
     }
   );
 
-  // ============================================================
-  // CONVERSATIONAL PREP CHAT (OMNIBAR)
-  // ============================================================
-
-  // Send a chat message for prep (supports follow-up conversations)
   ipcMain.handle(
     IPC_CHANNELS.PREP_CHAT_SEND,
     async (_event, input: import('@shared/types').PrepChatInput, existingConversation?: import('@shared/types').PrepConversation) => {
@@ -540,7 +499,6 @@ export function registerPrepHandlers(): void {
     }
   );
 
-  // Streaming chat message for prep (lower perceived latency)
   ipcMain.handle(
     IPC_CHANNELS.PREP_CHAT_STREAM_START,
     async (event, input: import('@shared/types').PrepChatInput, existingConversation?: import('@shared/types').PrepConversation) => {
@@ -560,29 +518,15 @@ export function registerPrepHandlers(): void {
           hasConversation: !!existingConversation,
         });
 
-        // Start streaming in the background - don't await
         prepService.generatePrepChatResponseStreaming(
           input,
           existingConversation,
-          // onChunk
-          (chunk: string) => {
-            event.sender.send(IPC_CHANNELS.PREP_CHAT_STREAM_CHUNK, chunk);
-          },
-          // onStart
-          (metadata: { conversationId: string; meetingReferences: any[] }) => {
-            event.sender.send(IPC_CHANNELS.PREP_CHAT_STREAM_START, metadata);
-          },
-          // onEnd
-          (response: import('@shared/types').PrepChatResponse) => {
-            event.sender.send(IPC_CHANNELS.PREP_CHAT_STREAM_END, response);
-          },
-          // onError
-          (error: Error) => {
-            event.sender.send(IPC_CHANNELS.PREP_CHAT_STREAM_ERROR, error.message);
-          }
+          (chunk: string) => event.sender.send(IPC_CHANNELS.PREP_CHAT_STREAM_CHUNK, chunk),
+          (metadata: { conversationId: string; meetingReferences: any[] }) => event.sender.send(IPC_CHANNELS.PREP_CHAT_STREAM_START, metadata),
+          (response: import('@shared/types').PrepChatResponse) => event.sender.send(IPC_CHANNELS.PREP_CHAT_STREAM_END, response),
+          (error: Error) => event.sender.send(IPC_CHANNELS.PREP_CHAT_STREAM_ERROR, error.message),
         );
 
-        // Return immediately - streaming happens via events
         return { streaming: true };
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
