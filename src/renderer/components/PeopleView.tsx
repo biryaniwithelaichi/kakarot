@@ -348,7 +348,7 @@ export default function PeopleView() {
               itemCount={peopleRows.length}
               itemSize={CONTACT_ROW_HEIGHT}
               itemData={peopleItemData}
-              itemKey={(index, data) => data.rows[index].email}
+              itemKey={(index: number, data: { rows: Array<{ email: string }> }) => data.rows[index].email}
               overscanCount={6}
             >
               {PeopleRow}
@@ -365,7 +365,7 @@ export default function PeopleView() {
             <div className="p-6 border-b border-[#2A2A2A] bg-[#161616] flex-shrink-0">
               <div className="flex items-start gap-4">
                 <div className={`w-16 h-16 rounded-full ${getAvatarColor(selectedPerson.email)} flex items-center justify-center text-white font-medium text-xl flex-shrink-0`}>
-                  {getPersonInitials(selectedPerson)}
+                  {getInitials(selectedPerson.email, selectedPerson.name || undefined)}
                 </div>
                 <div className="flex-1 min-w-0">
                   {editingField === 'name' ? (

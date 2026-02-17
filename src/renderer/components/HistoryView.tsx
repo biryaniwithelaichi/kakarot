@@ -249,7 +249,7 @@ export default function HistoryView() {
                 onSelect: handleSelectMeetingId,
                 onDelete: handleDeleteMeeting,
               }}
-              itemKey={(index, data) => data.rows[index].id}
+              itemKey={(index: number, data: { rows: Array<{ id: string }> }) => data.rows[index].id}
               overscanCount={8}
             >
               {MeetingRow}
