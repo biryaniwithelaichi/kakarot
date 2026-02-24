@@ -7,6 +7,7 @@ import { toast } from '../stores/toastStore';
 import salesforceLogo from '../assets/salesforce logo.png';
 import hubspotLogo from '../assets/hubspotlogo.png';
 import { SlackIntegration } from './SlackIntegration';
+import { SettingsSkeleton } from './Skeleton';
 
 export default function SettingsView() {
   const { settings, setSettings } = useAppStore();
@@ -256,11 +257,7 @@ export default function SettingsView() {
   };
 
   if (!localSettings) {
-    return (
-      <div className="h-full flex items-center justify-center text-slate-500">
-        Loading settings...
-      </div>
-    );
+    return <SettingsSkeleton />;
   }
 
   return (

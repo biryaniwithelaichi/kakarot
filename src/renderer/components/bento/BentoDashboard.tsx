@@ -7,6 +7,7 @@ import UpcomingMeetingsList from './UpcomingMeetingsList';
 import PreviousMeetingsList from './PreviousMeetingsList';
 import UpcomingMeetingsPopup from '../UpcomingMeetingsPopup';
 import MeetingContextPreview from '../MeetingContextPreview';
+import { DashboardSkeleton } from '../Skeleton';
 
 interface BentoDashboardProps {
   isRecording: boolean;
@@ -32,6 +33,7 @@ export default function BentoDashboard({ isRecording, hideCompactBarWhenNoEvents
     setPreviousMeetings,
     settings,
     setInitialPrepQuery,
+    dashboardDataLoaded,
   } = useAppStore(useShallow((state) => ({
     navigate: state.navigate,
     setSelectedMeeting: state.setSelectedMeeting,
@@ -45,6 +47,7 @@ export default function BentoDashboard({ isRecording, hideCompactBarWhenNoEvents
     setPreviousMeetings: state.setPreviousMeetings,
     settings: state.settings,
     setInitialPrepQuery: state.setInitialPrepQuery,
+    dashboardDataLoaded: state.dashboardDataLoaded,
   })));
 
   const closePreview = () => setPreviewMeeting(null);
@@ -149,6 +152,10 @@ export default function BentoDashboard({ isRecording, hideCompactBarWhenNoEvents
       console.error('Failed to dismiss live meeting:', err);
     }
   };
+
+  if (!dashboardDataLoaded) {
+    return <DashboardSkeleton />;
+  }
 
   return (
     <div className="h-full flex flex-col items-center overflow-auto px-2 py-4">
