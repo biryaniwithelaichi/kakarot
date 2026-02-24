@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useAppStore } from '../stores/appStore';
-import { Clock, Users, BookOpen, ChevronDown, X, Video, Calendar as CalendarIcon } from 'lucide-react';
+import { Clock, BookOpen, ChevronDown, X, Video, Calendar as CalendarIcon } from 'lucide-react';
 import googleMeetPng from '../assets/google-meet.png';
 import googleCalendarPng from '../assets/google-calendar.png';
 import AttendeesList from './AttendeesList';
@@ -314,7 +314,7 @@ export default function ManualNotesView({ meetingId, onSelectTab, onSaveNotes, o
                           <div className="pt-2 border-t border-slate-800">
                             <button
                               onClick={handleJoinMeeting}
-                              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-[#C17F3E] to-[#C17F3E] hover:from-[#D4923F] hover:to-[#D4923F] text-white text-xs font-medium rounded-lg transition"
+                              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-[#4ea8dd] to-[#4ea8dd] hover:from-[#3d96cb] hover:to-[#3d96cb] text-white text-xs font-medium rounded-lg transition"
                             >
                               <div className="w-7 h-7 flex items-center justify-center">
                                 {renderPlatformLogo(meetingPlatform.type)}
@@ -389,7 +389,7 @@ export default function ManualNotesView({ meetingId, onSelectTab, onSaveNotes, o
                   {onStartRecording && (
                     <button
                       onClick={onStartRecording}
-                      className="px-3 py-2 rounded-lg bg-[#1E1E1E] dark:bg-[#2A2A2A] hover:bg-[#2A2A2A] dark:hover:bg-[#C17F3E] text-slate-700 dark:text-slate-300 text-sm font-medium transition-colors"
+                      className="px-3 py-2 rounded-lg bg-[#1E1E1E] dark:bg-[#2A2A2A] hover:bg-[#2A2A2A] dark:hover:bg-[#4ea8dd] text-slate-700 dark:text-slate-300 text-sm font-medium transition-colors"
                     >
                       Transcribe Now
                     </button>

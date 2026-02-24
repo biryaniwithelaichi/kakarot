@@ -56,6 +56,27 @@ export default function SettingsView() {
     }
   }, [settings]);
 
+  // Regression guard: ensure connection state reflects settings if it ever diverges.
+  useEffect(() => {
+    if (!settings) return;
+    const next = {
+      google: !!settings.calendarConnections?.google,
+      outlook: !!settings.calendarConnections?.outlook,
+      icloud: !!settings.calendarConnections?.icloud,
+    };
+    if (
+      next.google !== connectedCalendars.google ||
+      next.outlook !== connectedCalendars.outlook ||
+      next.icloud !== connectedCalendars.icloud
+    ) {
+      console.warn('SettingsView calendar connection mismatch; resyncing UI state', {
+        connectedCalendars,
+        next,
+      });
+      setConnectedCalendars(next);
+    }
+  }, [settings, connectedCalendars]);
+
   // Check for unsaved changes
   useEffect(() => {
     if (settings && localSettings) {
@@ -246,7 +267,7 @@ export default function SettingsView() {
     <div className="h-full overflow-y-auto">
       <div className="max-w-2xl mx-auto p-6 space-y-8">
         <div>
-          <h1 className="text-3xl font-display text-[#F0EBE3]">Settings</h1>
+          <h1 className="text-3xl font-sans font-bold text-[#F0EBE3]">Settings</h1>
           <p className="text-[#5C5750] text-sm mt-1">
             Configure your preferences and integrations
           </p>
@@ -311,7 +332,7 @@ export default function SettingsView() {
             <select
               value={localSettings.transcriptionLanguage}
               onChange={(e) => handleChange('transcriptionLanguage', e.target.value)}
-              className="w-full bg-[#1E1E1E] border border-[#2A2A2A] text-[#F0EBE3] rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-[#C17F3E]/30 focus:border-[#C17F3E]/20"
+              className="w-full bg-[#1E1E1E] border border-[#2A2A2A] text-[#F0EBE3] rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-[#4ea8dd]/30 focus:border-[#4ea8dd]/20"
             >
               <option value="auto">Auto-detect</option>
               <optgroup label="Common Languages">
@@ -576,7 +597,7 @@ export default function SettingsView() {
           <button
             onClick={handleSave}
             disabled={isSaving}
-            className="px-6 py-3 bg-[#C17F3E] hover:bg-[#D4923F] disabled:opacity-50 text-[#0C0C0C] rounded-xl font-medium transition-all shadow-copper-soft hover:shadow-copper-glow"
+            className="px-6 py-3 bg-[#4ea8dd] hover:bg-[#3d96cb] disabled:opacity-50 text-[#0C0C0C] rounded-xl font-medium transition-all shadow-soft hover:shadow-soft"
           >
             {isSaving ? 'Saving...' : 'Save Settings'}
           </button>
@@ -607,7 +628,7 @@ function ToggleSwitch({ enabled, onChange }: ToggleSwitchProps) {
     <button
       onClick={() => onChange(!enabled)}
       className={`relative w-11 h-6 rounded-full transition-colors ${
-        enabled ? 'bg-[#C17F3E]' : 'bg-[#2A2A2A]'
+        enabled ? 'bg-[#4ea8dd]' : 'bg-[#2A2A2A]'
       }`}
     >
       <div
@@ -676,7 +697,7 @@ function CalendarConnectionButton({
           )}
         </div>
       </div>
-      <span className={`text-sm ${isConnected ? 'text-[#F0EBE3]' : 'text-[#C17F3E]'}`}>
+      <span className={`text-sm ${isConnected ? 'text-[#F0EBE3]' : 'text-[#4ea8dd]'}`}>
         {getActionLabel()}
       </span>
     </button>

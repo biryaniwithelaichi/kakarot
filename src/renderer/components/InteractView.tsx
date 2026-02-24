@@ -334,7 +334,7 @@ export default function InteractView() {
     return (
       <div className="h-full flex items-center justify-center">
         <div className="animate-spin">
-          <Sparkles className="w-8 h-8 text-[#C17F3E]" />
+          <Sparkles className="w-8 h-8 text-[#4ea8dd]" />
         </div>
       </div>
     );
@@ -345,8 +345,8 @@ export default function InteractView() {
       {/* Header */}
       <div className="flex items-center justify-between px-8 py-6 border-b border-white/5">
         <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-[#D4923F]/20">
-            <Settings className="w-5 h-5 text-[#D4923F]" />
+          <div className="p-2 rounded-lg bg-[#3d96cb]/20">
+            <Settings className="w-5 h-5 text-[#3d96cb]" />
           </div>
           <div>
             <h1 className="text-xl font-semibold text-white">Meeting Objectives</h1>
@@ -363,7 +363,7 @@ export default function InteractView() {
             onClick={() => setActiveTab('standard')}
             className={`px-4 py-2.5 rounded-xl font-medium text-sm transition-all ${
               activeTab === 'standard'
-                ? 'bg-[#2A2A2A] border-2 border-[#D4923F]/50 text-white'
+                ? 'bg-[#2A2A2A] border-2 border-[#3d96cb]/50 text-white'
                 : 'bg-[#2A2A2A] border-2 border-white/5 text-slate-400 hover:border-white/10'
             }`}
           >
@@ -373,7 +373,7 @@ export default function InteractView() {
             onClick={() => setActiveTab('custom')}
             className={`px-4 py-2.5 rounded-xl font-medium text-sm transition-all ${
               activeTab === 'custom'
-                ? 'bg-[#2A2A2A] border-2 border-[#D4923F]/50 text-white'
+                ? 'bg-[#2A2A2A] border-2 border-[#3d96cb]/50 text-white'
                 : 'bg-[#2A2A2A] border-2 border-white/5 text-slate-400 hover:border-white/10'
             }`}
           >
@@ -400,8 +400,8 @@ export default function InteractView() {
                     className="bg-[#2A2A2A] border border-white/5 rounded-2xl p-6 hover:border-white/10 transition-all flex flex-col"
                   >
                     <div className="flex items-start justify-between mb-4">
-                      <div className="p-3 bg-[#D4923F]/10 rounded-xl">
-                        <IconComponent className="w-6 h-6 text-[#D4923F]" />
+                      <div className="p-3 bg-[#3d96cb]/10 rounded-xl">
+                        <IconComponent className="w-6 h-6 text-[#3d96cb]" />
                       </div>
                       <div className="flex gap-1">
                         <button
@@ -450,7 +450,7 @@ export default function InteractView() {
                             <p className="text-xs text-slate-500 mb-1">Roles</p>
                             <div className="flex flex-wrap gap-1">
                               {(override?.attendeeRoles || type.defaultRoles).map((role, i) => (
-                                <span key={i} className="px-2 py-0.5 bg-[#C17F3E]/20 text-[#C17F3E] rounded text-xs">
+                                <span key={i} className="px-2 py-0.5 bg-[#4ea8dd]/20 text-[#4ea8dd] rounded text-xs">
                                   {role}
                                 </span>
                               ))}
@@ -481,7 +481,7 @@ export default function InteractView() {
             <div className="flex justify-end mb-6">
               <button
                 onClick={openNewCustom}
-                className="px-6 py-3 bg-[#D4923F] hover:bg-[#566051] text-white font-medium rounded-xl transition-colors inline-flex items-center gap-2"
+                className="px-6 py-3 bg-[#3d96cb] hover:bg-[#566051] text-white font-medium rounded-xl transition-colors inline-flex items-center gap-2"
               >
                 <Plus className="w-5 h-5" />
                 Create New Objective
@@ -504,8 +504,8 @@ export default function InteractView() {
                     className="bg-[#2A2A2A] border border-white/5 rounded-2xl p-6 hover:border-white/10 transition-all flex flex-col"
                   >
                     <div className="flex items-start justify-between mb-4">
-                      <div className="p-3 bg-[#D4923F]/10 rounded-xl">
-                        <Sparkles className="w-6 h-6 text-[#D4923F]" />
+                      <div className="p-3 bg-[#3d96cb]/10 rounded-xl">
+                        <Sparkles className="w-6 h-6 text-[#3d96cb]" />
                       </div>
                       <div className="flex gap-1">
                         <button
@@ -547,7 +547,7 @@ export default function InteractView() {
                           )}
                         </span>
                         {type.attendeeRoles.length > 0 && (
-                          <span className="text-xs px-2 py-1 bg-[#C17F3E]/20 text-[#C17F3E] rounded-full">
+                          <span className="text-xs px-2 py-1 bg-[#4ea8dd]/20 text-[#4ea8dd] rounded-full">
                             {type.attendeeRoles.length} roles
                           </span>
                         )}
@@ -601,7 +601,7 @@ export default function InteractView() {
                     value={formData.name}
                     onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                     placeholder="e.g., Customer Discovery Call"
-                    className="w-full px-4 py-2 bg-[#0D0D0D] border border-white/10 rounded-lg text-white placeholder:text-slate-500 focus:border-[#D4923F] focus:outline-none"
+                    className="w-full px-4 py-2 bg-[#0D0D0D] border border-white/10 rounded-lg text-white placeholder:text-slate-500 focus:border-[#3d96cb] focus:outline-none"
                   />
                 </div>
               )}
@@ -614,7 +614,7 @@ export default function InteractView() {
                   onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                   placeholder="What is this meeting objective for?"
                   rows={2}
-                  className="w-full px-4 py-2 bg-[#0D0D0D] border border-white/10 rounded-lg text-white placeholder:text-slate-500 focus:border-[#D4923F] focus:outline-none resize-none"
+                  className="w-full px-4 py-2 bg-[#0D0D0D] border border-white/10 rounded-lg text-white placeholder:text-slate-500 focus:border-[#3d96cb] focus:outline-none resize-none"
                 />
               </div>
 
@@ -628,7 +628,7 @@ export default function InteractView() {
                       onClick={() => setFormData(prev => ({ ...prev, isExternal: false }))}
                       className={`flex-1 px-4 py-3 rounded-lg border flex items-center justify-center gap-2 transition-colors ${
                         !formData.isExternal
-                          ? 'border-[#D4923F] bg-[#D4923F]/20 text-white'
+                          ? 'border-[#3d96cb] bg-[#3d96cb]/20 text-white'
                           : 'border-white/10 text-slate-400 hover:border-white/20'
                       }`}
                     >
@@ -640,7 +640,7 @@ export default function InteractView() {
                       onClick={() => setFormData(prev => ({ ...prev, isExternal: true }))}
                       className={`flex-1 px-4 py-3 rounded-lg border flex items-center justify-center gap-2 transition-colors ${
                         formData.isExternal
-                          ? 'border-[#D4923F] bg-[#D4923F]/20 text-white'
+                          ? 'border-[#3d96cb] bg-[#3d96cb]/20 text-white'
                           : 'border-white/10 text-slate-400 hover:border-white/20'
                       }`}
                     >
@@ -656,7 +656,7 @@ export default function InteractView() {
                 <label className="block text-sm text-slate-400 mb-2">Typical Attendee Roles</label>
                 <div className="flex flex-wrap gap-2 mb-2">
                   {formData.attendeeRoles.map((role, idx) => (
-                    <span key={idx} className="px-3 py-1 bg-[#C17F3E]/20 text-[#C17F3E] rounded-full text-sm flex items-center gap-1">
+                    <span key={idx} className="px-3 py-1 bg-[#4ea8dd]/20 text-[#4ea8dd] rounded-full text-sm flex items-center gap-1">
                       {role}
                       <button onClick={() => setFormData(prev => ({
                         ...prev,
@@ -674,12 +674,12 @@ export default function InteractView() {
                     onChange={(e) => setNewRole(e.target.value)}
                     onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addRole())}
                     placeholder="Add role (e.g., Product Manager)"
-                    className="flex-1 px-3 py-2 bg-[#0D0D0D] border border-white/10 rounded-lg text-white placeholder:text-slate-500 text-sm focus:border-[#D4923F] focus:outline-none"
+                    className="flex-1 px-3 py-2 bg-[#0D0D0D] border border-white/10 rounded-lg text-white placeholder:text-slate-500 text-sm focus:border-[#3d96cb] focus:outline-none"
                   />
                   <button
                     type="button"
                     onClick={addRole}
-                    className="px-3 py-2 bg-[#C17F3E] text-white rounded-lg hover:bg-[#D4923F] transition-colors"
+                    className="px-3 py-2 bg-[#4ea8dd] text-white rounded-lg hover:bg-[#3d96cb] transition-colors"
                   >
                     <Plus className="w-4 h-4" />
                   </button>
@@ -710,12 +710,12 @@ export default function InteractView() {
                     onChange={(e) => setNewObjective(e.target.value)}
                     onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addObjective())}
                     placeholder="Add objective (e.g., Identify pain points)"
-                    className="flex-1 px-3 py-2 bg-[#0D0D0D] border border-white/10 rounded-lg text-white placeholder:text-slate-500 text-sm focus:border-[#D4923F] focus:outline-none"
+                    className="flex-1 px-3 py-2 bg-[#0D0D0D] border border-white/10 rounded-lg text-white placeholder:text-slate-500 text-sm focus:border-[#3d96cb] focus:outline-none"
                   />
                   <button
                     type="button"
                     onClick={addObjective}
-                    className="px-3 py-2 bg-[#C17F3E] text-white rounded-lg hover:bg-[#D4923F] transition-colors"
+                    className="px-3 py-2 bg-[#4ea8dd] text-white rounded-lg hover:bg-[#3d96cb] transition-colors"
                   >
                     <Plus className="w-4 h-4" />
                   </button>
@@ -730,7 +730,7 @@ export default function InteractView() {
                   onChange={(e) => setFormData(prev => ({ ...prev, customPrompt: e.target.value }))}
                   placeholder="Instructions for AI when preparing for this meeting objective..."
                   rows={3}
-                  className="w-full px-4 py-2 bg-[#0D0D0D] border border-white/10 rounded-lg text-white placeholder:text-slate-500 focus:border-[#D4923F] focus:outline-none resize-none"
+                  className="w-full px-4 py-2 bg-[#0D0D0D] border border-white/10 rounded-lg text-white placeholder:text-slate-500 focus:border-[#3d96cb] focus:outline-none resize-none"
                 />
               </div>
             </div>
@@ -761,7 +761,7 @@ export default function InteractView() {
                 <button
                   onClick={editingStandardId ? saveStandardOverride : saveCustomType}
                   disabled={!editingStandardId && !formData.name.trim()}
-                  className="px-4 py-2 bg-[#D4923F] hover:bg-[#566051] text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="px-4 py-2 bg-[#3d96cb] hover:bg-[#566051] text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   {editingStandardId ? 'Save Changes' : editingType ? 'Update' : 'Create'}
                 </button>

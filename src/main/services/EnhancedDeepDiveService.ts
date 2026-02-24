@@ -13,7 +13,6 @@ import {
 import type {
   TranscriptSegment,
   EnhancedDeepDiveResult,
-  DeepDiveCacheEntry,
   TranscriptChunk,
 } from '@shared/types';
 import { createHash } from 'crypto';
@@ -254,7 +253,7 @@ export class EnhancedDeepDiveService {
       meetingId
     );
 
-    const { chunks, combinedText, totalTokens } = searchResult;
+    const { chunks, totalTokens } = searchResult;
 
     logger.info('Semantic search completed', {
       meetingId,

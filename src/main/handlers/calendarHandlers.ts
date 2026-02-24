@@ -15,18 +15,36 @@ export function registerCalendarHandlers(): void {
   ipcMain.handle(
     IPC_CHANNELS.CALENDAR_CONNECT,
     async (_event, provider: 'google' | 'outlook' | 'icloud', payload?: { appleId: string; appPassword: string }) => {
-      const { calendarService } = getContainer();
+      const { calendarService, settingsRepo } = getContainer();
       logger.debug('Handling CALENDAR_CONNECT', { provider });
-      return calendarService.connect(provider, payload);
+      const connections = await calendarService.connect(provider, payload);
+
+      // Emit settings changed event so renderer updates connection status
+      const updatedSettings = settingsRepo.getSettings();
+      const windows = BrowserWindow.getAllWindows();
+      windows.forEach((window) => {
+        window.webContents.send(IPC_CHANNELS.SETTINGS_CHANGED, updatedSettings);
+      });
+
+      return connections;
     }
   );
 
   ipcMain.handle(
     IPC_CHANNELS.CALENDAR_DISCONNECT,
     async (_event, provider: 'google' | 'outlook' | 'icloud') => {
-      const { calendarService } = getContainer();
+      const { calendarService, settingsRepo } = getContainer();
       logger.debug('Handling CALENDAR_DISCONNECT', { provider });
-      return calendarService.disconnect(provider);
+      const connections = await calendarService.disconnect(provider);
+
+      // Emit settings changed event so renderer updates connection status
+      const updatedSettings = settingsRepo.getSettings();
+      const windows = BrowserWindow.getAllWindows();
+      windows.forEach((window) => {
+        window.webContents.send(IPC_CHANNELS.SETTINGS_CHANGED, updatedSettings);
+      });
+
+      return connections;
     }
   );
 

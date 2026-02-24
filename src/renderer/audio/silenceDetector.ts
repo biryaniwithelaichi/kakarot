@@ -6,6 +6,7 @@
 
 import { PcmChunk } from "./pcmChunker";
 import { NoiseEstimator } from "./noiseEstimator";
+import { createLogger } from "@renderer/lib/logger";
 
 export type AudioState = "speech" | "silence";
 
@@ -27,6 +28,8 @@ const DEFAULT_CONFIG: SilenceDetectorConfig = {
   noiseMultiplier: 2.5,
   thresholdLogThrottleMs: 10000,
 };
+
+const logger = createLogger("SilenceDetector");
 
 export class SilenceDetector {
   private readonly config: SilenceDetectorConfig;
@@ -59,7 +62,7 @@ export class SilenceDetector {
     // Log threshold periodically
     const now = Date.now();
     if (now - this.lastThresholdLog > this.config.thresholdLogThrottleMs) {
-      console.log(`[silence-detector] adaptive threshold: ${adaptiveThreshold.toFixed(4)}`);
+      logger.debug("Adaptive threshold", { value: Number(adaptiveThreshold.toFixed(4)) });
       this.lastThresholdLog = now;
     }
 

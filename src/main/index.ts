@@ -139,20 +139,18 @@ async function createWindows() {
     indicatorWindow,
     onRecordingStateChange: (state) => {
       recordingState = state;
+      container.meetingNotificationService.setRecordingState(state);
       updateIndicatorVisibility();
     },
   });
   
   // Register NEW Slack Handlers
-  registerSlackHandlers(); 
+  registerSlackHandlers();
 
-  const settings = container.settingsRepo.getSettings();
-  const hasCalendar = settings.calendarConnections?.google || settings.calendarConnections?.outlook;
-  let meetingNotificationsStarted = !!hasCalendar;
-  
-  if (hasCalendar) {
-    container.meetingNotificationService.start();
-  }
+  let meetingNotificationsStarted = false;
+
+  container.meetingNotificationService.start();
+  meetingNotificationsStarted = true;
 
   mainWindow.on('focus', updateIndicatorVisibility);
   mainWindow.on('blur', updateIndicatorVisibility);

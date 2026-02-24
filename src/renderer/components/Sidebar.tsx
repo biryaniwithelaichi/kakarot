@@ -44,6 +44,8 @@ export default function Sidebar({ pillarTab, onPillarTabChange }: SidebarProps) 
   const handleClick = (item: NavItem) => {
     if (item.pillar) {
       onPillarTabChange(item.pillar);
+      // If we're already on the target view, don't push a duplicate nav entry
+      if (view === item.view) return;
     }
     navigate(item.view);
   };
@@ -61,16 +63,16 @@ export default function Sidebar({ pillarTab, onPillarTabChange }: SidebarProps) 
               onClick={() => handleClick(item)}
               className={`relative w-14 h-14 rounded-xl flex flex-col items-center justify-center gap-0.5 transition-all duration-200 ease-out-expo group ${
                 active
-                  ? 'text-[#D4923F]'
+                  ? 'text-[#3d96cb]'
                   : 'text-[#5C5750] hover:text-[#9C9690] hover:bg-white/[0.03] active:scale-95'
               }`}
               title={item.label}
             >
               {active && (
-                <div className="absolute inset-0 rounded-xl bg-[#C17F3E]/15 shadow-[inset_0_0_0_1px_rgba(193,127,62,0.2)] animate-nav-activate" />
+                <div className="absolute inset-0 rounded-xl bg-[#4ea8dd]/15 shadow-[inset_0_0_0_1px_rgba(78,168,221,0.2)] animate-nav-activate" />
               )}
               <item.icon className={`relative w-5 h-5 transition-transform duration-200 ${active ? '' : 'group-hover:scale-110'}`} />
-              <span className={`relative text-[10px] mt-0.5 font-medium transition-colors duration-200 ${active ? 'text-[#D4923F]/70' : 'text-[#5C5750]'}`}>{item.label}</span>
+              <span className={`relative text-[10px] mt-0.5 font-medium transition-colors duration-200 ${active ? 'text-[#3d96cb]/70' : 'text-[#5C5750]'}`}>{item.label}</span>
             </button>
           );
         })}
@@ -104,10 +106,6 @@ export default function Sidebar({ pillarTab, onPillarTabChange }: SidebarProps) 
         isOpen={isPopoverOpen}
         onClose={() => setIsPopoverOpen(false)}
         anchorEl={logoRef.current}
-        onSelectMessage={() => {
-          setModalMode('message');
-          setIsModalOpen(true);
-        }}
         onSelectFeedback={() => {
           setModalMode('feedback');
           setIsModalOpen(true);

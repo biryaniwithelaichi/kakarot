@@ -50,12 +50,11 @@ export default function PreviousMeetingsList({ meetings, onViewNotes, onViewCale
             <p className="text-sm text-slate-500">No previous meetings</p>
           </div>
         ) : (
-          meetings.map((meeting, index) => (
+          meetings.map((meeting) => (
             <button
               key={meeting.id}
               onClick={() => handleMeetingClick(meeting)}
-              className="w-full px-3 py-2 rounded-lg bg-[#1E1E1E] border border-[#2A2A2A] hover:bg-[#2A2A2A] transition-all duration-200 text-left hover:shadow-elevated active:scale-[0.98] animate-stagger-in"
-              style={{ animationDelay: `${index * 40}ms` }}
+              className="w-full px-3 py-2 rounded-lg bg-[#1E1E1E] border border-[#2A2A2A] hover:bg-[#2A2A2A] transition-all duration-200 text-left hover:shadow-elevated active:scale-[0.98]"
             >
               <div className="flex items-start gap-2.5">
                 <div className="flex-shrink-0 px-2 py-1 rounded bg-[#2A2A2A] border border-[#2A2A2A]">
@@ -74,12 +73,12 @@ export default function PreviousMeetingsList({ meetings, onViewNotes, onViewCale
                   
                   <div className="mt-2">
                     {meeting.hasTranscript ? (
-                      <span className="text-xs text-[#C17F3E] font-medium flex items-center gap-1">
+                      <span className="text-xs text-[#4ea8dd] font-medium flex items-center gap-1">
                         <FileText className="w-3 h-3" />
                         View Notes
                       </span>
                     ) : (
-                      <span className="text-xs text-[#C17F3E] font-medium flex items-center gap-1">
+                      <span className="text-xs text-[#4ea8dd] font-medium flex items-center gap-1">
                         <Plus className="w-3 h-3" />
                         Add notes
                       </span>
@@ -95,7 +94,7 @@ export default function PreviousMeetingsList({ meetings, onViewNotes, onViewCale
       {onViewMore && (
         <button
           onClick={onViewMore}
-          className="mt-3 w-full py-2 text-sm font-medium text-[#C17F3E] hover:bg-[#2A2A2A] rounded-lg transition-colors"
+          className="mt-3 w-full py-2 text-sm font-medium text-[#4ea8dd] hover:bg-[#2A2A2A] rounded-lg transition-colors"
         >
           View more
         </button>

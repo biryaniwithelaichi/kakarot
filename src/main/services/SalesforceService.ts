@@ -276,7 +276,6 @@ export class SalesforceService {
       );
 
       if (oppQuery.records.length > 0) {
-        // @ts-ignore - jsforce types are loose here
         context.opportunities = oppQuery.records.map(r => r.Opportunity);
         logger.info('Found Salesforce Opportunities', { count: context.opportunities.length });
       }
@@ -302,7 +301,7 @@ export class SalesforceService {
       try {
         const contact = await this.searchContactByEmail(email, accessToken, instanceUrl);
         if (contact) results.push(contact);
-      } catch (e) { /* ignore individual failures */ }
+      } catch { /* ignore individual failures */ }
     }
     return results;
   }

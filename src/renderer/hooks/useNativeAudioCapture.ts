@@ -4,6 +4,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { createLogger } from "@renderer/lib/logger";
 
 interface NativeAudioState {
   isRunning: boolean;
@@ -48,6 +49,8 @@ const DEFAULT_STATE: NativeAudioState = {
   isHeadphonesConnected: false,
   isEchoCancellationEnabled: false,
 };
+
+const logger = createLogger("useNativeAudioCapture");
 
 /**
  * Hook for native audio capture with echo cancellation
@@ -99,7 +102,7 @@ export function useNativeAudioCapture(
           setState(currentState);
         }
       } catch (err) {
-        console.error("[useNativeAudioCapture] Error checking availability:", err);
+        logger.error("Error checking availability", err);
         setError(err instanceof Error ? err.message : "Unknown error");
       } finally {
         setIsLoading(false);
@@ -164,31 +167,31 @@ export function useNativeAudioCapture(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const kakarot = (window as any).kakarot;
     if (!kakarot?.audio?.native) {
-      console.error("[useNativeAudioCapture] window.kakarot.audio.native is not available");
+      logger.error("window.kakarot.audio.native is not available");
       setError("Native audio not available");
       return false;
     }
 
     try {
       setError(null);
-      console.log("[useNativeAudioCapture] Calling start with sampleRate:", sampleRate);
+      logger.debug("Calling start", { sampleRate });
       const result = await kakarot.audio.native.start({ sampleRate });
-      console.log("[useNativeAudioCapture] Start result:", JSON.stringify(result));
+      logger.debug("Start result", { result });
 
       if (result.success && result.state) {
-        console.log("[useNativeAudioCapture] ✅ Success, state:", JSON.stringify(result.state));
+        logger.info("Native start success", { state: result.state });
         setState(result.state);
         return true;
       } else {
         const errorMsg = result.error || "Failed to start audio capture";
-        console.error("[useNativeAudioCapture] ❌ Failed:", errorMsg);
+        logger.error("Native start failed", new Error(errorMsg));
         setError(errorMsg);
         return false;
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error";
       setError(message);
-      console.error("[useNativeAudioCapture] ❌ Exception:", err);
+      logger.error("Native start exception", err);
       return false;
     }
   }, [sampleRate]);
@@ -202,7 +205,7 @@ export function useNativeAudioCapture(
       await kakarot.audio.native.stop();
       setState(DEFAULT_STATE);
     } catch (err) {
-      console.error("[useNativeAudioCapture] Error stopping:", err);
+      logger.error("Error stopping", err);
     }
   }, []);
 
@@ -216,7 +219,7 @@ export function useNativeAudioCapture(
       const newState = await kakarot.audio.native.getState();
       setState(newState);
     } catch (err) {
-      console.error("[useNativeAudioCapture] Error setting AEC:", err);
+      logger.error("Error setting AEC", err);
     }
   }, []);
 

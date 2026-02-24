@@ -68,11 +68,11 @@ export default function UpcomingMeetingsPopup({ onClose, meetings, onSelectMeeti
         onSelectMeeting?.(meeting);
         onClose();
       }}
-      className="w-full px-3 py-3 rounded-lg bg-[#1E1E1E]/40 border border-slate-700/40 hover:bg-[#2A2A2A]/40 hover:border-[#C17F3E]/50 transition-all text-left group"
+      className="w-full px-3 py-3 rounded-lg bg-[#1E1E1E]/40 border border-slate-700/40 hover:bg-[#2A2A2A]/40 hover:border-[#4ea8dd]/50 transition-all text-left group"
     >
       <div className="flex items-start gap-3">
-        <div className="flex-shrink-0 px-2.5 py-1 rounded bg-[#C17F3E]/20 border border-[#C17F3E]/30">
-          <p className="text-[11px] font-bold text-[#C17F3E] leading-tight">
+        <div className="flex-shrink-0 px-2.5 py-1 rounded bg-[#4ea8dd]/20 border border-[#4ea8dd]/30">
+          <p className="text-[11px] font-bold text-[#4ea8dd] leading-tight">
             {formatDate(meeting.start)}
           </p>
         </div>
@@ -111,7 +111,7 @@ export default function UpcomingMeetingsPopup({ onClose, meetings, onSelectMeeti
       {/* Modal */}
       <div
         ref={containerRef}
-        className="relative w-full max-w-md max-h-96 bg-[#0C0C0C] rounded-xl border border-[#C17F3E]/40 shadow-2xl flex flex-col"
+        className="relative w-full max-w-md max-h-96 bg-[#0C0C0C] rounded-xl border border-[#4ea8dd]/40 shadow-2xl flex flex-col"
       >
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-slate-700/50 flex-shrink-0">

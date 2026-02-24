@@ -13,7 +13,7 @@ export default function AudioLevelMeter({ label, level }: AudioLevelMeterProps) 
       <span className="text-[10px] text-[#5C5750] font-medium tracking-wider uppercase">{label}</span>
       <div className="w-24 h-1.5 rounded-full bg-[#1E1E1E] overflow-hidden">
         <div
-          className="h-full rounded-full bg-[#C17F3E]/60 transition-all duration-75"
+          className="h-full rounded-full bg-[#4ea8dd]/60 transition-all duration-75"
           style={{ width: `${width}%` }}
         />
       </div>

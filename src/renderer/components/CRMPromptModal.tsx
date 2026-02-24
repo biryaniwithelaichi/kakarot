@@ -61,7 +61,7 @@ export default function CRMPromptModal({ meetingId, provider, onConfirm, onDismi
             <button
               onClick={handleConfirm}
               disabled={isPushing}
-              className="flex-1 px-4 py-2 rounded-lg bg-[#C17F3E] text-[#0C0C0C] font-medium hover:bg-[#D4923F] disabled:opacity-50 transition flex items-center justify-center gap-2"
+              className="flex-1 px-4 py-2 rounded-lg bg-[#4ea8dd] text-[#0C0C0C] font-medium hover:bg-[#3d96cb] disabled:opacity-50 transition flex items-center justify-center gap-2"
             >
               {isPushing && <Loader2 className="w-4 h-4 animate-spin" />}
               Yes

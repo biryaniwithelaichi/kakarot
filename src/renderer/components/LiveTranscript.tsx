@@ -187,7 +187,7 @@ export default function LiveTranscript({ segments, currentPartials }: LiveTransc
                   {word.text}{' '}
                 </span>
               ))}
-              <span className={`inline-block w-2 h-4 ml-1 opacity-50 animate-pulse ${partial.source === 'mic' ? 'bg-[#C17F3E]' : 'bg-[#2A2A2A]'}`} />
+              <span className={`inline-block w-2 h-4 ml-1 opacity-50 animate-pulse ${partial.source === 'mic' ? 'bg-[#4ea8dd]' : 'bg-[#2A2A2A]'}`} />
             </p>
           </div>
         </div>

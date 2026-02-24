@@ -1,6 +1,9 @@
-import { Notification, shell } from 'electron';
+import { Notification, shell, app } from 'electron';
 import { CalendarService } from './CalendarService';
 import { createLogger } from '../core/logger';
+import { MicActivityMonitor } from './MicActivityMonitor';
+import { isMeetingApp } from '../utils/meetingAppDetection';
+import type { RecordingState } from '@shared/types';
 
 const logger = createLogger('MeetingNotificationService');
 
@@ -13,9 +16,20 @@ export class MeetingNotificationService {
   private calendarService: CalendarService;
   private pendingNotifications: Map<string, PendingNotification> = new Map();
   private checkInterval: NodeJS.Timeout | null = null;
+  private micActivityMonitor: MicActivityMonitor | null = null;
+  private meetingDetected = false;
+  private meetingDetectedResetTimer: NodeJS.Timeout | null = null;
+  private lastDetectedAt = 0;
+  private isRecordingActive = false;
+  private selfAppTokens: string[];
+  private readonly MEETING_DETECTED_RESET_MS = 30 * 1000;
+  private readonly MEETING_DETECTED_COOLDOWN_MS = 5 * 60 * 1000;
 
   constructor(calendarService: CalendarService) {
     this.calendarService = calendarService;
+    this.selfAppTokens = [app.getName(), 'com.kakarot.app']
+      .filter(Boolean)
+      .map((token) => token.toLowerCase());
   }
 
   /**
@@ -36,6 +50,9 @@ export class MeetingNotificationService {
 
     // Check immediately on start
     this.checkUpcomingMeetings();
+
+    // Start mic activity monitor for "Meeting Detected" notifications (macOS only)
+    this.startMicActivityMonitor();
     
     logger.info('Meeting notification service started - checking every 60 seconds');
   }
@@ -55,7 +72,13 @@ export class MeetingNotificationService {
     }
     this.pendingNotifications.clear();
 
+    this.stopMicActivityMonitor();
+
     logger.info('Stopped meeting notification service');
+  }
+
+  setRecordingState(state: RecordingState): void {
+    this.isRecordingActive = state === 'recording' || state === 'paused' || state === 'processing';
   }
 
   /**
@@ -204,6 +227,130 @@ export class MeetingNotificationService {
       title: meeting.title,
       timeRange,
     });
+  }
+
+  private startMicActivityMonitor(): void {
+    if (this.micActivityMonitor) {
+      return;
+    }
+
+    this.micActivityMonitor = new MicActivityMonitor((update) => {
+      this.handleMicAppsUpdate(update.apps, update.raw, update.timestamp);
+    });
+    this.micActivityMonitor.start();
+    logger.info('Meeting detection mic activity monitor started');
+  }
+
+  private stopMicActivityMonitor(): void {
+    if (this.micActivityMonitor) {
+      this.micActivityMonitor.stop();
+      this.micActivityMonitor = null;
+    }
+    if (this.meetingDetectedResetTimer) {
+      clearTimeout(this.meetingDetectedResetTimer);
+      this.meetingDetectedResetTimer = null;
+    }
+    this.meetingDetected = false;
+    logger.info('Meeting detection mic activity monitor stopped');
+  }
+
+  private handleMicAppsUpdate(apps: string[], raw: string, timestamp: number): void {
+    logger.debug('Mic activity update (meeting detection)', { apps, raw, timestamp });
+
+    const micApps = this.getMicEntries(apps);
+    const externalMicApps = micApps.filter((entry) => !this.isSelfApp(entry));
+    const meetingApps = externalMicApps.filter((entry) => isMeetingApp(entry));
+
+    if (meetingApps.length > 0) {
+      if (this.meetingDetectedResetTimer) {
+        clearTimeout(this.meetingDetectedResetTimer);
+        this.meetingDetectedResetTimer = null;
+      }
+
+      if (!this.meetingDetected && !this.isRecordingActive && !this.isOnDetectionCooldown()) {
+        this.meetingDetected = true;
+        this.lastDetectedAt = Date.now();
+        logger.info('Meeting detected from mic activity', { meetingApps });
+        this.showMeetingDetectedNotification();
+      }
+      return;
+    }
+
+    if (!this.meetingDetectedResetTimer) {
+      this.meetingDetectedResetTimer = setTimeout(() => {
+        this.meetingDetected = false;
+        this.meetingDetectedResetTimer = null;
+      }, this.MEETING_DETECTED_RESET_MS);
+    }
+  }
+
+  private showMeetingDetectedNotification(): void {
+    const notification = new Notification({
+      title: 'Meeting Detected',
+      body: 'Click to Take Notes with Treeto',
+      urgency: 'critical',
+      closeButtonText: 'Dismiss',
+      actions: [
+        {
+          type: 'button',
+          text: 'Take Notes with Treeto',
+        },
+      ],
+    });
+
+    notification.on('action', (event: any) => {
+      const actionIndex = event;
+      if (actionIndex === 0) {
+        logger.info('Meeting detected notification action clicked');
+        this.startRecordingFromDetection();
+      }
+    });
+
+    notification.on('click', () => {
+      logger.info('Meeting detected notification clicked');
+      this.startRecordingFromDetection();
+    });
+
+    notification.on('close', () => {
+      logger.debug('Meeting detected notification closed');
+    });
+
+    notification.show();
+  }
+
+  private startRecordingFromDetection(): void {
+    if (this.isRecordingActive) {
+      logger.info('Skipping meeting detected start; recording already active');
+      return;
+    }
+
+    if (global.mainWindow && !global.mainWindow.isDestroyed()) {
+      const now = new Date();
+      global.mainWindow.webContents.send('notification:start-recording', {
+        calendarEventId: `detected-${now.getTime()}`,
+        calendarEventTitle: 'Meeting Detected',
+        calendarEventAttendees: [],
+        calendarEventStart: now.toISOString(),
+        calendarEventEnd: now.toISOString(),
+        calendarProvider: 'google',
+      });
+      logger.info('Starting recording from meeting detected notification');
+    } else {
+      logger.error('Main window not available for meeting detected start');
+    }
+  }
+
+  private getMicEntries(apps: string[]): string[] {
+    return apps.filter((entry) => entry.toLowerCase().startsWith('mic:'));
+  }
+
+  private isSelfApp(appIdOrName: string): boolean {
+    const lower = appIdOrName.toLowerCase();
+    return this.selfAppTokens.some((token) => lower.includes(token));
+  }
+
+  private isOnDetectionCooldown(): boolean {
+    return Date.now() - this.lastDetectedAt < this.MEETING_DETECTED_COOLDOWN_MS;
   }
 
   /**

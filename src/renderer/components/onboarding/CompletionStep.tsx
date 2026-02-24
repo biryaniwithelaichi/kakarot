@@ -27,7 +27,7 @@ export default function CompletionStep({ userName, onFinish }: CompletionStepPro
       <div className="pt-8">
         <button
           onClick={onFinish}
-          className="w-full py-3 px-6 bg-[#C17F3E] hover:bg-[#D4923F] text-white rounded-lg font-medium transition-colors"
+          className="w-full py-3 px-6 bg-[#4ea8dd] hover:bg-[#3d96cb] text-white rounded-lg font-medium transition-colors"
         >
           Go to Home
         </button>

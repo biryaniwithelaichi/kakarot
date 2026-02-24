@@ -108,7 +108,7 @@ export default function SignInStep({ onSuccess, onBack }: SignInStepProps) {
       {!missingScopes && (
       <>
       <div className="text-center space-y-2">
-        <h2 className="text-2xl font-display text-[#F0EBE3]">Sign in to get started</h2>
+        <h2 className="text-2xl font-sans font-bold text-[#F0EBE3]">Sign in to get started</h2>
         <p className="text-[#5C5750]">
           Sign in to sync your calendar and upcoming meetings
         </p>

@@ -4,6 +4,10 @@
  * Updates during silence periods for accurate adaptive thresholding
  */
 
+import { createLogger } from "@renderer/lib/logger";
+
+const logger = createLogger("NoiseEstimator");
+
 export class NoiseEstimator {
   private noiseFloor: number;
   private readonly alpha: number; // EMA smoothing factor
@@ -36,7 +40,7 @@ export class NoiseEstimator {
 
     const now = Date.now();
     if (now - this.lastLogTime > this.logThrottleMs) {
-      console.log(`[noise-estimator] floor updated: ${this.noiseFloor.toFixed(4)}`);
+      logger.debug("Floor updated", { value: Number(this.noiseFloor.toFixed(4)) });
       this.lastLogTime = now;
     }
   }

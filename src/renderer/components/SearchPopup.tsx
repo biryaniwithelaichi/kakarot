@@ -183,7 +183,7 @@ export default function SearchPopup({ isOpen, onClose, initialQuery = '' }: Sear
               placeholder="Search meetings, contacts, or companies..."
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              className="w-full bg-[#1E1E1E] border border-[#2A2A2A] text-[#F0EBE3] rounded-lg pl-11 pr-10 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-[#C17F3E]/30 focus:border-[#C17F3E]/20 placeholder:text-[#5C5750]"
+              className="w-full bg-[#1E1E1E] border border-[#2A2A2A] text-[#F0EBE3] rounded-lg pl-11 pr-10 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-[#4ea8dd]/30 focus:border-[#4ea8dd]/20 placeholder:text-[#5C5750]"
             />
             {query && (
               <button
@@ -222,8 +222,8 @@ export default function SearchPopup({ isOpen, onClose, initialQuery = '' }: Sear
                     onClick={handleTranscriptClick}
                     className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-[#2A2A2A] transition-colors text-left group"
                   >
-                    <div className="w-8 h-8 rounded-lg bg-[#D4923F]/20 flex items-center justify-center flex-shrink-0">
-                      <FileText className="w-4 h-4 text-[#D4923F]" />
+                    <div className="w-8 h-8 rounded-lg bg-[#3d96cb]/20 flex items-center justify-center flex-shrink-0">
+                      <FileText className="w-4 h-4 text-[#3d96cb]" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm text-slate-200 truncate">
@@ -281,8 +281,8 @@ export default function SearchPopup({ isOpen, onClose, initialQuery = '' }: Sear
                       onClick={() => handleCompanyClick(company)}
                       className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-[#2A2A2A] transition-colors text-left"
                     >
-                      <div className="w-8 h-8 rounded-lg bg-[#C17F3E]/10 flex items-center justify-center flex-shrink-0">
-                        <Building2 className="w-4 h-4 text-[#D4923F]" />
+                      <div className="w-8 h-8 rounded-lg bg-[#4ea8dd]/10 flex items-center justify-center flex-shrink-0">
+                        <Building2 className="w-4 h-4 text-[#3d96cb]" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm text-slate-200 truncate">{company.name}</p>

@@ -85,8 +85,8 @@ export const SlackIntegration = ({ showTitle = true }: SlackIntegrationProps) =>
             disabled={!selectedChannel || isSending}
             className={`w-full py-2 px-4 rounded font-medium text-white transition-colors ${
               !selectedChannel || isSending 
-                ? 'bg-[#C17F3E] cursor-not-allowed' 
-                : 'bg-[#C17F3E] hover:bg-[#D4923F]'
+                ? 'bg-[#4ea8dd] cursor-not-allowed' 
+                : 'bg-[#4ea8dd] hover:bg-[#3d96cb]'
             }`}
           >
             {isSending ? 'Sending...' : 'Send Test Note'}

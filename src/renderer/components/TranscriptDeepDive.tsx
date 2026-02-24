@@ -91,7 +91,7 @@ export function TranscriptDeepDive({ segment, meetingId, className = '' }: Trans
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-[#2A2A2A]">
             <div className="flex items-center gap-2">
-              <Search className="w-4 h-4 text-[#C17F3E]" />
+              <Search className="w-4 h-4 text-[#4ea8dd]" />
               <span className="text-sm font-medium text-white">Transcript Deep Dive</span>
             </div>
             <button
@@ -106,7 +106,7 @@ export function TranscriptDeepDive({ segment, meetingId, className = '' }: Trans
           <div className="p-4 max-h-80 overflow-y-auto">
             {isLoading ? (
               <div className="flex flex-col items-center justify-center py-8">
-                <Loader2 className="w-8 h-8 text-[#C17F3E] animate-spin mb-3" />
+                <Loader2 className="w-8 h-8 text-[#4ea8dd] animate-spin mb-3" />
                 <p className="text-sm text-slate-400">Analyzing transcript...</p>
               </div>
             ) : error ? (
@@ -114,7 +114,7 @@ export function TranscriptDeepDive({ segment, meetingId, className = '' }: Trans
                 <p className="text-sm text-red-400">{error}</p>
                 <button
                   onClick={handleDeepDive}
-                  className="mt-3 text-xs text-[#C17F3E] hover:text-[#C17F3E]"
+                  className="mt-3 text-xs text-[#4ea8dd] hover:text-[#4ea8dd]"
                 >
                   Try again
                 </button>

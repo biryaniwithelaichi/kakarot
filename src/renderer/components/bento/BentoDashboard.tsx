@@ -1,10 +1,12 @@
 import { useState } from 'react';
+import { useShallow } from 'zustand/shallow';
 import type { CalendarEvent } from '@shared/types';
 import { useAppStore } from '@renderer/stores/appStore';
 import CompactMeetingBar from './CompactMeetingBar';
 import UpcomingMeetingsList from './UpcomingMeetingsList';
 import PreviousMeetingsList from './PreviousMeetingsList';
 import UpcomingMeetingsPopup from '../UpcomingMeetingsPopup';
+import MeetingContextPreview from '../MeetingContextPreview';
 
 interface BentoDashboardProps {
   isRecording: boolean;
@@ -15,6 +17,7 @@ interface BentoDashboardProps {
 
 export default function BentoDashboard({ isRecording, hideCompactBarWhenNoEvents, onStartNotes, onSelectTab }: BentoDashboardProps): JSX.Element {
   const [showUpcomingPopup, setShowUpcomingPopup] = useState(false);
+  const [previewMeeting, setPreviewMeeting] = useState<CalendarEvent | null>(null);
 
   const {
     navigate,
@@ -28,7 +31,23 @@ export default function BentoDashboard({ isRecording, hideCompactBarWhenNoEvents
     addDismissedEventId,
     setPreviousMeetings,
     settings,
-  } = useAppStore();
+    setInitialPrepQuery,
+  } = useAppStore(useShallow((state) => ({
+    navigate: state.navigate,
+    setSelectedMeeting: state.setSelectedMeeting,
+    setCalendarPreview: state.setCalendarPreview,
+    setRecordingContext: state.setRecordingContext,
+    liveCalendarEvents: state.liveCalendarEvents,
+    upcomingCalendarEvents: state.upcomingCalendarEvents,
+    previousMeetings: state.previousMeetings,
+    calendarMappings: state.calendarMappings,
+    addDismissedEventId: state.addDismissedEventId,
+    setPreviousMeetings: state.setPreviousMeetings,
+    settings: state.settings,
+    setInitialPrepQuery: state.setInitialPrepQuery,
+  })));
+
+  const closePreview = () => setPreviewMeeting(null);
 
   const isCalendarConnected = !!(
     settings?.calendarConnections?.google ||
@@ -63,27 +82,37 @@ export default function BentoDashboard({ isRecording, hideCompactBarWhenNoEvents
     navigate('settings');
   };
 
-  const handleSelectUpcomingMeeting = (
-    event: CalendarEvent,
-    options?: { showPrep?: boolean }
-  ) => {
-    const hasNotes = calendarMappings[event.id]?.notesId;
+  const handleSelectUpcomingMeeting = (event: CalendarEvent) => {
+    setPreviewMeeting(event);
+  };
 
-    if (hasNotes) {
-      handleViewCalendarEventNotes(event.id);
-    } else {
-      setCalendarPreview(event);
-      setRecordingContext(event);
-      if (options?.showPrep ?? true) {
-        navigate('home');
-        onSelectTab?.('prep');
+  const handlePrepMeeting = async (meeting: CalendarEvent) => {
+    try {
+      const settingsResp = await window.kakarot.settings.get();
+      const userEmail = settingsResp?.userProfile?.email?.toLowerCase();
+      const attendeeNamesList = meeting.attendees
+        ?.filter((a: any) => {
+          const email = (typeof a === 'string' ? a : a.email || '').toLowerCase();
+          return email && email !== userEmail;
+        })
+        .map((a: any) => (typeof a === 'string' ? a : a.name || a.email))
+        .filter(Boolean) ?? [];
+
+      if (attendeeNamesList.length > 0) {
+        setInitialPrepQuery(`I have a meeting with ${attendeeNamesList.join(', ')}, help me prep.`);
+      } else {
+        setInitialPrepQuery(null);
       }
+      onSelectTab?.('prep');
+      navigate('home');
+    } catch (err) {
+      console.error('Failed to prep meeting:', err);
     }
   };
 
   const handleTakeManualNotes = (event: CalendarEvent) => {
     setCalendarPreview(event);
-    setRecordingContext(event);
+    setRecordingContext(null);
     navigate('recording');
     onSelectTab?.('notes');
   };
@@ -146,10 +175,26 @@ export default function BentoDashboard({ isRecording, hideCompactBarWhenNoEvents
           <UpcomingMeetingsPopup
             meetings={upcomingCalendarEvents}
             onClose={() => setShowUpcomingPopup(false)}
-            onSelectMeeting={(event) =>
-              handleSelectUpcomingMeeting(event, { showPrep: false })
-            }
+            onSelectMeeting={(event) => {
+              setShowUpcomingPopup(false);
+              handleSelectUpcomingMeeting(event);
+            }}
             onTakeNotes={handleTakeManualNotes}
+          />
+        )}
+
+        {previewMeeting && (
+          <MeetingContextPreview
+            meeting={previewMeeting}
+            onDismiss={closePreview}
+            onPrep={(meeting) => {
+              closePreview();
+              handlePrepMeeting(meeting);
+            }}
+            onTranscribeNow={(meeting) => {
+              closePreview();
+              onStartNotes(meeting);
+            }}
           />
         )}
 

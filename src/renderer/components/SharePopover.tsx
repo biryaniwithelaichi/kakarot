@@ -95,7 +95,7 @@ export default function SharePopover({ meeting }: SharePopoverProps) {
               <button
                 onClick={handleSlackSend}
                 disabled={!slackChannelId || isSlackSending}
-                className="w-full px-3 py-1.5 rounded-md bg-[#C17F3E] hover:bg-[#D4923F] text-white text-sm font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full px-3 py-1.5 rounded-md bg-[#4ea8dd] hover:bg-[#3d96cb] text-white text-sm font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isSlackSending ? 'Sending...' : 'Send'}
               </button>

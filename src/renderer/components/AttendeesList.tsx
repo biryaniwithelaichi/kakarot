@@ -98,9 +98,9 @@ export default function AttendeesList({ attendeeEmails, organizationName }: Atte
     const colors = [
       'bg-blue-500',
       'bg-[#F0EBE3]',
-      'bg-[#C17F3E]',
+      'bg-[#4ea8dd]',
       'bg-pink-500',
-      'bg-[#C17F3E]',
+      'bg-[#4ea8dd]',
       'bg-yellow-500',
       'bg-red-500',
       'bg-teal-500',
@@ -155,7 +155,7 @@ export default function AttendeesList({ attendeeEmails, organizationName }: Atte
             {isLoading ? (
               <div className="p-6 text-center">
                 <div className="inline-block animate-spin">
-                  <div className="w-5 h-5 border-2 border-slate-700 border-t-[#C17F3E] rounded-full" />
+                  <div className="w-5 h-5 border-2 border-slate-700 border-t-[#4ea8dd] rounded-full" />
                 </div>
                 <p className="text-slate-400 text-sm mt-2">Loading attendees...</p>
               </div>

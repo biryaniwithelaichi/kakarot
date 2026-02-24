@@ -1,8 +1,10 @@
 import { useRef, useCallback } from 'react';
 import { useAppStore } from '../stores/appStore';
+import { createLogger } from '@renderer/lib/logger';
 
 // Static worklet processor URL - served from public directory
 const WORKLET_PROCESSOR_URL = '/audio-capture-processor.js';
+const logger = createLogger('AudioCapture');
 
 // Microphone-only audio capture hook
 // System audio is captured in main process via AudioTee
@@ -40,7 +42,7 @@ export function useAudioCapture() {
       };
 
       workletNode.onprocessorerror = (event) => {
-        console.error('[AudioCapture] Worklet processor error:', event);
+        logger.error('Worklet processor error', event);
       };
 
       sourceNode.connect(workletNode);
@@ -71,7 +73,7 @@ export function useAudioCapture() {
       });
 
       const micTrack = micStreamRef.current.getAudioTracks()[0];
-      micTrack.onended = () => console.error('[AudioCapture] Mic track ended unexpectedly');
+      micTrack.onended = () => logger.error('Mic track ended unexpectedly');
 
       const micResult = await setupMicWorklet(micAudioContextRef.current, micStreamRef.current);
       if (micResult) {
@@ -79,7 +81,7 @@ export function useAudioCapture() {
         micSourceRef.current = micResult.sourceNode;
       }
     } catch (error) {
-      console.error('[AudioCapture] Failed to start mic capture:', error);
+      logger.error('Failed to start mic capture', error);
     }
   }, [setupMicWorklet]);
 
@@ -87,7 +89,7 @@ export function useAudioCapture() {
     try {
       // First, pause to stop worklet from processing
       isPausedRef.current = true;
-      console.log('[AudioCapture] Paused worklet processing');
+      logger.debug('Paused worklet processing');
 
       // Wait a tick to let any pending messages flush
       await new Promise((resolve) => setTimeout(resolve, 50));
@@ -96,9 +98,11 @@ export function useAudioCapture() {
       if (micSourceRef.current) {
         try {
           micSourceRef.current.disconnect();
-          console.log('[AudioCapture] Source node disconnected');
+          logger.debug('Source node disconnected');
         } catch (err) {
-          console.warn('[AudioCapture] Error disconnecting source:', err);
+          logger.warn('Error disconnecting source', {
+            error: err instanceof Error ? err.message : String(err),
+          });
         }
         micSourceRef.current = null;
       }
@@ -106,9 +110,11 @@ export function useAudioCapture() {
       if (micWorkletRef.current) {
         try {
           micWorkletRef.current.disconnect();
-          console.log('[AudioCapture] Worklet node disconnected');
+          logger.debug('Worklet node disconnected');
         } catch (err) {
-          console.warn('[AudioCapture] Error disconnecting worklet:', err);
+          logger.warn('Error disconnecting worklet', {
+            error: err instanceof Error ? err.message : String(err),
+          });
         }
         micWorkletRef.current = null;
       }
@@ -121,12 +127,14 @@ export function useAudioCapture() {
             // Force stop the track
             track.enabled = false;
             track.stop();
-            console.log('[AudioCapture] Stopped audio track:', track.label, 'readyState:', track.readyState);
+            logger.debug('Stopped audio track', { label: track.label, readyState: track.readyState });
           } catch (err) {
-            console.warn('[AudioCapture] Error stopping track:', err);
+            logger.warn('Error stopping track', {
+              error: err instanceof Error ? err.message : String(err),
+            });
           }
         });
-        console.log('[AudioCapture] All tracks stopped:', trackCount);
+        logger.debug('All tracks stopped', { trackCount });
         micStreamRef.current = null;
       }
 
@@ -137,29 +145,31 @@ export function useAudioCapture() {
       if (micAudioContextRef.current) {
         try {
           const state = micAudioContextRef.current.state;
-          console.log('[AudioCapture] Closing audio context, state:', state);
+          logger.debug('Closing audio context', { state });
           
           if (state !== 'closed') {
             // Try to close the context
             await micAudioContextRef.current.close();
-            console.log('[AudioCapture] Audio context closed successfully');
+            logger.debug('Audio context closed successfully');
           }
         } catch (err) {
-          console.warn('[AudioCapture] Error closing audio context:', err);
+          logger.warn('Error closing audio context', {
+            error: err instanceof Error ? err.message : String(err),
+          });
         }
         micAudioContextRef.current = null;
       }
 
       micWorkletLoadedRef.current = false;
-      console.log('[AudioCapture] ✅ Capture fully stopped and all resources released');
+      logger.info('Capture fully stopped and all resources released');
     } catch (err) {
-      console.error('[AudioCapture] Error in stopCapture:', err);
+      logger.error('Error in stopCapture', err);
     }
   }, []);
 
   const pause = useCallback(async () => {
     isPausedRef.current = true;
-    console.log('[AudioCapture] Pausing - stopping tracks to release OS microphone');
+    logger.debug('Pausing - stopping tracks to release OS microphone');
     
     try {
       // Stop all tracks to fully release the microphone to the OS
@@ -168,9 +178,11 @@ export function useAudioCapture() {
           try {
             track.enabled = false;
             track.stop();
-            console.log('[AudioCapture] Paused - stopped audio track:', track.label);
+            logger.debug('Paused - stopped audio track', { label: track.label });
           } catch (err) {
-            console.warn('[AudioCapture] Error stopping track on pause:', err);
+            logger.warn('Error stopping track on pause', {
+              error: err instanceof Error ? err.message : String(err),
+            });
           }
         });
         micStreamRef.current = null;
@@ -180,9 +192,11 @@ export function useAudioCapture() {
       if (micSourceRef.current) {
         try {
           micSourceRef.current.disconnect();
-          console.log('[AudioCapture] Paused - source node disconnected');
+          logger.debug('Paused - source node disconnected');
         } catch (err) {
-          console.warn('[AudioCapture] Error disconnecting source on pause:', err);
+          logger.warn('Error disconnecting source on pause', {
+            error: err instanceof Error ? err.message : String(err),
+          });
         }
         micSourceRef.current = null;
       }
@@ -190,22 +204,24 @@ export function useAudioCapture() {
       if (micWorkletRef.current) {
         try {
           micWorkletRef.current.disconnect();
-          console.log('[AudioCapture] Paused - worklet node disconnected');
+          logger.debug('Paused - worklet node disconnected');
         } catch (err) {
-          console.warn('[AudioCapture] Error disconnecting worklet on pause:', err);
+          logger.warn('Error disconnecting worklet on pause', {
+            error: err instanceof Error ? err.message : String(err),
+          });
         }
         micWorkletRef.current = null;
       }
       
-      console.log('[AudioCapture] ✅ Pause complete - OS microphone released');
+      logger.info('Pause complete - OS microphone released');
     } catch (err) {
-      console.error('[AudioCapture] Error in pause:', err);
+      logger.error('Error in pause', err);
     }
   }, []);
 
   const resume = useCallback(async () => {
     isPausedRef.current = false;
-    console.log('[AudioCapture] Resuming - restarting microphone capture');
+    logger.debug('Resuming - restarting microphone capture');
     
     try {
       // Get a fresh microphone stream
@@ -220,7 +236,7 @@ export function useAudioCapture() {
       });
 
       const micTrack = micStreamRef.current.getAudioTracks()[0];
-      micTrack.onended = () => console.error('[AudioCapture] Mic track ended unexpectedly on resume');
+      micTrack.onended = () => logger.error('Mic track ended unexpectedly on resume');
 
       // Reconnect nodes
       if (micAudioContextRef.current) {
@@ -228,13 +244,13 @@ export function useAudioCapture() {
         if (micResult) {
           micWorkletRef.current = micResult.worklet;
           micSourceRef.current = micResult.sourceNode;
-          console.log('[AudioCapture] ✅ Resume complete - microphone capture restarted');
+          logger.info('Resume complete - microphone capture restarted');
         }
       } else {
-        console.warn('[AudioCapture] Audio context lost, cannot resume');
+        logger.warn('Audio context lost, cannot resume');
       }
     } catch (err) {
-      console.error('[AudioCapture] Error in resume:', err);
+      logger.error('Error in resume', err);
     }
   }, [setupMicWorklet]);
 

@@ -23,7 +23,7 @@ export default function WelcomeStep({ onContinue }: WelcomeStepProps) {
       </div>
 
       <div className="space-y-3">
-        <h1 className="text-4xl font-display text-[#F0EBE3]">
+        <h1 className="text-4xl font-sans font-bold text-[#F0EBE3]">
           Never blank out in a meeting again.
         </h1>
         <p className="text-lg text-[#5C5750] max-w-xl mx-auto leading-relaxed">
@@ -34,7 +34,7 @@ export default function WelcomeStep({ onContinue }: WelcomeStepProps) {
       <div className="pt-8">
         <button
           onClick={onContinue}
-          className="w-full py-3 px-6 bg-[#C17F3E] hover:bg-[#D4923F] text-[#0C0C0C] rounded-xl font-medium transition-colors shadow-copper-soft"
+          className="w-full py-3 px-6 bg-[#4ea8dd] hover:bg-[#3d96cb] text-[#0C0C0C] rounded-xl font-medium transition-colors shadow-soft"
         >
           Get Started
         </button>

@@ -49,7 +49,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                 key={step}
                 className={`h-2 rounded-full transition-all duration-300 ease-out-expo ${
                   steps.indexOf(step) <= currentStepIndex
-                    ? 'w-8 bg-[#C17F3E]'
+                    ? 'w-8 bg-[#4ea8dd]'
                     : 'w-2 bg-[#2A2A2A]'
                 }`}
               />

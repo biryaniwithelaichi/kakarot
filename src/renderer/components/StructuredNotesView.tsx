@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ChevronRight, ChevronDown, Search, CheckCircle2, AlertCircle, User, X, Loader2, Quote, Lightbulb } from 'lucide-react';
 import type { GeneratedStructuredNotes, EnhancedDeepDiveResult } from '@shared/types';
-import { formatTimestamp, getSpeakerLabel } from '../lib/formatters';
 import { usePopoverPosition } from '../lib/popoverUtils';
 
 interface StructuredNotesViewProps {
@@ -142,12 +141,12 @@ function BulletItem({ text, subBullets, meetingId }: BulletItemProps) {
             disabled={isLoading}
             className={`flex-shrink-0 p-1 rounded-full transition-all duration-200 ${
               isHovered || isOpen
-                ? 'opacity-100 bg-[#C17F3E]/20 dark:bg-[#C17F3E]/20 hover:bg-[#C17F3E]/30 dark:hover:bg-[#C17F3E]/30'
+                ? 'opacity-100 bg-[#4ea8dd]/20 dark:bg-[#4ea8dd]/20 hover:bg-[#4ea8dd]/30 dark:hover:bg-[#4ea8dd]/30'
                 : 'opacity-0 pointer-events-none'
             }`}
             title="Deep Dive"
           >
-            <Search className={`w-3.5 h-3.5 text-[#C17F3E] dark:text-[#C17F3E] ${isLoading ? 'animate-pulse' : ''}`} />
+            <Search className={`w-3.5 h-3.5 text-[#4ea8dd] dark:text-[#4ea8dd] ${isLoading ? 'animate-pulse' : ''}`} />
           </button>
         )}
       </div>
@@ -165,7 +164,7 @@ function BulletItem({ text, subBullets, meetingId }: BulletItemProps) {
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-[#2A2A2A] flex-shrink-0">
             <div className="flex items-center gap-2">
-              <Search className="w-4 h-4 text-[#C17F3E]" />
+              <Search className="w-4 h-4 text-[#4ea8dd]" />
               <span className="text-sm font-medium text-slate-200">Deep Dive</span>
             </div>
             <button
@@ -180,7 +179,7 @@ function BulletItem({ text, subBullets, meetingId }: BulletItemProps) {
           <div className="flex-1 overflow-y-auto p-4 min-h-0">
             {isLoading ? (
               <div className="flex flex-col items-center justify-center py-12">
-                <Loader2 className="w-8 h-8 text-[#C17F3E] animate-spin mb-3" />
+                <Loader2 className="w-8 h-8 text-[#4ea8dd] animate-spin mb-3" />
                 <p className="text-sm text-slate-400">Analyzing transcript...</p>
               </div>
             ) : error ? (
@@ -188,7 +187,7 @@ function BulletItem({ text, subBullets, meetingId }: BulletItemProps) {
                 <p className="text-sm text-red-400">{error}</p>
                 <button
                   onClick={handleDeepDive}
-                  className="mt-3 text-xs text-[#C17F3E] hover:text-[#C17F3E]"
+                  className="mt-3 text-xs text-[#4ea8dd] hover:text-[#4ea8dd]"
                 >
                   Try again
                 </button>
@@ -278,7 +277,7 @@ function BulletItem({ text, subBullets, meetingId }: BulletItemProps) {
         <div className="ml-4 border-l border-slate-200 dark:border-[#2A2A2A] pl-3">
           {subBullets.map((subBullet, idx) => (
             <div key={idx} className="flex items-start gap-2 py-1">
-              <span className="text-slate-400 dark:text-slate-600 mt-1.5 flex-shrink-0 w-1 h-1 rounded-full bg-slate-300 dark:bg-[#C17F3E]" />
+              <span className="text-slate-400 dark:text-slate-600 mt-1.5 flex-shrink-0 w-1 h-1 rounded-full bg-slate-300 dark:bg-[#4ea8dd]" />
               <span className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">{subBullet}</span>
             </div>
           ))}
@@ -339,7 +338,7 @@ export function StructuredNotesView({ notes, meetingId }: StructuredNotesViewPro
                     <div className="text-xs text-slate-500 dark:text-slate-500 mb-1">Why:</div>
                     {decision.rationale.map((reason, reasonIdx) => (
                       <div key={reasonIdx} className="flex items-start gap-2 py-0.5">
-                        <span className="text-slate-400 dark:text-slate-600 mt-1.5 w-1 h-1 rounded-full bg-slate-300 dark:bg-[#C17F3E] flex-shrink-0" />
+                        <span className="text-slate-400 dark:text-slate-600 mt-1.5 w-1 h-1 rounded-full bg-slate-300 dark:bg-[#4ea8dd] flex-shrink-0" />
                         <span className="text-sm text-slate-600 dark:text-slate-400">{reason}</span>
                       </div>
                     ))}

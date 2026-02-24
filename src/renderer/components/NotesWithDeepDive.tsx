@@ -1,8 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Search, X, Loader2, Quote, Lightbulb, MessageCircle } from 'lucide-react';
+import { Search, X, Loader2, Quote, Lightbulb } from 'lucide-react';
 import type { EnhancedDeepDiveResult } from '@shared/types';
 import { usePopoverPosition } from '../lib/popoverUtils';
-import { formatTimestamp, getSpeakerLabel } from '../lib/formatters';
 
 interface NotesWithDeepDiveProps {
   notesMarkdown: string;
@@ -81,22 +80,23 @@ function NoteLine({ content, meetingId, isListItem, listPrefix }: NoteLineProps)
         {isListItem && listPrefix && (
           <span className="text-slate-400 flex-shrink-0 select-none">{listPrefix}</span>
         )}
-        <span className="flex-1">{content}</span>
-
-        {showDeepDive && (
-          <button
-            ref={triggerRef}
-            onClick={handleDeepDive}
-            className={`flex-shrink-0 p-1 rounded-full transition-all duration-200 ${
-              isHovered || isOpen
-                ? 'opacity-100 bg-[#C17F3E]/20 hover:bg-[#C17F3E]/30'
-                : 'opacity-0 pointer-events-none'
-            }`}
-            title="Deep dive into this note"
-          >
-            <Search className="w-3.5 h-3.5 text-[#C17F3E]" />
-          </button>
-        )}
+        <span className="min-w-0">
+          <span>{content}</span>
+          {showDeepDive && (
+            <button
+              ref={triggerRef}
+              onClick={handleDeepDive}
+              className={`inline-flex align-middle ml-2 p-1.5 rounded-full transition-all duration-200 ${
+                isHovered || isOpen
+                  ? 'opacity-100 bg-[#4ea8dd]/20 hover:bg-[#4ea8dd]/30'
+                  : 'opacity-0 pointer-events-none'
+              }`}
+              title="Deep dive into this note"
+            >
+              <Search className="w-4 h-4 text-[#4ea8dd]" />
+            </button>
+          )}
+        </span>
       </div>
 
       {/* Popover Card */}
@@ -112,7 +112,7 @@ function NoteLine({ content, meetingId, isListItem, listPrefix }: NoteLineProps)
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-[#2A2A2A] flex-shrink-0">
             <div className="flex items-center gap-2">
-              <Search className="w-4 h-4 text-[#C17F3E]" />
+              <Search className="w-4 h-4 text-[#4ea8dd]" />
               <span className="text-sm font-medium text-slate-200">Deep Dive</span>
             </div>
             <button
@@ -127,7 +127,7 @@ function NoteLine({ content, meetingId, isListItem, listPrefix }: NoteLineProps)
           <div className="flex-1 overflow-y-auto p-4 min-h-0">
             {isLoading ? (
               <div className="flex flex-col items-center justify-center py-12">
-                <Loader2 className="w-8 h-8 text-[#C17F3E] animate-spin mb-3" />
+                <Loader2 className="w-8 h-8 text-[#4ea8dd] animate-spin mb-3" />
                 <p className="text-sm text-slate-400">Analyzing transcript...</p>
               </div>
             ) : error ? (
@@ -135,7 +135,7 @@ function NoteLine({ content, meetingId, isListItem, listPrefix }: NoteLineProps)
                 <p className="text-sm text-red-400">{error}</p>
                 <button
                   onClick={handleDeepDive}
-                  className="mt-3 text-xs text-[#C17F3E] hover:text-[#C17F3E]"
+                  className="mt-3 text-xs text-[#4ea8dd] hover:text-[#4ea8dd]"
                 >
                   Try again
                 </button>

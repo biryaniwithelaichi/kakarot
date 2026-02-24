@@ -314,7 +314,7 @@ export function registerPrepHandlers(): void {
       }
     ): Promise<InferredObjective> => {
       try {
-        const { prepService, meetingRepo, hubSpotService, salesforceService, settingsRepo } = getContainer();
+        const { prepService, meetingRepo, hubSpotService, settingsRepo } = getContainer();
 
         if (!prepService) {
           throw new Error('Prep service not available');

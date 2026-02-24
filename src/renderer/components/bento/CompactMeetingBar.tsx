@@ -63,9 +63,9 @@ export default function CompactMeetingBar({
           <div key={event.id} className="rounded-xl border border-[#2A2A2A] bg-[#161616] px-4 py-2 flex items-center justify-between animate-stagger-in" style={{ animationDelay: `${index * 60}ms` }}>
             <div className="flex items-center gap-3 flex-1 min-w-0">
               {isLive && (
-                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-[#C17F3E]/15 border border-[#C17F3E]/25">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#C17F3E] animate-pulse" />
-                  <span className="text-[10px] font-semibold text-[#D4923F] uppercase tracking-wider">Live</span>
+                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-[#4ea8dd]/15 border border-[#4ea8dd]/25">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#4ea8dd] animate-pulse" />
+                  <span className="text-[10px] font-semibold text-[#3d96cb] uppercase tracking-wider">Live</span>
                 </div>
               )}
               
@@ -97,7 +97,7 @@ export default function CompactMeetingBar({
               <button
                 onClick={() => onStartNotes(event)}
                 disabled={isRecording}
-                className="px-3 py-1.5 bg-[#C17F3E] text-[#0C0C0C] text-sm font-semibold rounded-lg shadow-copper-soft transition-all duration-200 hover:bg-[#D4923F] hover:shadow-copper-glow active:scale-[0.97] disabled:opacity-50 flex items-center gap-1.5"
+                className="px-3 py-1.5 bg-[#4ea8dd] text-[#0C0C0C] text-sm font-semibold rounded-lg shadow-soft transition-all duration-200 hover:bg-[#3d96cb] hover:shadow-soft active:scale-[0.97] disabled:opacity-50 flex items-center gap-1.5"
               >
                 <FileText className="w-3.5 h-3.5" />
                 Start Notes
