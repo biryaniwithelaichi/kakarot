@@ -64,28 +64,28 @@ export default function Sidebar({ pillarTab, onPillarTabChange }: SidebarProps) 
   const showIndicator = settings?.showLiveMeetingIndicator ?? true;
 
   return (
-    <aside className="w-20 bg-surface border-r border-edge-subtle flex flex-col items-center pt-[52px] pb-4 drag-region">
+    <aside className="w-16 bg-surface border-r border-edge-subtle flex flex-col items-center pt-[52px] pb-4 drag-region">
       {/* Back button below traffic lights */}
       <button
         disabled={isOnHome}
         onClick={handleBack}
-        className={`no-drag w-10 h-10 rounded-lg flex items-center justify-center mb-2 transition-all duration-200 ${
+        className={`no-drag w-9 h-9 rounded-lg flex items-center justify-center mb-1 transition-all duration-200 ${
           isOnHome
             ? 'text-edge cursor-default'
             : 'text-dim hover:text-muted hover:bg-white/[0.03] active:scale-95 cursor-pointer'
         }`}
         title="Back"
       >
-        <ArrowLeft className="w-4.5 h-4.5" />
+        <ArrowLeft className="w-4 h-4" />
       </button>
-      <nav className="flex-1 flex flex-col gap-1.5 no-drag">
+      <nav className="flex-1 flex flex-col gap-1 no-drag">
         {navItems.map((item) => {
           const active = isActive(item);
           return (
             <button
               key={item.id}
               onClick={() => handleClick(item)}
-              className={`relative w-14 h-14 rounded-xl flex flex-col items-center justify-center gap-0.5 transition-all duration-200 ease-out-expo group ${
+              className={`relative w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-200 ease-out-expo group ${
                 active
                   ? 'text-accent-hover'
                   : 'text-dim hover:text-muted hover:bg-white/[0.03] active:scale-95'
@@ -96,7 +96,6 @@ export default function Sidebar({ pillarTab, onPillarTabChange }: SidebarProps) 
                 <div className="absolute inset-0 rounded-xl bg-accent/15 shadow-[inset_0_0_0_1px_rgba(78,168,221,0.2)] animate-nav-activate" />
               )}
               <item.icon className={`relative w-5 h-5 transition-transform duration-200 ${active ? '' : 'group-hover:scale-110'}`} />
-              <span className={`relative text-[10px] mt-0.5 font-medium transition-colors duration-200 ${active ? 'text-accent-hover/70' : 'text-dim'}`}>{item.label}</span>
             </button>
           );
         })}
@@ -115,7 +114,7 @@ export default function Sidebar({ pillarTab, onPillarTabChange }: SidebarProps) 
           onClick={() => setIsPopoverOpen(!isPopoverOpen)}
           className="flex flex-col items-center gap-1 cursor-pointer hover:opacity-80 active:scale-95 transition-all duration-200"
         >
-          <div className="w-40 h-40 -mb-14">
+          <div className="w-10 h-10">
             <img
               src={logoImage}
               alt="Treeto"

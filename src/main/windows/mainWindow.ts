@@ -15,7 +15,7 @@ export function createMainWindow(): BrowserWindow {
     },
     titleBarStyle: 'hiddenInset',
     // Fine-tune macOS traffic light position (approx. 0.1–0.2 cm left shift)
-    trafficLightPosition: { x: 24, y: 14 },
+    trafficLightPosition: { x: 16, y: 14 },
     show: false,
   });
 
