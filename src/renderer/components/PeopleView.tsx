@@ -3,6 +3,7 @@ import { Search, Mail, Building2, Calendar, Clock, FileText, Edit2, X, Check, Re
 import type { Person, Meeting, GeneratedStructuredNotes } from '@shared/types';
 import { formatDuration, getAvatarColor, getInitials, formatLastMeeting } from '../lib/formatters';
 import { PersonListSkeleton } from './Skeleton';
+import { toast } from '../stores/toastStore';
 import { useAppStore } from '../stores/appStore';
 import { NotesWithDeepDive } from './NotesWithDeepDive';
 import { StructuredNotesView } from './StructuredNotesView';
@@ -133,6 +134,7 @@ export default function PeopleView() {
       await loadPeople(); // Refresh the list after sync
     } catch (error) {
       console.error('Failed to sync contacts from calendar:', error);
+      toast.error('Failed to sync contacts');
     } finally {
       setIsSyncing(false);
     }
@@ -185,6 +187,7 @@ export default function PeopleView() {
         setSearchQuery(email);
       } catch (error) {
         console.error('Failed to open contact:', error);
+      toast.error('Failed to load contact');
       } finally {
         setSelectedPersonEmail(null);
       }
@@ -265,6 +268,7 @@ export default function PeopleView() {
       setEditValue('');
     } catch (error) {
       console.error('Failed to update person:', error);
+      toast.error('Failed to save changes');
     }
   };
 

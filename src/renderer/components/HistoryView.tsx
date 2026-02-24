@@ -3,6 +3,7 @@ import { useAppStore } from '../stores/appStore';
 import { Search, Trash2, Folder, Users, MessageCircle, Send, X } from 'lucide-react';
 import { formatDuration, getAvatarColor, getInitials } from '../lib/formatters';
 import { MeetingListSkeleton } from './Skeleton';
+import { toast } from '../stores/toastStore';
 import { ConfirmDialog } from './ConfirmDialog';
 import MeetingDetailView from './MeetingDetailView';
 import { FixedSizeList as List, type ListChildComponentProps } from 'react-window';
@@ -184,12 +185,17 @@ export default function HistoryView() {
 
   const confirmDeleteMeeting = async () => {
     if (!deleteConfirm.meetingId) return;
-    await window.kakarot.meetings.delete(deleteConfirm.meetingId);
-    if (selectedMeeting?.id === deleteConfirm.meetingId) {
-      setSelectedMeeting(null);
+    try {
+      await window.kakarot.meetings.delete(deleteConfirm.meetingId);
+      if (selectedMeeting?.id === deleteConfirm.meetingId) {
+        setSelectedMeeting(null);
+      }
+      loadMeetings();
+    } catch (err) {
+      console.error('Failed to delete meeting:', err);
+      toast.error('Failed to delete meeting');
     }
     setDeleteConfirm({ isOpen: false, meetingId: null });
-    loadMeetings();
   };
 
   useEffect(() => {

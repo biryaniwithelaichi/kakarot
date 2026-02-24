@@ -116,6 +116,7 @@ export default function MeetingDetailView({ meeting, isNewlyCompleted, liveTrans
       setSelectedMeeting({ ...meeting, title: nextTitle });
     } catch (err) {
       console.error('Failed to update meeting title', err);
+      toast.error('Failed to save title');
     } finally {
       setIsSavingTitle(false);
       setIsEditingTitle(false);
@@ -133,6 +134,7 @@ export default function MeetingDetailView({ meeting, isNewlyCompleted, liveTrans
       if (updatedMeeting) setSelectedMeeting(updatedMeeting);
     } catch (error) {
       console.error('Failed to save manual notes:', error);
+      toast.error('Failed to save notes');
     } finally {
       setIsNoteSaving(false);
     }
@@ -156,6 +158,7 @@ export default function MeetingDetailView({ meeting, isNewlyCompleted, liveTrans
       setSelectedContacts(new Set(meeting.attendeeEmails || []));
     } catch (error) {
       console.error('Failed to load contacts:', error);
+      toast.error('Failed to load contacts');
     } finally {
       setIsLoadingContacts(false);
     }

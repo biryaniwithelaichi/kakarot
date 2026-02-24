@@ -441,7 +441,11 @@ export default function SettingsView() {
                         const nextSettings = { ...localSettings!, visibleCalendars: { ...(localSettings!.visibleCalendars || {}), google: next } };
                         setLocalSettings(nextSettings);
                         // Update visible calendars - settings change event will trigger automatic refresh
-                        window.kakarot.calendar.setVisibleCalendars('google', next).catch(() => {});
+                        window.kakarot.calendar.setVisibleCalendars('google', next).catch((err) => {
+                          console.error('Failed to update visible calendars:', err);
+                          setVisibleGoogleIds(visibleGoogleIds);
+                          toast.error('Failed to update calendar visibility');
+                        });
                       }}
                     />
                   </div>

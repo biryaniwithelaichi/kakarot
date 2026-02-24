@@ -13,6 +13,7 @@ import OnboardingFlow from './components/onboarding/OnboardingFlow';
 import type { AudioLevels, AppSettings, CalendarEvent, Meeting } from '../shared/types';
 import ThemeToggle from './components/ThemeToggle';
 import ToastContainer from './components/Toast';
+import { toast } from './stores/toastStore';
 
 const getEventKey = (event: CalendarEvent): string => {
   const start = new Date(event.start).getTime();
@@ -226,18 +227,16 @@ export default function App() {
 
     try {
       useAppStore.getState().clearLiveTranscript();
-      const startPromise = window.kakarot.recording.start(calendarContextData);
-      useAppStore.getState().setCalendarPreview(null);
+      setRecordingState('recording');
       navigate('recording');
-      startPromise
-        .then((meetingId) => {
-          useAppStore.getState().setCurrentMeetingId(meetingId);
-        })
-        .catch((error) => {
-          console.error('[App] Error starting recording (async):', error);
-        });
+      const meetingId = await window.kakarot.recording.start(calendarContextData);
+      useAppStore.getState().setCalendarPreview(null);
+      useAppStore.getState().setCurrentMeetingId(meetingId);
     } catch (error) {
       console.error('[App] Error starting recording:', error);
+      setRecordingState('idle');
+      navigate('home');
+      toast.error('Failed to start recording');
     }
   };
 
@@ -295,7 +294,7 @@ export default function App() {
             className={`
               animate-view-enter
               ${needsFullHeight ? 'h-full flex flex-col' : ''}
-              py-4 px-4 sm:px-6
+              py-4 px-5 sm:px-8
               ${!isFullWidthView ? 'max-w-5xl mx-auto' : ''}
             `}
           >
@@ -304,8 +303,8 @@ export default function App() {
                 {renderContent()}
               </div>
             ) : (
-              <div className={`rounded-2xl border border-edge bg-card ${needsFullHeight ? 'flex-1 min-h-0 flex flex-col' : ''}`}>
-                <div className={`${needsFullHeight ? 'h-full flex flex-col p-5' : 'p-5 sm:p-6'}`}>
+              <div className={`rounded-2xl border border-edge bg-card shadow-soft-card ${needsFullHeight ? 'flex-1 min-h-0 flex flex-col' : ''}`}>
+                <div className={`${needsFullHeight ? 'h-full flex flex-col p-6' : 'p-6 sm:p-8'}`}>
                   {renderContent()}
                 </div>
               </div>

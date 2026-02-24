@@ -5,6 +5,7 @@ import ActiveRecordingView from './ActiveRecordingView';
 import ProcessingView from './ProcessingView';
 import CRMPromptModal from './CRMPromptModal';
 import type { CalendarEvent, AppSettings } from '@shared/types';
+import { toast } from '../stores/toastStore';
 
 interface RecordingViewProps {
   onSelectTab?: (tab: 'notes' | 'prep') => void;
@@ -102,7 +103,10 @@ export default function RecordingView({ onSelectTab: _onSelectTab }: RecordingVi
               return meetingId;
             });
         })
-        .catch((err) => console.error('[RecordingView] Failed initializing manual notes meeting:', err));
+        .catch((err) => {
+          console.error('[RecordingView] Failed initializing manual notes meeting:', err);
+          toast.error('Failed to initialize meeting notes');
+        });
     }
   }, [isIdle, recordingContext, calendarPreview, upcomingMeetingId]);
 
@@ -144,6 +148,7 @@ export default function RecordingView({ onSelectTab: _onSelectTab }: RecordingVi
         .catch((err) => {
           console.error('[RecordingView] Failed to load meeting after notes completion:', err);
           setRecordingContext(null);
+          toast.error('Failed to load completed meeting');
         });
 
       // Check CRM settings
@@ -156,7 +161,10 @@ export default function RecordingView({ onSelectTab: _onSelectTab }: RecordingVi
             );
             if (connectedProvider) {
               if (s.crmNotesBehavior === 'always') {
-                window.kakarot.crm.pushNotes(data.meetingId).catch(console.error);
+                window.kakarot.crm.pushNotes(data.meetingId).catch((err) => {
+                  console.error('[RecordingView] CRM push failed:', err);
+                  toast.error('Failed to push notes to CRM');
+                });
               } else if (s.crmNotesBehavior === 'ask') {
                 setPendingCRMMeetingId(data.meetingId);
                 setCRMProvider(connectedProvider);
@@ -225,22 +233,18 @@ export default function RecordingView({ onSelectTab: _onSelectTab }: RecordingVi
         calendarProvider: contextToUse.provider,
       } : undefined;
 
-      const startPromise = window.kakarot.recording.start(calendarContextData);
+      const meetingId = await window.kakarot.recording.start(calendarContextData);
+      setCurrentMeetingId(meetingId);
       startCapture().catch((error) => {
         console.error('[RecordingView] Error starting mic capture:', error);
+        toast.error('Failed to start microphone capture');
       });
       setCalendarPreview(null);
       navigate('recording', { replace: true });
-
-      startPromise
-        .then((meetingId) => {
-          setCurrentMeetingId(meetingId);
-        })
-        .catch((error) => {
-          console.error('[RecordingView] Error starting recording (async):', error);
-        });
     } catch (error) {
       console.error('[RecordingView] Error starting recording:', error);
+      setPhase('idle');
+      toast.error('Failed to start recording');
     }
   };
 
@@ -268,6 +272,7 @@ export default function RecordingView({ onSelectTab: _onSelectTab }: RecordingVi
         await window.kakarot.calendar.linkNotes(recordingContext.id, meeting.id, provider);
       } catch (err) {
         console.error('Failed to link notes to calendar event:', err);
+        toast.error('Failed to link notes to calendar event');
       }
     }
   };

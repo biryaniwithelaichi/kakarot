@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { X, Loader2 } from 'lucide-react';
+import { toast } from '../stores/toastStore';
 
 interface CRMPromptModalProps {
   meetingId: string;
@@ -20,6 +21,7 @@ export default function CRMPromptModal({ meetingId, provider, onConfirm, onDismi
       onConfirm();
     } catch (err) {
       console.error('[CRMPromptModal] Failed to push notes to CRM:', err);
+      toast.error('Failed to push notes to CRM');
       onDismiss();
     } finally {
       setIsPushing(false);

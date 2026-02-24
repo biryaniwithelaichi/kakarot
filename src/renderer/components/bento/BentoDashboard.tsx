@@ -8,6 +8,7 @@ import PreviousMeetingsList from './PreviousMeetingsList';
 import UpcomingMeetingsPopup from '../UpcomingMeetingsPopup';
 import MeetingContextPreview from '../MeetingContextPreview';
 import { DashboardSkeleton } from '../Skeleton';
+import { toast } from '../../stores/toastStore';
 
 interface BentoDashboardProps {
   isRecording: boolean;
@@ -67,6 +68,7 @@ export default function BentoDashboard({ isRecording, hideCompactBarWhenNoEvents
       }
     } catch (err) {
       console.error('Failed to load meeting:', err);
+      toast.error('Failed to load meeting');
     }
   };
 
@@ -78,6 +80,7 @@ export default function BentoDashboard({ isRecording, hideCompactBarWhenNoEvents
       }
     } catch (err) {
       console.error('Failed to view calendar event notes:', err);
+      toast.error('Failed to load meeting notes');
     }
   };
 
@@ -125,12 +128,12 @@ export default function BentoDashboard({ isRecording, hideCompactBarWhenNoEvents
       const event = liveCalendarEvents.find(e => e.id === eventId);
       if (!event) return;
 
-      addDismissedEventId(eventId);
-
       await window.kakarot.meetings.createDismissed(
         event.title,
         event.attendees?.map((a: any) => typeof a === 'string' ? a : a.email)
       );
+
+      addDismissedEventId(eventId);
 
       const meetings = await window.kakarot.meetings.list();
       const now = Date.now();
@@ -150,6 +153,7 @@ export default function BentoDashboard({ isRecording, hideCompactBarWhenNoEvents
       setPreviousMeetings(completed);
     } catch (err) {
       console.error('Failed to dismiss live meeting:', err);
+      toast.error('Failed to dismiss meeting');
     }
   };
 
