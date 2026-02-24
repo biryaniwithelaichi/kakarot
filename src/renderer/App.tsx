@@ -11,7 +11,6 @@ import PeopleView from './components/PeopleView';
 import Sidebar from './components/Sidebar';
 import OnboardingFlow from './components/onboarding/OnboardingFlow';
 import type { AudioLevels, AppSettings, CalendarEvent, Meeting } from '../shared/types';
-import ThemeToggle from './components/ThemeToggle';
 import ToastContainer from './components/Toast';
 import { toast } from './stores/toastStore';
 
@@ -313,7 +312,6 @@ export default function App() {
         </main>
       </div>
       <ToastContainer />
-      <ThemeToggle />
     </div>
   );
 }
