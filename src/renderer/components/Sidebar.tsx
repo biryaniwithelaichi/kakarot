@@ -114,7 +114,7 @@ export default function Sidebar({ pillarTab, onPillarTabChange }: SidebarProps) 
           onClick={() => setIsPopoverOpen(!isPopoverOpen)}
           className="flex flex-col items-center gap-1 cursor-pointer hover:opacity-80 active:scale-95 transition-all duration-200"
         >
-          <div className="w-10 h-10">
+          <div className="w-24 h-24 -mb-8">
             <img
               src={logoImage}
               alt="Treeto"

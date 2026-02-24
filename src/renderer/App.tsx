@@ -51,7 +51,7 @@ export default function App() {
     selectedMeeting,
     lastCompletedNoteId,
   } = useAppStore();
-  const { isCompleted: onboardingCompleted, completeOnboarding, resetOnboarding } = useOnboardingStore();
+  const { isCompleted: onboardingCompleted, isLoading: onboardingLoading, completeOnboarding, resetOnboarding, loadFromSettings } = useOnboardingStore();
   const [pillarTab, setPillarTab] = useState<'notes' | 'prep'>('notes');
   const [cachedCalendarEvents, setCachedCalendarEvents] = useState<CalendarEvent[]>([]);
 
@@ -152,6 +152,7 @@ export default function App() {
   }, [classifyCalendarEvents, setPreviousMeetings, setCalendarMappings, setDashboardDataLoaded]);
 
   useEffect(() => {
+    loadFromSettings();
     window.kakarot.settings.get().then(setSettings);
     const unsubDevReset = window.kakarot.dev.onResetOnboarding(() => {
       console.log('[DEV] Resetting onboarding via keyboard shortcut');
@@ -172,7 +173,7 @@ export default function App() {
       unsubTranscript();
       unsubFinal();
     };
-  }, [setRecordingState, handleAudioLevels, setPartialSegment, addTranscriptSegment, setSettings, resetOnboarding]);
+  }, [setRecordingState, handleAudioLevels, setPartialSegment, addTranscriptSegment, setSettings, resetOnboarding, loadFromSettings]);
 
   useEffect(() => {
     loadDashboardData();
@@ -198,6 +199,10 @@ export default function App() {
     }
     prevRecordingStateRef.current = recordingState;
   }, [recordingState, dashboardDataLoaded, loadDashboardData]);
+
+  if (onboardingLoading) {
+    return <div className="flex h-screen bg-surface" />;
+  }
 
   if (!onboardingCompleted) {
     return <OnboardingFlow onComplete={completeOnboarding} />;
