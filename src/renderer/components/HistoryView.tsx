@@ -60,27 +60,27 @@ const MeetingRow = ({ index, style, data }: ListChildComponentProps<MeetingRowDa
     >
       <div className="flex items-start justify-between">
         <div className="flex-1 min-w-0">
-          <h3 className="text-sm font-semibold text-slate-100 truncate">
+          <h3 className="text-sm font-medium text-cream truncate">
             {meeting.title}
           </h3>
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="text-xs text-muted mt-1">
             {meeting.durationLabel}
           </p>
           {meeting.attendeeEmails.length > 0 && (
             <div className="flex items-center gap-1 mt-2">
-              <Users className="w-3 h-3 text-slate-500" />
+              <Users className="w-3 h-3 text-dim" />
               <div className="flex -space-x-1">
                 {meeting.avatars.map((avatar, idx) => (
                   <div
                     key={idx}
-                    className={`w-5 h-5 rounded-full ${avatar.color} flex items-center justify-center text-white text-[10px] font-medium border border-slate-900`}
+                    className={`w-5 h-5 rounded-full ${avatar.color} flex items-center justify-center text-white text-[10px] font-medium border border-surface`}
                     title={avatar.email}
                   >
                     {avatar.initials}
                   </div>
                 ))}
                 {meeting.extraCount > 0 && (
-                  <div className="w-5 h-5 rounded-full bg-edge flex items-center justify-center text-slate-200 text-[9px] font-medium border border-slate-900">
+                  <div className="w-5 h-5 rounded-full bg-edge flex items-center justify-center text-muted text-[9px] font-medium border border-surface">
                     +{meeting.extraCount}
                   </div>
                 )}
@@ -90,7 +90,7 @@ const MeetingRow = ({ index, style, data }: ListChildComponentProps<MeetingRowDa
         </div>
         <button
           onClick={(e) => data.onDelete(meeting.id, e)}
-          className="text-slate-500 hover:text-red-400 p-1"
+          className="text-dim hover:text-status-error p-1 transition-colors"
         >
           <Trash2 className="w-4 h-4" />
         </button>
@@ -220,7 +220,7 @@ export default function HistoryView() {
   }), [meetings]);
 
   return (
-    <div className="h-full flex bg-surface text-slate-100 rounded-2xl border border-edge shadow-[0_8px_30px_rgba(0,0,0,0.35)] overflow-hidden">
+    <div className="h-full flex bg-surface text-cream rounded-lg border border-edge shadow-overlay overflow-hidden">
       {/* Meeting list sidebar */}
       <div className="w-72 lg:w-96 border-r border-edge flex flex-col bg-card overflow-hidden flex-shrink-0">
         <div className="p-4 border-b border-edge">
@@ -231,9 +231,9 @@ export default function HistoryView() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-              className="w-full bg-input border border-edge text-slate-100 rounded-lg px-4 py-2.5 pl-10 text-sm focus:outline-none focus:ring-1 focus:ring-accent/30 focus:border-accent/20 placeholder:text-slate-500"
+              className="w-full bg-input border border-edge text-cream rounded-md px-4 py-2.5 pl-10 text-sm focus:outline-none focus:ring-1 focus:ring-accent/30 focus:border-accent/30 placeholder:text-dim"
             />
-            <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-500" />
+            <Search className="absolute left-3 top-2.5 w-4 h-4 text-dim" />
           </div>
         </div>
 
@@ -241,7 +241,7 @@ export default function HistoryView() {
           {isLoading ? (
             <MeetingListSkeleton count={6} />
           ) : meetings.length === 0 ? (
-            <div className="p-4 text-center text-slate-500">No meetings yet</div>
+            <div className="p-4 text-center text-dim">No meetings yet</div>
           ) : (
             <List
               height={listSize.height || 1}
@@ -264,43 +264,42 @@ export default function HistoryView() {
       </div>
 
       {/* Meeting detail -- now uses MeetingDetailView */}
-      <div className="flex-1 flex flex-col bg-surface relative z-10 min-w-0">
+      <div className="flex-1 flex flex-col bg-surface relative min-w-0">
         {selectedMeeting ? (
           <MeetingDetailView meeting={selectedMeeting} />
         ) : (
-          <div className="flex-1 flex items-center justify-center text-slate-500">
+          <div className="flex-1 flex items-center justify-center text-dim">
             <div className="text-center">
               <Folder className="w-16 h-16 mx-auto mb-4 opacity-50" />
               <p className="text-sm">Select a meeting to view details</p>
             </div>
           </div>
         )}
-      </div>
 
-      {/* Floating Chat Pill */}
-      <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50">
-        <button
-          onClick={() => setShowChatPopover(!showChatPopover)}
-          className="flex items-center gap-2 px-4 py-2 bg-accent hover:bg-accent-hover text-surface rounded-full shadow-soft transition-all duration-200 hover:shadow-soft active:scale-[0.96]"
-        >
-          <MessageCircle className="w-4 h-4" />
-          <span className="text-sm font-medium">Ask Me Anything</span>
-        </button>
-      </div>
+        {/* Floating Chat Button */}
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20">
+          <button
+            onClick={() => setShowChatPopover(!showChatPopover)}
+            className="flex items-center gap-2 px-4 py-2.5 bg-accent hover:bg-accent-hover text-surface rounded-lg shadow-elevated transition-colors active:scale-[0.96]"
+          >
+            <MessageCircle className="w-4 h-4" />
+            <span className="text-sm font-medium">Ask about meetings</span>
+          </button>
+        </div>
 
-      {/* Chat Popover */}
-      {showChatPopover && (
-        <div className="fixed bottom-20 left-1/2 transform -translate-x-1/2 w-96 max-h-96 bg-card border border-edge rounded-xl shadow-2xl z-50 flex flex-col animate-popover-in-up">
+        {/* Chat Popover */}
+        {showChatPopover && (
+          <div className="absolute bottom-20 left-1/2 -translate-x-1/2 w-96 max-h-96 bg-card border border-edge rounded-lg shadow-overlay z-20 flex flex-col animate-popover-in-up">
           <div className="flex items-center justify-between p-4 border-b border-edge">
-            <h3 className="text-sm font-semibold text-white">AI Assistant</h3>
-            <button onClick={() => setShowChatPopover(false)} className="text-slate-400 hover:text-white transition-colors">
+            <h3 className="text-sm font-medium text-cream">AI Assistant</h3>
+            <button onClick={() => setShowChatPopover(false)} className="text-muted hover:text-cream transition-colors">
               <X className="w-4 h-4" />
             </button>
           </div>
           <div className="flex-1 overflow-y-auto p-4 space-y-3 max-h-64">
             {chatMessages.length === 0 ? (
-              <div className="text-center text-slate-400 text-sm py-4">
-                Ask me anything about your meetings!
+              <div className="text-center text-muted text-sm py-4">
+                Ask me anything about your meetings
               </div>
             ) : (
               chatMessages.map((message, index) => (
@@ -308,7 +307,7 @@ export default function HistoryView() {
                   <div
                     className={`max-w-[80%] rounded-lg px-3 py-2 text-sm ${
                       message.role === 'user'
-                        ? 'bg-accent/20 text-cream border border-accent/15'
+                        ? 'bg-accent/15 text-cream border border-accent/10'
                         : 'bg-input text-muted border border-edge'
                     }`}
                   >
@@ -319,11 +318,11 @@ export default function HistoryView() {
             )}
             {isChatLoading && (
               <div className="flex justify-start">
-                <div className="bg-edge rounded-lg px-3 py-2 text-sm text-slate-200">
+                <div className="bg-edge rounded-lg px-3 py-2 text-sm text-muted">
                   <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 bg-slate-400 rounded-full animate-pulse"></div>
-                    <div className="w-2 h-2 bg-slate-400 rounded-full animate-pulse" style={{ animationDelay: '0.1s' }}></div>
-                    <div className="w-2 h-2 bg-slate-400 rounded-full animate-pulse" style={{ animationDelay: '0.2s' }}></div>
+                    <div className="w-1.5 h-1.5 bg-muted rounded-full animate-pulse"></div>
+                    <div className="w-1.5 h-1.5 bg-muted rounded-full animate-pulse" style={{ animationDelay: '0.1s' }}></div>
+                    <div className="w-1.5 h-1.5 bg-muted rounded-full animate-pulse" style={{ animationDelay: '0.2s' }}></div>
                   </div>
                 </div>
               </div>
@@ -336,22 +335,23 @@ export default function HistoryView() {
                 type="text"
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
-                onKeyPress={handleChatKeyPress}
+                onKeyDown={handleChatKeyPress}
                 placeholder="Ask about your meetings..."
-                className="flex-1 bg-input border border-edge text-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/50 placeholder:text-slate-500"
+                className="flex-1 bg-input border border-edge text-cream rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-accent/30 placeholder:text-dim"
                 disabled={isChatLoading}
               />
               <button
                 onClick={handleSendMessage}
                 disabled={!chatInput.trim() || isChatLoading}
-                className="px-3 py-2 bg-accent hover:bg-accent-hover disabled:bg-edge disabled:cursor-not-allowed text-surface rounded-lg transition-colors"
+                className="px-3 py-2 bg-accent hover:bg-accent-hover disabled:bg-edge disabled:cursor-not-allowed text-surface rounded-md transition-colors"
               >
                 <Send className="w-4 h-4" />
               </button>
             </div>
           </div>
         </div>
-      )}
+        )}
+      </div>
 
       <ConfirmDialog
         isOpen={deleteConfirm.isOpen}
