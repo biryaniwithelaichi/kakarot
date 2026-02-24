@@ -10,7 +10,6 @@ import SettingsView from './components/SettingsView';
 import PeopleView from './components/PeopleView';
 import Sidebar from './components/Sidebar';
 import OnboardingFlow from './components/onboarding/OnboardingFlow';
-import { ArrowLeft } from 'lucide-react';
 import type { AudioLevels, AppSettings, CalendarEvent, Meeting } from '../shared/types';
 import ThemeToggle from './components/ThemeToggle';
 import ToastContainer from './components/Toast';
@@ -35,7 +34,6 @@ const areCalendarEventsEqual = (a: CalendarEvent[], b: CalendarEvent[]): boolean
 export default function App() {
   const {
     view,
-    navStack,
     recordingState,
     setRecordingState,
     setAudioLevels,
@@ -49,7 +47,6 @@ export default function App() {
     setDashboardDataLoaded,
     dashboardDataLoaded,
     dismissedEventIds,
-    goBack,
     navigate,
     selectedMeeting,
     lastCompletedNoteId,
@@ -206,8 +203,6 @@ export default function App() {
     return <OnboardingFlow onComplete={completeOnboarding} />;
   }
 
-  const isOnHome = navStack.length <= 1 && view === 'home' && pillarTab === 'notes';
-
   // Start recording: fire IPC recording, then navigate to RecordingView immediately
   const handleStartRecording = async (event?: CalendarEvent) => {
     if (event) {
@@ -287,37 +282,8 @@ export default function App() {
     <div className="flex h-screen overflow-hidden min-w-[640px] bg-[#0C0C0C]">
       <Sidebar pillarTab={pillarTab} onPillarTabChange={setPillarTab} />
       <div className="flex-1 flex flex-col">
-        {/* Fixed Header */}
-        <header className="sticky top-0 z-30 backdrop-blur-md bg-[#0C0C0C]/80 border-b border-[#2A2A2A] drag-region">
-          <div className="px-4 sm:px-6 h-[48px] flex items-center">
-            <div className="flex items-center no-drag">
-              <button
-                disabled={isOnHome}
-                className={`px-3 py-1.5 rounded-md text-sm transition ${
-                  isOnHome
-                    ? 'text-slate-600 cursor-not-allowed'
-                    : 'text-slate-300 hover:bg-white/5 cursor-pointer'
-                }`}
-                onClick={() => {
-                  if (isOnHome) return;
-                  // If on prep tab at home, switch back to notes tab
-                  if (view === 'home' && pillarTab === 'prep') {
-                    setPillarTab('notes');
-                    return;
-                  }
-                  goBack();
-                }}
-              >
-                <span className="inline-flex items-center gap-1">
-                  <ArrowLeft className="w-4 h-4" />
-                  Back
-                </span>
-              </button>
-            </div>
-          </div>
-        </header>
-
-        {/* Scrollable Content */}
+        {/* Content area with drag region at top for window dragging */}
+        <div className="h-[38px] flex-shrink-0 drag-region" />
         <main className={`flex-1 ${needsFullHeight ? 'overflow-hidden' : 'overflow-y-auto'}`}>
           <div
             key={`${view}-${pillarTab}`}

@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { useAppStore, type AppView } from '../stores/appStore';
-import { Home, History, Users, Settings, Sparkles } from 'lucide-react';
+import { Home, History, Users, Settings, Sparkles, ArrowLeft } from 'lucide-react';
 import logoImage from '../assets/logo transparent copy.png';
 import FeedbackPopover from './FeedbackPopover';
 import FeedbackModal from './FeedbackModal';
@@ -19,11 +19,22 @@ interface NavItem {
 }
 
 export default function Sidebar({ pillarTab, onPillarTabChange }: SidebarProps) {
-  const { view, navigate, recordingState, settings } = useAppStore();
+  const { view, navigate, recordingState, settings, navStack, goBack } = useAppStore();
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<'message' | 'feedback'>('feedback');
   const logoRef = useRef<HTMLDivElement>(null);
+
+  const isOnHome = navStack.length <= 1 && view === 'home' && pillarTab === 'notes';
+
+  const handleBack = () => {
+    if (isOnHome) return;
+    if (view === 'home' && pillarTab === 'prep') {
+      onPillarTabChange('notes');
+      return;
+    }
+    goBack();
+  };
 
   const navItems: NavItem[] = [
     { id: 'home', label: 'Home', icon: Home, view: 'home', pillar: 'notes' },
@@ -53,7 +64,20 @@ export default function Sidebar({ pillarTab, onPillarTabChange }: SidebarProps) 
   const showIndicator = settings?.showLiveMeetingIndicator ?? true;
 
   return (
-    <aside className="w-20 bg-[#0C0C0C] border-r border-[#1E1E1E] flex flex-col items-center pt-[48px] pb-4 drag-region">
+    <aside className="w-20 bg-[#0C0C0C] border-r border-[#1E1E1E] flex flex-col items-center pt-[52px] pb-4 drag-region">
+      {/* Back button below traffic lights */}
+      <button
+        disabled={isOnHome}
+        onClick={handleBack}
+        className={`no-drag w-10 h-10 rounded-lg flex items-center justify-center mb-2 transition-all duration-200 ${
+          isOnHome
+            ? 'text-[#2A2A2A] cursor-default'
+            : 'text-[#5C5750] hover:text-[#9C9690] hover:bg-white/[0.03] active:scale-95 cursor-pointer'
+        }`}
+        title="Back"
+      >
+        <ArrowLeft className="w-4.5 h-4.5" />
+      </button>
       <nav className="flex-1 flex flex-col gap-1.5 no-drag">
         {navItems.map((item) => {
           const active = isActive(item);
