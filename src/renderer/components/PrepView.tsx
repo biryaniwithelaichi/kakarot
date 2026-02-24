@@ -955,10 +955,10 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
   const getAvatarColor = (email: string) => {
     const colors = [
       'bg-blue-500',
-      'bg-[#F0EBE3]',
-      'bg-[#4ea8dd]',
+      'bg-cream',
+      'bg-accent',
       'bg-pink-500',
-      'bg-[#4ea8dd]',
+      'bg-accent',
       'bg-yellow-500',
       'bg-red-500',
       'bg-teal-500',
@@ -1044,13 +1044,13 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
 
   const renderParticipantSelection = () => (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 h-full">
-      <div className="relative bg-[#0C0C0C] border border-[#4ea8dd]/40 rounded-2xl p-5 shadow-[0_10px_50px_rgba(105,117,101,0.25)] flex flex-col overflow-hidden">
+      <div className="relative bg-surface border border-accent/40 rounded-2xl p-5 shadow-[0_10px_50px_rgba(105,117,101,0.25)] flex flex-col overflow-hidden">
         <div className="flex items-center justify-between mb-4 flex-shrink-0">
           <div>
-            <p className="text-sm text-[#4ea8dd] uppercase tracking-wide">Select Participants</p>
+            <p className="text-sm text-accent uppercase tracking-wide">Select Participants</p>
             <h3 className="text-xl font-semibold text-white">Who are you meeting?</h3>
           </div>
-          <Sparkles className="w-5 h-5 text-[#4ea8dd]" />
+          <Sparkles className="w-5 h-5 text-accent" />
         </div>
 
         <div className="flex flex-wrap gap-2 mb-3 min-h-[36px] flex-shrink-0">
@@ -1061,7 +1061,7 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
             <button
               key={person.email}
               onClick={() => togglePerson(person)}
-              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 border border-[#4ea8dd]/40 text-sm text-white hover:bg-[#4ea8dd]/30 transition"
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 border border-accent/40 text-sm text-white hover:bg-accent/30 transition"
             >
               <span className={`w-6 h-6 rounded-full ${getAvatarColor(person.email)} flex items-center justify-center text-white text-xs font-semibold`}>
                 {getInitials(person)}
@@ -1078,10 +1078,10 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
             placeholder="Search..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-[#1E1E1E] border border-white/10 rounded-xl px-4 py-2 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-[#4ea8dd]/60"
+            className="w-full bg-input border border-white/10 rounded-xl px-4 py-2 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-accent/60"
           />
           {searchQuery && filteredPeople.length > 0 && (
-            <div className="absolute z-10 mt-2 w-full max-h-60 overflow-y-auto bg-[#0C0C0C] border border-white/10 rounded-xl shadow-2xl">
+            <div className="absolute z-10 mt-2 w-full max-h-60 overflow-y-auto bg-surface border border-white/10 rounded-xl shadow-2xl">
               {filteredPeople.slice(0, 8).map((person) => {
                 const isSelected = selectedPeople.some((p) => p.email === person.email);
                 return (
@@ -1090,7 +1090,7 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
                     onClick={() => togglePerson(person)}
                     className={`w-full flex items-center gap-3 px-4 py-3 text-left border-b border-white/5 last:border-none transition ${
                       isSelected
-                        ? 'bg-[#4ea8dd]/20'
+                        ? 'bg-accent/20'
                         : 'hover:bg-white/5'
                     }`}
                   >
@@ -1102,7 +1102,7 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
                       <p className="text-xs text-slate-400 truncate">{person.email}</p>
                     </div>
                     {isSelected && (
-                      <span className="text-xs text-[#4ea8dd]">Selected</span>
+                      <span className="text-xs text-accent">Selected</span>
                     )}
                   </button>
                 );
@@ -1121,7 +1121,7 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
                   setSelectedBranch(branch);
                   setShowBranchModal(true);
                 }}
-                className="flex flex-col bg-white/5 hover:bg-white/10 border border-white/5 hover:border-[#4ea8dd]/50 rounded-xl transition-all p-3 text-left group"
+                className="flex flex-col bg-white/5 hover:bg-white/10 border border-white/5 hover:border-accent/50 rounded-xl transition-all p-3 text-left group"
               >
                 <p className="text-sm text-white font-medium">{branch.name} 🌱</p>
                 <p className="text-xs text-slate-400 mt-1 leading-snug">{branch.description}</p>
@@ -1132,13 +1132,13 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
       </div>
 
       {/* Meeting Objective Selection */}
-      <div className="bg-[#0C0C0C] border border-[#4ea8dd]/40 rounded-2xl p-5 shadow-[0_10px_50px_rgba(105,117,101,0.25)] flex flex-col overflow-hidden">
+      <div className="bg-surface border border-accent/40 rounded-2xl p-5 shadow-[0_10px_50px_rgba(105,117,101,0.25)] flex flex-col overflow-hidden">
         <div className="flex items-center justify-between mb-4 flex-shrink-0">
           <div>
-            <p className="text-sm text-[#4ea8dd] uppercase tracking-wide">Meeting Objective</p>
+            <p className="text-sm text-accent uppercase tracking-wide">Meeting Objective</p>
             <h3 className="text-xl font-semibold text-white">What's the meeting about?</h3>
           </div>
-          <Sparkles className="w-5 h-5 text-[#4ea8dd]" />
+          <Sparkles className="w-5 h-5 text-accent" />
         </div>
 
         <div className="flex-1 overflow-y-auto space-y-2 pr-1">
@@ -1150,7 +1150,7 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
                 key={objective.id}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition ${
                   isActive
-                    ? 'border-[#4ea8dd] bg-[#4ea8dd]/20 shadow-[0_10px_30px_rgba(105,117,101,0.35)] border'
+                    ? 'border-accent bg-accent/20 shadow-[0_10px_30px_rgba(105,117,101,0.35)] border'
                     : 'bg-white/5 hover:bg-white/10 border border-white/5'
                 }`}
               >
@@ -1159,13 +1159,13 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
                   className="flex items-center gap-3 flex-1 min-w-0"
                 >
                   <span className="p-2 rounded-lg bg-white/10 flex-shrink-0">
-                    <Icon className="w-4 h-4 text-[#4ea8dd]" />
+                    <Icon className="w-4 h-4 text-accent" />
                   </span>
                   <div className="flex-1 min-w-0 text-left">
                     <span className="text-sm text-white block truncate">{objective.label}</span>
                     <div className="flex items-center gap-2">
                       {objective.isCustom && (
-                        <span className="text-xs text-[#4ea8dd]">Custom</span>
+                        <span className="text-xs text-accent">Custom</span>
                       )}
                       {objective.isModified && !objective.isCustom && (
                         <span className="text-xs text-amber-400">Modified</span>
@@ -1178,7 +1178,7 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
                   className="p-2 hover:bg-white/10 rounded-lg transition-colors flex-shrink-0"
                   title="Edit objective"
                 >
-                  <Edit className="w-4 h-4 text-slate-400 hover:text-[#4ea8dd]" />
+                  <Edit className="w-4 h-4 text-slate-400 hover:text-accent" />
                 </button>
               </div>
             );
@@ -1187,9 +1187,9 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
 
         <button
           onClick={openCreateModal}
-          className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl border border-white/10 bg-white/5 hover:border-[#4ea8dd]/60 transition mt-4 flex-shrink-0"
+          className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl border border-white/10 bg-white/5 hover:border-accent/60 transition mt-4 flex-shrink-0"
         >
-          <Plus className="w-4 h-4 text-[#4ea8dd]" />
+          <Plus className="w-4 h-4 text-accent" />
           <span className="text-sm text-white">Add Custom Meeting Objective</span>
         </button>
       </div>
@@ -1211,11 +1211,11 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
   // Helper to get timeline source color
   const getSourceColor = (source: TimelineEvent['source']) => {
     switch (source) {
-      case 'Meeting Notes': return 'bg-[#4ea8dd]/20 text-[#3d96cb] dark:bg-[#4ea8dd]/30 dark:text-[#4ea8dd]';
+      case 'Meeting Notes': return 'bg-accent/20 text-accent-hover dark:bg-accent/30 dark:text-accent';
       case 'HubSpot': return 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300';
       case 'Salesforce': return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300';
-      case 'Email': return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-[#F0EBE3]';
-      default: return 'bg-[#161616] text-gray-700 dark:bg-[#2A2A2A]/30 dark:text-gray-300';
+      case 'Email': return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-cream';
+      default: return 'bg-card text-gray-700 dark:bg-edge/30 dark:text-gray-300';
     }
   };
 
@@ -1258,8 +1258,8 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
       case 'pending_action': return 'bg-orange-500/20 text-orange-300 border-orange-500/30';
       case 'risk': return 'bg-red-500/20 text-red-300 border-red-500/30';
       case 'deal': return 'bg-blue-500/20 text-blue-300 border-blue-500/30';
-      case 'context': return 'bg-[#2A2A2A]/20 text-slate-300 border-slate-500/30';
-      default: return 'bg-[#4ea8dd]/20 text-[#4ea8dd] border-[#4ea8dd]/30';
+      case 'context': return 'bg-edge/20 text-slate-300 border-slate-500/30';
+      default: return 'bg-accent/20 text-accent border-accent/30';
     }
   };
 
@@ -1294,16 +1294,16 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
     }, [brief.insights]);
 
     return (
-      <div className="bg-gradient-to-r from-[#4ea8dd]/10 to-[#3d96cb]/10 rounded-xl p-4 mb-4 border border-[#4ea8dd]/30">
+      <div className="bg-gradient-to-r from-accent/10 to-accent-hover/10 rounded-xl p-4 mb-4 border border-accent/30">
         <button
           onClick={() => setExpanded(!expanded)}
           className="flex items-center justify-between w-full"
         >
-          <h4 className="text-sm font-semibold text-[#4ea8dd] uppercase tracking-wide flex items-center gap-2">
+          <h4 className="text-sm font-semibold text-accent uppercase tracking-wide flex items-center gap-2">
             <Zap className="w-4 h-4" />
             30-Second Brief
           </h4>
-          <ChevronDown className={`w-4 h-4 text-[#4ea8dd] transition-transform ${expanded ? 'rotate-180' : ''}`} />
+          <ChevronDown className={`w-4 h-4 text-accent transition-transform ${expanded ? 'rotate-180' : ''}`} />
         </button>
 
         {expanded && (
@@ -1331,7 +1331,7 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
                           className="p-1 hover:bg-white/10 rounded"
                           title="Useful"
                         >
-                          <ThumbsUp className="w-3 h-3 text-slate-400 hover:text-[#F0EBE3]" />
+                          <ThumbsUp className="w-3 h-3 text-slate-400 hover:text-cream" />
                         </button>
                         <button
                           onClick={() => onFeedback(insight.id, insight.category, 'not_useful', participant.email || undefined)}
@@ -1384,7 +1384,7 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
             {/* Suggested Actions */}
             {brief.suggestedActions.length > 0 && (
               <div className="pt-2 border-t border-white/10">
-                <p className="text-xs text-[#F0EBE3] uppercase mb-1">Your Moves</p>
+                <p className="text-xs text-cream uppercase mb-1">Your Moves</p>
                 <ul className="text-sm text-green-200 space-y-1">
                   {brief.suggestedActions.map((action, i) => (
                     <li key={i} className="flex items-start gap-2">
@@ -1399,7 +1399,7 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
             {/* Bottom Line */}
             <div className="pt-2 border-t border-white/10">
               <p className="text-sm text-slate-300">
-                <span className="font-semibold text-[#4ea8dd]">Bottom Line: </span>
+                <span className="font-semibold text-accent">Bottom Line: </span>
                 {brief.bottomLine}
               </p>
             </div>
@@ -1411,8 +1411,8 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
 
   // SynthesisSection component - displays cross-participant analysis for multi-person prep
   const SynthesisSection: React.FC<{ synthesis: MeetingSynthesis }> = ({ synthesis }) => (
-    <div className="mt-6 p-4 bg-[#4ea8dd]/10 rounded-xl border border-[#4ea8dd]/20">
-      <h3 className="text-sm font-semibold text-[#4ea8dd] mb-4 flex items-center gap-2">
+    <div className="mt-6 p-4 bg-accent/10 rounded-xl border border-accent/20">
+      <h3 className="text-sm font-semibold text-accent mb-4 flex items-center gap-2">
         <Sparkles className="w-4 h-4" />
         Meeting Synthesis
       </h3>
@@ -1423,7 +1423,7 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
           <h4 className="text-xs text-slate-400 uppercase mb-2 tracking-wide">Likely Topics</h4>
           <div className="space-y-2">
             {synthesis.likelyTopics.map((topic, i) => (
-              <div key={i} className="pl-3 border-l-2 border-[#4ea8dd]/40">
+              <div key={i} className="pl-3 border-l-2 border-accent/40">
                 <p className="text-sm text-slate-200 font-medium">{topic.topic}</p>
                 <p className="text-xs text-slate-400 mt-1">{topic.rationale}</p>
               </div>
@@ -1439,7 +1439,7 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
           <ul className="text-sm text-slate-300 space-y-1">
             {synthesis.connectingThreads.map((thread, i) => (
               <li key={i} className="flex items-start gap-2">
-                <span className="text-[#4ea8dd] mt-0.5">•</span>
+                <span className="text-accent mt-0.5">•</span>
                 <span>{thread}</span>
               </li>
             ))}
@@ -1454,7 +1454,7 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
           <ul className="text-sm text-slate-300 space-y-1">
             {synthesis.forwardActions.map((action, i) => (
               <li key={i} className="flex items-start gap-2">
-                <span className="text-[#4ea8dd]">→</span>
+                <span className="text-accent">→</span>
                 <span>{action}</span>
               </li>
             ))}
@@ -1463,9 +1463,9 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
       )}
 
       {/* Relationship Type Indicator */}
-      <div className="mt-4 pt-3 border-t border-[#4ea8dd]/20">
+      <div className="mt-4 pt-3 border-t border-accent/20">
         <span className="text-xs text-slate-500">
-          Relationship: <span className="text-[#4ea8dd] capitalize">{synthesis.relationshipType.replace('-', ' ')}</span>
+          Relationship: <span className="text-accent capitalize">{synthesis.relationshipType.replace('-', ' ')}</span>
         </span>
       </div>
     </div>
@@ -1473,7 +1473,7 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
 
   // Render participant card with new 3-block structure
   const renderParticipantCard = (participant: EnhancedPrepParticipant, idx: number) => (
-    <div key={idx} className="bg-[#0C0C0C] border border-[#4ea8dd]/30 rounded-2xl overflow-hidden">
+    <div key={idx} className="bg-surface border border-accent/30 rounded-2xl overflow-hidden">
       {/* Header with Last Seen Context */}
       <div className="p-5 border-b border-white/10">
         <div className="flex items-start justify-between">
@@ -1487,15 +1487,15 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
           <div className="relative group">
             <div className={`text-xs px-3 py-1.5 rounded-full cursor-help ${
               participant.confidence.score >= 70
-                ? 'bg-[#F0EBE3]/20 text-[#F0EBE3] border border-[#F0EBE3]/30'
+                ? 'bg-cream/20 text-cream border border-cream/30'
                 : participant.confidence.score >= 40
                 ? 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30'
-                : 'bg-[#2A2A2A]/50 text-slate-400 border border-slate-600'
+                : 'bg-edge/50 text-slate-400 border border-slate-600'
             }`}>
               {participant.confidence.score}% confidence
             </div>
             {/* Tooltip with source breakdown */}
-            <div className="absolute right-0 top-full mt-2 w-48 p-3 bg-[#1E1E1E] border border-slate-700 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
+            <div className="absolute right-0 top-full mt-2 w-48 p-3 bg-input border border-slate-700 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
               <p className="text-xs text-slate-300 mb-2">{participant.confidence.explanation}</p>
               <div className="space-y-1 text-xs text-slate-400">
                 <div className="flex justify-between">
@@ -1517,14 +1517,14 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
 
         {/* Last Seen Context */}
         {participant.lastSeen && (
-          <div className="mt-3 p-3 bg-[#4ea8dd]/10 rounded-lg border border-[#4ea8dd]/20">
-            <p className="text-sm text-[#4ea8dd]">
+          <div className="mt-3 p-3 bg-accent/10 rounded-lg border border-accent/20">
+            <p className="text-sm text-accent">
               <Clock className="w-3.5 h-3.5 inline mr-1.5" />
               We last spoke <span className="font-semibold">{participant.lastSeen.daysAgo} days ago</span> about "{participant.lastSeen.topic}"
               <span className={`ml-2 px-2 py-0.5 rounded text-xs ${
-                participant.lastSeen.sentiment === 'Positive' ? 'bg-[#F0EBE3]/20 text-[#F0EBE3]' :
+                participant.lastSeen.sentiment === 'Positive' ? 'bg-cream/20 text-cream' :
                 participant.lastSeen.sentiment === 'Tense' ? 'bg-red-500/20 text-red-300' :
-                'bg-[#2A2A2A]/50 text-slate-300'
+                'bg-edge/50 text-slate-300'
               }`}>
                 {participant.lastSeen.sentiment}
               </span>
@@ -1551,7 +1551,7 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
                 <button
                   onClick={() => handleFetchCompanyInfo(participant.email!)}
                   disabled={fetchingCompanyInfo === participant.email}
-                  className="text-xs px-3 py-1.5 bg-[#F0EBE3]/20 text-[#F0EBE3] rounded-lg hover:bg-[#F0EBE3]/30 transition flex items-center gap-1.5 disabled:opacity-50"
+                  className="text-xs px-3 py-1.5 bg-cream/20 text-cream rounded-lg hover:bg-cream/30 transition flex items-center gap-1.5 disabled:opacity-50"
                 >
                   <Building2 className="w-3 h-3" />
                   {fetchingCompanyInfo === participant.email ? 'Fetching...' : 'Company Info'}
@@ -1565,7 +1565,7 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
       {/* Block A: The "Who" (Participant Intel) - Only render if there's meaningful data */}
       {(participant.intel.persona || participant.intel.crmRole || participant.intel.personalFacts.length > 0 || participant.intel.recentActivity.length > 0) && (
         <div className="p-5 border-b border-white/10">
-          <h5 className="text-sm font-semibold text-[#4ea8dd] uppercase tracking-wide mb-3 flex items-center gap-2">
+          <h5 className="text-sm font-semibold text-accent uppercase tracking-wide mb-3 flex items-center gap-2">
             <User className="w-4 h-4" />
             Participant Intel
           </h5>
@@ -1575,10 +1575,10 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
                 <span className="text-xs text-slate-500 w-24 flex-shrink-0">Persona</span>
                 <span className={`text-xs px-2 py-1 rounded ${
                   participant.intel.persona === 'Technical' ? 'bg-blue-500/20 text-blue-300' :
-                  participant.intel.persona === 'Executive' ? 'bg-[#4ea8dd]/20 text-[#4ea8dd]' :
+                  participant.intel.persona === 'Executive' ? 'bg-accent/20 text-accent' :
                   participant.intel.persona === 'Skeptic' ? 'bg-red-500/20 text-red-300' :
-                  participant.intel.persona === 'Champion' ? 'bg-[#F0EBE3]/20 text-[#F0EBE3]' :
-                  'bg-[#2A2A2A]/50 text-slate-300'
+                  participant.intel.persona === 'Champion' ? 'bg-cream/20 text-cream' :
+                  'bg-edge/50 text-slate-300'
                 }`}>
                   {participant.intel.persona}
                 </span>
@@ -1612,8 +1612,8 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
 
       {/* CRM Snapshot - Only render if there's meaningful CRM data (deal name, value, or stage) */}
       {participant.crmSnapshot && (participant.crmSnapshot.dealName || participant.crmSnapshot.dealValue || participant.crmSnapshot.dealStage) && (
-        <div className="p-5 border-b border-white/10 bg-gradient-to-r from-[#4ea8dd]/5 to-transparent">
-          <h5 className="text-sm font-semibold text-[#4ea8dd] uppercase tracking-wide mb-3 flex items-center gap-2">
+        <div className="p-5 border-b border-white/10 bg-gradient-to-r from-accent/5 to-transparent">
+          <h5 className="text-sm font-semibold text-accent uppercase tracking-wide mb-3 flex items-center gap-2">
             <DollarSign className="w-4 h-4" />
             CRM Snapshot
             <span className="text-xs font-normal normal-case text-slate-500">
@@ -1638,7 +1638,7 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
             {participant.crmSnapshot.dealStage && (
               <div>
                 <p className="text-xs text-slate-500">Stage</p>
-                <p className="text-sm text-[#4ea8dd] font-medium">{participant.crmSnapshot.dealStage}</p>
+                <p className="text-sm text-accent font-medium">{participant.crmSnapshot.dealStage}</p>
               </div>
             )}
           </div>
@@ -1656,7 +1656,7 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
       {/* Block B: The "History" (Action Items) */}
       {participant.actionItems.length > 0 && (
         <div className="p-5 border-b border-white/10">
-          <h5 className="text-sm font-semibold text-[#4ea8dd] uppercase tracking-wide mb-3 flex items-center gap-2">
+          <h5 className="text-sm font-semibold text-accent uppercase tracking-wide mb-3 flex items-center gap-2">
             <ListChecks className="w-4 h-4" />
             Action Items
           </h5>
@@ -1667,7 +1667,7 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
                   type="checkbox"
                   checked={completedActionItems.has(item.id) || item.completed}
                   onChange={() => handleToggleActionItem(item.id)}
-                  className="mt-1 rounded border-slate-600 bg-[#1E1E1E] text-[#4ea8dd] focus:ring-[#4ea8dd] focus:ring-offset-0"
+                  className="mt-1 rounded border-slate-600 bg-input text-accent focus:ring-accent focus:ring-offset-0"
                 />
                 <div className="flex-1 min-w-0">
                   <p className={`text-sm ${
@@ -1715,14 +1715,14 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
       {/* Block C: Timeline */}
       {participant.timeline.length > 0 && (
         <div className="p-5">
-          <h5 className="text-sm font-semibold text-[#4ea8dd] uppercase tracking-wide mb-3 flex items-center gap-2">
+          <h5 className="text-sm font-semibold text-accent uppercase tracking-wide mb-3 flex items-center gap-2">
             <History className="w-4 h-4" />
             Timeline
           </h5>
           <div className="space-y-3">
             {participant.timeline.slice(0, 8).map((event) => (
               <div key={event.id} className="flex items-start gap-3">
-                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[#1E1E1E] flex items-center justify-center text-slate-400">
+                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-input flex items-center justify-center text-slate-400">
                   {getTimelineIcon(event.type)}
                 </div>
                 <div className="flex-1 min-w-0">
@@ -1776,7 +1776,7 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
         <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-700">
           <div>
             <h1 className="text-2xl font-semibold text-white mb-1 flex items-center gap-2">
-              <Zap className="w-5 h-5 text-[#4ea8dd]" />
+              <Zap className="w-5 h-5 text-accent" />
               Meeting Prep: {conversationalResult.participant.name}
             </h1>
             <p className="text-sm text-slate-400">
@@ -1785,9 +1785,9 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
           </div>
           <div className="flex items-center gap-2">
             <span className={`text-xs px-2 py-1 rounded ${
-              conversationalResult.participant.dataQuality === 'rich' ? 'bg-[#F0EBE3]/20 text-[#F0EBE3]' :
+              conversationalResult.participant.dataQuality === 'rich' ? 'bg-cream/20 text-cream' :
               conversationalResult.participant.dataQuality === 'moderate' ? 'bg-yellow-500/20 text-yellow-300' :
-              'bg-[#2A2A2A]/20 text-slate-300'
+              'bg-edge/20 text-slate-300'
             }`}>
               {conversationalResult.participant.meetingCount} meetings analyzed
             </span>
@@ -1796,7 +1796,7 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
                 setConversationalResult(null);
                 setQuickPrepQuery('');
               }}
-              className="px-4 py-2 text-sm font-medium text-slate-300 hover:bg-[#2A2A2A] rounded-lg transition-colors border border-slate-600"
+              className="px-4 py-2 text-sm font-medium text-slate-300 hover:bg-edge rounded-lg transition-colors border border-slate-600"
             >
               Prep Another
             </button>
@@ -1805,14 +1805,14 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
 
         {/* Markdown Brief */}
         <div className="flex-1 overflow-y-auto pr-2">
-          <div className="bg-[#0C0C0C] border border-[#4ea8dd]/30 rounded-2xl p-6">
+          <div className="bg-surface border border-accent/30 rounded-2xl p-6">
             <div className="prose prose-invert prose-sm max-w-none">
               {/* Render markdown as formatted content */}
               {conversationalResult.markdownBrief.split('\n').map((line, idx) => {
                 // H2 headers
                 if (line.startsWith('## ')) {
                   return (
-                    <h2 key={idx} className="text-lg font-semibold text-[#4ea8dd] mt-6 mb-3 first:mt-0 flex items-center gap-2">
+                    <h2 key={idx} className="text-lg font-semibold text-accent mt-6 mb-3 first:mt-0 flex items-center gap-2">
                       {line.startsWith('## Key Active') && <Target className="w-4 h-4" />}
                       {line.startsWith('## Quick Questions') && <MessageSquare className="w-4 h-4" />}
                       {line.startsWith('## Their Key') && <User className="w-4 h-4" />}
@@ -1845,7 +1845,7 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
                   const mainContent = line.replace(/\[(?:from|context|since|committed):\s*[^\]]+\]/gi, '').replace('- ', '');
                   return (
                     <div key={idx} className="flex items-start gap-2 my-1.5 text-slate-300">
-                      <span className="text-[#4ea8dd] mt-1">•</span>
+                      <span className="text-accent mt-1">•</span>
                       <span>
                         {mainContent}
                         {citationMatch && (
@@ -1886,7 +1886,7 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
             <h1 className="text-2xl font-semibold text-white mb-1">
               {dynamicPrepResult.meeting.inferred ? (
                 <span className="flex items-center gap-2">
-                  <Zap className="w-5 h-5 text-[#4ea8dd]" />
+                  <Zap className="w-5 h-5 text-accent" />
                   {dynamicPrepResult.meeting.objective || 'Meeting Prep'}
                 </span>
               ) : (
@@ -1901,7 +1901,7 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
                 </span>
               ))}
               {dynamicPrepResult.meeting.inferred && (
-                <span className="ml-2 text-xs text-[#4ea8dd]">(AI inferred objective)</span>
+                <span className="ml-2 text-xs text-accent">(AI inferred objective)</span>
               )}
             </p>
           </div>
@@ -1912,7 +1912,7 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
               setSelectedPeople([]);
               setCompletedActionItems(new Set());
             }}
-            className="px-4 py-2 text-sm font-medium text-slate-300 hover:bg-[#2A2A2A] rounded-lg transition-colors border border-slate-600"
+            className="px-4 py-2 text-sm font-medium text-slate-300 hover:bg-edge rounded-lg transition-colors border border-slate-600"
           >
             Generate Another
           </button>
@@ -1921,7 +1921,7 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
         {/* Dynamic Participant Cards */}
         <div className="flex-1 overflow-y-auto space-y-6 pr-2">
           {dynamicPrepResult.participants.map((participant, idx) => (
-            <div key={idx} className="bg-[#0C0C0C] border border-[#4ea8dd]/30 rounded-2xl overflow-hidden">
+            <div key={idx} className="bg-surface border border-accent/30 rounded-2xl overflow-hidden">
               {/* Participant Header */}
               <div className="p-5 border-b border-white/10">
                 <div className="flex items-start justify-between">
@@ -1937,7 +1937,7 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
                       ? 'bg-red-500/20 text-red-300 border border-red-500/30'
                       : participant.computedPriority >= 40
                       ? 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30'
-                      : 'bg-[#F0EBE3]/20 text-[#F0EBE3] border border-[#F0EBE3]/30'
+                      : 'bg-cream/20 text-cream border border-cream/30'
                   }`}>
                     Priority: {participant.computedPriority}
                   </div>
@@ -2015,7 +2015,7 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
                     <summary className="text-slate-500 cursor-pointer hover:text-slate-400">
                       View signal scores ({participant.signals.length} signals)
                     </summary>
-                    <div className="mt-2 p-2 bg-[#1E1E1E]/50 rounded space-y-1">
+                    <div className="mt-2 p-2 bg-input/50 rounded space-y-1">
                       {participant.signals.map((signal, i) => (
                         <div key={i} className="flex justify-between text-slate-400">
                           <span>{signal.category} ({signal.source})</span>
@@ -2064,7 +2064,7 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
               setSelectedPeople([]);
               setCompletedActionItems(new Set());
             }}
-            className="px-4 py-2 text-sm font-medium text-slate-300 hover:bg-[#2A2A2A] rounded-lg transition-colors border border-slate-600"
+            className="px-4 py-2 text-sm font-medium text-slate-300 hover:bg-edge rounded-lg transition-colors border border-slate-600"
           >
             Generate Another
           </button>
@@ -2111,8 +2111,8 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
                     <div
                       className={`max-w-[85%] rounded-2xl px-4 py-3 ${
                         message.role === 'user'
-                          ? 'bg-[#4ea8dd] text-white rounded-br-md'
-                          : 'bg-[#2A2A2A] text-slate-200 rounded-bl-md border border-white/5'
+                          ? 'bg-accent text-white rounded-br-md'
+                          : 'bg-edge text-slate-200 rounded-bl-md border border-white/5'
                       }`}
                     >
                       {message.role === 'assistant' ? (
@@ -2129,7 +2129,7 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
                             // H2 headers
                             if (line.startsWith('## ')) {
                               return (
-                                <h2 key={idx} className="text-base font-semibold text-[#4ea8dd] mt-4 mb-2 first:mt-0">
+                                <h2 key={idx} className="text-base font-semibold text-accent mt-4 mb-2 first:mt-0">
                                   {line.replace('## ', '')}
                                 </h2>
                               );
@@ -2149,7 +2149,7 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
                               const parts = content.split(/(\*\*[^*]+\*\*)/g);
                               return (
                                 <div key={idx} className="flex items-start gap-2 my-1 text-slate-300">
-                                  <span className="text-[#4ea8dd] mt-0.5">•</span>
+                                  <span className="text-accent mt-0.5">•</span>
                                   <span>
                                     {parts.map((part, i) =>
                                       part.startsWith('**') && part.endsWith('**') ? (
@@ -2210,7 +2210,7 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
                 {/* Streaming response or loading indicator */}
                 {isChatLoading && (
                   <div className="flex justify-start">
-                    <div className="max-w-[85%] bg-[#2A2A2A] rounded-2xl rounded-bl-md px-4 py-3 border border-white/5">
+                    <div className="max-w-[85%] bg-edge rounded-2xl rounded-bl-md px-4 py-3 border border-white/5">
                       {/* Show thinking timer - collapses to show duration once complete */}
                       <ThoughtTrace
                         thinking={isStreamingThinking ? '' : 'Processing your question and analyzing context'}
@@ -2224,7 +2224,7 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
                             // H2 headers
                             if (line.startsWith('## ')) {
                               return (
-                                <h2 key={idx} className="text-base font-semibold text-[#4ea8dd] mt-4 mb-2 first:mt-0">
+                                <h2 key={idx} className="text-base font-semibold text-accent mt-4 mb-2 first:mt-0">
                                   {line.replace('## ', '')}
                                 </h2>
                               );
@@ -2243,7 +2243,7 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
                               const parts = content.split(/(\*\*[^*]+\*\*)/g);
                               return (
                                 <div key={idx} className="flex items-start gap-2 my-1 text-slate-300">
-                                  <span className="text-[#4ea8dd] mt-0.5">•</span>
+                                  <span className="text-accent mt-0.5">•</span>
                                   <span>
                                     {parts.map((part, i) =>
                                       part.startsWith('**') && part.endsWith('**') ? (
@@ -2279,13 +2279,13 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
                             );
                           })}
                           {/* Typing cursor */}
-                          <span className="inline-block w-2 h-4 bg-[#4ea8dd] animate-pulse ml-0.5" />
+                          <span className="inline-block w-2 h-4 bg-accent animate-pulse ml-0.5" />
                         </div>
                       ) : (
                         <div className="flex items-center gap-2 text-slate-400">
-                          <div className="w-2 h-2 bg-[#4ea8dd] rounded-full animate-pulse" />
-                          <div className="w-2 h-2 bg-[#4ea8dd] rounded-full animate-pulse delay-150" />
-                          <div className="w-2 h-2 bg-[#4ea8dd] rounded-full animate-pulse delay-300" />
+                          <div className="w-2 h-2 bg-accent rounded-full animate-pulse" />
+                          <div className="w-2 h-2 bg-accent rounded-full animate-pulse delay-150" />
+                          <div className="w-2 h-2 bg-accent rounded-full animate-pulse delay-300" />
                         </div>
                       )}
                     </div>
@@ -2313,14 +2313,14 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
                       onKeyDown={handleChatKeyDown}
                       placeholder="Ask a follow-up question..."
                       rows={1}
-                      className="w-full px-4 py-3 bg-[#0C0C0C] border border-white/10 rounded-xl text-white placeholder:text-slate-500 focus:border-[#4ea8dd]/50 focus:outline-none resize-none"
+                      className="w-full px-4 py-3 bg-surface border border-white/10 rounded-xl text-white placeholder:text-slate-500 focus:border-accent/50 focus:outline-none resize-none"
                       style={{ minHeight: '48px', maxHeight: '120px' }}
                     />
                   </div>
                   <button
                     onClick={handleChatSend}
                     disabled={isChatLoading || !chatInput.trim()}
-                    className="p-2.5 bg-[#4ea8dd] text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#3d8bb8] transition-colors"
+                    className="p-2.5 bg-accent text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#3d8bb8] transition-colors"
                   >
                     <Send className="w-5 h-5" />
                   </button>
@@ -2340,13 +2340,13 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
                     onKeyDown={handleChatKeyDown}
                     placeholder="Hey, I have a meeting with..."
                     rows={2}
-                    className="w-full px-5 py-4 bg-[#0C0C0C] border border-white/10 rounded-2xl text-white text-lg placeholder:text-slate-500 focus:border-[#4ea8dd]/50 focus:outline-none resize-none pr-16"
+                    className="w-full px-5 py-4 bg-surface border border-white/10 rounded-2xl text-white text-lg placeholder:text-slate-500 focus:border-accent/50 focus:outline-none resize-none pr-16"
                     autoFocus
                   />
                   <button
                     onClick={handleChatSend}
                     disabled={isChatLoading || !chatInput.trim()}
-                    className="absolute right-3 bottom-3 p-2.5 bg-[#4ea8dd] text-white rounded-xl disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#3d8bb8] transition-colors"
+                    className="absolute right-3 bottom-3 p-2.5 bg-accent text-white rounded-xl disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#3d8bb8] transition-colors"
                   >
                     {isChatLoading ? (
                       <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -2385,7 +2385,7 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
                           setChatInput(suggestion + ' ');
                           chatInputRef.current?.focus();
                         }}
-                        className="px-3 py-2 bg-[#0C0C0C] border border-white/10 rounded-lg text-sm text-slate-400 hover:border-[#4ea8dd]/50 hover:text-[#4ea8dd] transition-colors text-left"
+                        className="px-3 py-2 bg-surface border border-white/10 rounded-lg text-sm text-slate-400 hover:border-accent/50 hover:text-accent transition-colors text-left"
                       >
                         {suggestion}...
                       </button>
@@ -2406,7 +2406,7 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
                             setSelectedBranch(branch);
                             setShowBranchModal(true);
                           }}
-                          className="flex flex-col bg-[#0C0C0C] border border-white/10 hover:border-[#4ea8dd]/50 rounded-xl transition-all p-3 text-left group"
+                          className="flex flex-col bg-surface border border-white/10 hover:border-accent/50 rounded-xl transition-all p-3 text-left group"
                         >
                           <p className="text-sm text-slate-300 group-hover:text-white font-medium transition-colors">{branch.name} 🌱</p>
                           <p className="text-xs text-slate-500 mt-1 leading-snug">{branch.description}</p>
@@ -2464,9 +2464,9 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
             {renderParticipantSelection()}
           </div>
 
-          <div className="mt-3 bg-[#0C0C0C] border border-white/10 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="mt-3 bg-surface border border-white/10 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-full bg-[#4ea8dd]/20 text-[#4ea8dd]">
+              <div className="p-2 rounded-full bg-accent/20 text-accent">
                 <Sparkles className="w-5 h-5" />
               </div>
               <div>
@@ -2482,18 +2482,18 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
                 onClick={() => setUseDynamicPrep(!useDynamicPrep)}
                 className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-colors ${
                   useDynamicPrep
-                    ? 'border-[#4ea8dd]/50 bg-[#4ea8dd]/10 text-[#4ea8dd]'
+                    ? 'border-accent/50 bg-accent/10 text-accent'
                     : 'border-white/10 bg-white/5 text-slate-400 hover:border-white/20'
                 }`}
                 title={useDynamicPrep ? 'Using Dynamic Prep (signal-driven)' : 'Using Enhanced Prep (legacy)'}
               >
-                <Zap className={`w-4 h-4 ${useDynamicPrep ? 'text-[#4ea8dd]' : 'text-slate-500'}`} />
+                <Zap className={`w-4 h-4 ${useDynamicPrep ? 'text-accent' : 'text-slate-500'}`} />
                 <span className="text-xs font-medium">{useDynamicPrep ? 'Dynamic' : 'Enhanced'}</span>
               </button>
               <button
                 onClick={handleGenerateBriefing}
                 disabled={isGenerating || selectedPeople.length === 0 || !selectedObjectiveId}
-                className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#3d96cb] to-[#4ea8dd] text-white font-semibold shadow-[0_12px_30px_rgba(105,117,101,0.35)] disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 rounded-lg bg-gradient-to-r from-accent-hover to-accent text-white font-semibold shadow-[0_12px_30px_rgba(105,117,101,0.35)] disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isGenerating ? 'Generating...' : 'Generate'}
               </button>
@@ -2509,7 +2509,7 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
       {/* Create/Edit Meeting Objective Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-[#2A2A2A] border border-white/10 rounded-2xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="bg-edge border border-white/10 rounded-2xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-lg font-semibold text-white">
                 {editingStandardId
@@ -2533,7 +2533,7 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
                     value={formData.name}
                     onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                     placeholder="e.g., Customer Discovery Call"
-                    className="w-full px-4 py-2 bg-[#0D0D0D] border border-white/10 rounded-lg text-white placeholder:text-slate-500 focus:border-[#3d96cb] focus:outline-none"
+                    className="w-full px-4 py-2 bg-[#0D0D0D] border border-white/10 rounded-lg text-white placeholder:text-slate-500 focus:border-accent-hover focus:outline-none"
                   />
                 </div>
               )}
@@ -2546,7 +2546,7 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
                   onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                   placeholder="What is this meeting objective for?"
                   rows={2}
-                  className="w-full px-4 py-2 bg-[#0D0D0D] border border-white/10 rounded-lg text-white placeholder:text-slate-500 focus:border-[#3d96cb] focus:outline-none resize-none"
+                  className="w-full px-4 py-2 bg-[#0D0D0D] border border-white/10 rounded-lg text-white placeholder:text-slate-500 focus:border-accent-hover focus:outline-none resize-none"
                 />
               </div>
 
@@ -2560,7 +2560,7 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
                       onClick={() => setFormData(prev => ({ ...prev, isExternal: false }))}
                       className={`flex-1 px-4 py-3 rounded-lg border flex items-center justify-center gap-2 transition-colors ${
                         !formData.isExternal
-                          ? 'border-[#3d96cb] bg-[#3d96cb]/20 text-white'
+                          ? 'border-accent-hover bg-accent-hover/20 text-white'
                           : 'border-white/10 text-slate-400 hover:border-white/20'
                       }`}
                     >
@@ -2572,7 +2572,7 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
                       onClick={() => setFormData(prev => ({ ...prev, isExternal: true }))}
                       className={`flex-1 px-4 py-3 rounded-lg border flex items-center justify-center gap-2 transition-colors ${
                         formData.isExternal
-                          ? 'border-[#3d96cb] bg-[#3d96cb]/20 text-white'
+                          ? 'border-accent-hover bg-accent-hover/20 text-white'
                           : 'border-white/10 text-slate-400 hover:border-white/20'
                       }`}
                     >
@@ -2588,7 +2588,7 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
                 <label className="block text-sm text-slate-400 mb-2">Typical Attendee Roles</label>
                 <div className="flex flex-wrap gap-2 mb-2">
                   {formData.attendeeRoles.map((role, idx) => (
-                    <span key={idx} className="px-3 py-1 bg-[#4ea8dd]/20 text-[#4ea8dd] rounded-full text-sm flex items-center gap-1">
+                    <span key={idx} className="px-3 py-1 bg-accent/20 text-accent rounded-full text-sm flex items-center gap-1">
                       {role}
                       <button onClick={() => setFormData(prev => ({
                         ...prev,
@@ -2606,12 +2606,12 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
                     onChange={(e) => setNewRole(e.target.value)}
                     onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addRole())}
                     placeholder="Add role (e.g., Product Manager)"
-                    className="flex-1 px-3 py-2 bg-[#0D0D0D] border border-white/10 rounded-lg text-white placeholder:text-slate-500 text-sm focus:border-[#3d96cb] focus:outline-none"
+                    className="flex-1 px-3 py-2 bg-[#0D0D0D] border border-white/10 rounded-lg text-white placeholder:text-slate-500 text-sm focus:border-accent-hover focus:outline-none"
                   />
                   <button
                     type="button"
                     onClick={addRole}
-                    className="px-3 py-2 bg-[#4ea8dd] text-white rounded-lg hover:bg-[#3d96cb] transition-colors"
+                    className="px-3 py-2 bg-accent text-white rounded-lg hover:bg-accent-hover transition-colors"
                   >
                     <Plus className="w-4 h-4" />
                   </button>
@@ -2624,7 +2624,7 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
                 <div className="space-y-2 mb-2">
                   {formData.objectives.map((obj, idx) => (
                     <div key={idx} className="flex items-center gap-2">
-                      <Target className="w-4 h-4 text-[#F0EBE3] flex-shrink-0" />
+                      <Target className="w-4 h-4 text-cream flex-shrink-0" />
                       <span className="flex-1 text-sm text-white">{obj}</span>
                       <button onClick={() => setFormData(prev => ({
                         ...prev,
@@ -2642,12 +2642,12 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
                     onChange={(e) => setNewObjective(e.target.value)}
                     onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addObjectiveItem())}
                     placeholder="Add objective (e.g., Identify pain points)"
-                    className="flex-1 px-3 py-2 bg-[#0D0D0D] border border-white/10 rounded-lg text-white placeholder:text-slate-500 text-sm focus:border-[#3d96cb] focus:outline-none"
+                    className="flex-1 px-3 py-2 bg-[#0D0D0D] border border-white/10 rounded-lg text-white placeholder:text-slate-500 text-sm focus:border-accent-hover focus:outline-none"
                   />
                   <button
                     type="button"
                     onClick={addObjectiveItem}
-                    className="px-3 py-2 bg-[#4ea8dd] text-white rounded-lg hover:bg-[#3d96cb] transition-colors"
+                    className="px-3 py-2 bg-accent text-white rounded-lg hover:bg-accent-hover transition-colors"
                   >
                     <Plus className="w-4 h-4" />
                   </button>
@@ -2662,7 +2662,7 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
                   onChange={(e) => setFormData(prev => ({ ...prev, customPrompt: e.target.value }))}
                   placeholder="Instructions for AI when preparing for this meeting..."
                   rows={3}
-                  className="w-full px-4 py-2 bg-[#0D0D0D] border border-white/10 rounded-lg text-white placeholder:text-slate-500 focus:border-[#3d96cb] focus:outline-none resize-none"
+                  className="w-full px-4 py-2 bg-[#0D0D0D] border border-white/10 rounded-lg text-white placeholder:text-slate-500 focus:border-accent-hover focus:outline-none resize-none"
                 />
               </div>
             </div>
@@ -2704,7 +2704,7 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
                 <button
                   onClick={editingStandardId ? saveStandardOverride : saveCustomType}
                   disabled={!editingStandardId && !formData.name.trim()}
-                  className="px-4 py-2 bg-[#3d96cb] hover:bg-[#566051] text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="px-4 py-2 bg-accent-hover hover:bg-[#566051] text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   {editingStandardId ? 'Save Changes' : editingType ? 'Update' : 'Create'}
                 </button>
@@ -2727,13 +2727,13 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
           />
           {/* Modal */}
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="bg-[#161616] border border-[#2A2A2A] rounded-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col shadow-2xl">
+            <div className="bg-card border border-edge rounded-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col shadow-2xl">
               {/* Header */}
-              <div className="p-6 border-b border-[#2A2A2A] bg-gradient-to-br from-[#4ea8dd]/10 to-[#3d96cb]/10">
+              <div className="p-6 border-b border-edge bg-gradient-to-br from-accent/10 to-accent-hover/10">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
-                      <Sparkles className="w-6 h-6 text-[#4ea8dd]" />
+                      <Sparkles className="w-6 h-6 text-accent" />
                       <h2 className="text-2xl font-semibold text-white">{selectedBranch.name}</h2>
                     </div>
                     <p className="text-sm text-slate-300">{selectedBranch.description}</p>
@@ -2743,7 +2743,7 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
                       setShowBranchModal(false);
                       setSelectedBranch(null);
                     }}
-                    className="p-2 text-slate-400 hover:text-white hover:bg-[#161616] rounded-lg transition-colors"
+                    className="p-2 text-slate-400 hover:text-white hover:bg-card rounded-lg transition-colors"
                   >
                     <X className="w-5 h-5" />
                   </button>
@@ -2754,7 +2754,7 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
               <div className="flex-1 overflow-y-auto p-6 space-y-6">
                 {/* Thumbnail */}
                 {selectedBranch.id === 'leadership-coaching' ? (
-                  <div className="w-full h-48 rounded-xl border border-[#2A2A2A] overflow-hidden">
+                  <div className="w-full h-48 rounded-xl border border-edge overflow-hidden">
                     <img
                       src={leadershipCoachingImage}
                       alt="Leadership Coaching"
@@ -2762,7 +2762,7 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
                     />
                   </div>
                 ) : selectedBranch.id === 'last-weeks-report' ? (
-                  <div className="w-full h-48 rounded-xl border border-[#2A2A2A] overflow-hidden">
+                  <div className="w-full h-48 rounded-xl border border-edge overflow-hidden">
                     <img
                       src={weeklyReportImage}
                       alt="Last Week's Report"
@@ -2770,7 +2770,7 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
                     />
                   </div>
                 ) : selectedBranch.id === 'monthly-recap' ? (
-                  <div className="w-full h-48 rounded-xl border border-[#2A2A2A] overflow-hidden">
+                  <div className="w-full h-48 rounded-xl border border-edge overflow-hidden">
                     <img
                       src={monthlyReportImage}
                       alt="Monthly Recap"
@@ -2778,7 +2778,7 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
                     />
                   </div>
                 ) : selectedBranch.id === 'sort-my-calendar' ? (
-                  <div className="w-full h-48 rounded-xl border border-[#2A2A2A] overflow-hidden">
+                  <div className="w-full h-48 rounded-xl border border-edge overflow-hidden">
                     <img
                       src={sortCalendarImage}
                       alt="Sort my Calendar"
@@ -2786,8 +2786,8 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
                     />
                   </div>
                 ) : (
-                  <div className="w-full h-48 bg-gradient-to-br from-[#4ea8dd]/20 to-[#3d96cb]/20 rounded-xl border border-[#2A2A2A] flex items-center justify-center">
-                    <Sparkles className="w-16 h-16 text-[#4ea8dd] opacity-50" />
+                  <div className="w-full h-48 bg-gradient-to-br from-accent/20 to-accent-hover/20 rounded-xl border border-edge flex items-center justify-center">
+                    <Sparkles className="w-16 h-16 text-accent opacity-50" />
                   </div>
                 )}
 
@@ -2799,10 +2799,10 @@ export default function PrepView({ onSelectTab }: PrepViewProps) {
               </div>
 
               {/* Footer with action button */}
-              <div className="p-6 border-t border-[#2A2A2A] bg-[#0C0C0C]">
+              <div className="p-6 border-t border-edge bg-surface">
                 <button
                   onClick={() => handleGrowBranch(selectedBranch)}
-                  className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-[#4ea8dd] to-[#3d96cb] hover:from-[#3d96cb] hover:to-[#3d96cb] text-white font-semibold rounded-xl transition-all shadow-lg hover:shadow-xl"
+                  className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-accent to-accent-hover hover:from-accent-hover hover:to-accent-hover text-white font-semibold rounded-xl transition-all shadow-lg hover:shadow-xl"
                 >
                   <Zap className="w-5 h-5" />
                   Explore this Branch

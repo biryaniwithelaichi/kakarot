@@ -10,10 +10,10 @@ const iconMap: Record<ToastType, React.ReactNode> = {
 };
 
 const bgMap: Record<ToastType, string> = {
-  success: 'bg-[#161616] border-green-800/50',
-  error: 'bg-[#161616] border-red-800/50',
-  info: 'bg-[#161616] border-blue-800/50',
-  warning: 'bg-[#161616] border-yellow-800/50',
+  success: 'bg-card border-green-800/50',
+  error: 'bg-card border-red-800/50',
+  info: 'bg-card border-blue-800/50',
+  warning: 'bg-card border-yellow-800/50',
 };
 
 const accentMap: Record<ToastType, string> = {
@@ -49,7 +49,7 @@ function ToastItem({ id, type, message, onClose }: ToastItemProps) {
     >
       <div className={`absolute left-0 top-0 bottom-0 w-[3px] rounded-full ${accentMap[type]}`} />
       {iconMap[type]}
-      <span className="flex-1 text-sm text-[#F0EBE3]">{message}</span>
+      <span className="flex-1 text-sm text-cream">{message}</span>
       <button
         onClick={handleClose}
         className="p-1 hover:bg-white/10 rounded-lg transition-colors duration-150"

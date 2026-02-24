@@ -143,7 +143,7 @@ export default function ActiveRecordingView({
 
   return (
     <>
-      <div className="relative flex-1 min-h-0 flex flex-col rounded-2xl bg-gradient-to-br from-[#141414] via-[#0C0C0C] to-[#080808] shadow-[0_20px_70px_rgba(0,0,0,0.65)] p-6 sm:p-7 overflow-hidden border border-[#1E1E1E] animate-modal-in">
+      <div className="relative flex-1 min-h-0 flex flex-col rounded-2xl bg-gradient-to-br from-[#141414] via-surface to-[#080808] shadow-[0_20px_70px_rgba(0,0,0,0.65)] p-6 sm:p-7 overflow-hidden border border-edge-subtle animate-modal-in">
         <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_top,rgba(78,168,221,0.08),transparent_45%),radial-gradient(circle_at_bottom,rgba(240,235,227,0.03),transparent_40%)]" />
         <div className="absolute inset-0 pointer-events-none rounded-2xl shadow-[inset_0_1px_0_rgba(255,255,255,0.03),inset_0_-1px_20px_rgba(0,0,0,0.45)]" />
         <div className="relative flex-1 min-h-0 flex flex-col">
@@ -156,18 +156,18 @@ export default function ActiveRecordingView({
                   onChange={(e) => onTitleChange(e.target.value)}
                   onBlur={onTitleBlur}
                   onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
-                  className="text-2xl font-semibold text-white bg-transparent border-b border-transparent focus:border-[#4ea8dd] focus:outline-none truncate max-w-[420px]"
+                  className="text-2xl font-semibold text-white bg-transparent border-b border-transparent focus:border-accent focus:outline-none truncate max-w-[420px]"
                   placeholder="Untitled Meeting"
                 />
                 <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-[#4ea8dd]/10 text-[#3d96cb] border border-[#4ea8dd]/20 shadow-[0_0_20px_rgba(78,168,221,0.15)]">
+                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-accent/10 text-accent-hover border border-accent/20 shadow-[0_0_20px_rgba(78,168,221,0.15)]">
                     <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#4ea8dd] opacity-60"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-[#4ea8dd]"></span>
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-60"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-accent"></span>
                     </span>
                     <span>{isRecording ? 'Transcribing' : 'Paused'}</span>
                   </div>
-                  {isSavingTitle && <Loader2 className="w-4 h-4 animate-spin text-[#4ea8dd]" />}
+                  {isSavingTitle && <Loader2 className="w-4 h-4 animate-spin text-accent" />}
                 </div>
               </div>
               {/* Meta chips */}
@@ -184,7 +184,7 @@ export default function ActiveRecordingView({
                   {showTimePopover && (
                     <div
                       ref={timePopoverRef}
-                      className="absolute top-full right-0 mt-2 bg-[#0C0C0C] rounded-xl border border-white/10 shadow-2xl z-50 overflow-hidden min-w-max animate-popover-in"
+                      className="absolute top-full right-0 mt-2 bg-surface rounded-xl border border-white/10 shadow-2xl z-50 overflow-hidden min-w-max animate-popover-in"
                     >
                       <div className="p-3 border-b border-white/10 flex items-center justify-between">
                         <h3 className="text-sm font-semibold text-white">Meeting Time</h3>
@@ -218,7 +218,7 @@ export default function ActiveRecordingView({
                     {showParticipantsPopover && (
                       <div
                         ref={participantsPopoverRef}
-                        className="absolute top-full right-0 mt-2 bg-[#0C0C0C] rounded-xl border border-white/10 shadow-2xl z-50 overflow-hidden min-w-[280px] animate-popover-in"
+                        className="absolute top-full right-0 mt-2 bg-surface rounded-xl border border-white/10 shadow-2xl z-50 overflow-hidden min-w-[280px] animate-popover-in"
                       >
                         <div className="p-3 border-b border-white/10 flex items-center justify-between">
                           <h3 className="text-sm font-semibold text-white">Participants</h3>
@@ -230,7 +230,7 @@ export default function ActiveRecordingView({
                           <div className="space-y-2">
                             {displayAttendees.map((email, idx) => (
                               <div key={idx} className="flex items-center gap-2 text-xs">
-                                <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[#4ea8dd] to-[#4ea8dd] flex items-center justify-center text-white font-semibold text-[10px]">
+                                <div className="w-7 h-7 rounded-full bg-gradient-to-br from-accent to-accent flex items-center justify-center text-white font-semibold text-[10px]">
                                   {email.charAt(0).toUpperCase()}
                                 </div>
                                 <span className="text-slate-300 truncate">{email}</span>
@@ -250,8 +250,8 @@ export default function ActiveRecordingView({
           <div className="flex-1 min-h-0 rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-xl p-6 flex flex-col overflow-hidden">
             <div className="flex items-center justify-between mb-4 flex-shrink-0">
               <div>
-                <h3 className="text-xs uppercase tracking-[0.2em] font-medium text-[#9C9690]">Your Notes</h3>
-                <p className="text-xs text-[#5C5750] mt-1">Capture action items, decisions, and next steps.</p>
+                <h3 className="text-xs uppercase tracking-[0.2em] font-medium text-muted">Your Notes</h3>
+                <p className="text-xs text-dim mt-1">Capture action items, decisions, and next steps.</p>
               </div>
               <div className="flex items-center gap-3">
                 <div className="w-28">
@@ -316,8 +316,8 @@ export default function ActiveRecordingView({
               onClick={() => setShowTranscriptPopover((open) => !open)}
               className={`flex items-center gap-2.5 rounded-full px-5 py-3 shadow-2xl transition-all duration-200 active:scale-[0.96] ${
                 showTranscriptPopover
-                  ? 'bg-[#4ea8dd] text-[#0C0C0C] shadow-soft'
-                  : 'bg-[#161616] border border-[#2A2A2A] text-[#9C9690] hover:text-[#F0EBE3] hover:border-[#3A3A3A] hover:shadow-elevated'
+                  ? 'bg-accent text-surface shadow-soft'
+                  : 'bg-card border border-edge text-muted hover:text-cream hover:border-edge-light hover:shadow-elevated'
               }`}
               aria-label="Toggle live transcript"
             >
@@ -330,13 +330,13 @@ export default function ActiveRecordingView({
 
       {/* Transcript Popover */}
       {showTranscriptPopover && (
-        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-40 w-[480px] max-h-[450px] rounded-2xl border border-[#2A2A2A] bg-[#0C0C0C] shadow-2xl shadow-black/50 overflow-hidden flex flex-col animate-popover-in-up">
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-40 w-[480px] max-h-[450px] rounded-2xl border border-edge bg-surface shadow-2xl shadow-black/50 overflow-hidden flex flex-col animate-popover-in-up">
           <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 flex-shrink-0">
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2">
                 <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#4ea8dd] opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-[#4ea8dd]"></span>
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-accent"></span>
                 </span>
                 <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">Live Transcript</span>
               </div>
@@ -378,8 +378,8 @@ export default function ActiveRecordingView({
                     <div
                       className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm ${
                         group.source === 'mic'
-                          ? 'bg-[#4ea8dd]/20 text-[#F0EBE3] border border-[#4ea8dd]/15 rounded-br-md'
-                          : 'bg-[#1E1E1E] text-[#9C9690] border border-[#2A2A2A] rounded-bl-md'
+                          ? 'bg-accent/20 text-cream border border-accent/15 rounded-br-md'
+                          : 'bg-input text-muted border border-edge rounded-bl-md'
                       }`}
                     >
                       <p className="leading-relaxed">{group.text}</p>
@@ -388,14 +388,14 @@ export default function ActiveRecordingView({
                 ))}
                 {currentPartials.system && (
                   <div className="flex justify-start">
-                    <div className="max-w-[80%] rounded-2xl px-4 py-2.5 text-sm opacity-50 bg-[#1E1E1E] text-[#9C9690] border border-[#2A2A2A] rounded-bl-md">
+                    <div className="max-w-[80%] rounded-2xl px-4 py-2.5 text-sm opacity-50 bg-input text-muted border border-edge rounded-bl-md">
                       <p className="leading-relaxed">{currentPartials.system.text}</p>
                     </div>
                   </div>
                 )}
                 {currentPartials.mic && (
                   <div className="flex justify-end">
-                    <div className="max-w-[80%] rounded-2xl px-4 py-2.5 text-sm opacity-50 bg-[#4ea8dd]/20 text-[#F0EBE3] border border-[#4ea8dd]/15 rounded-br-md">
+                    <div className="max-w-[80%] rounded-2xl px-4 py-2.5 text-sm opacity-50 bg-accent/20 text-cream border border-accent/15 rounded-br-md">
                       <p className="leading-relaxed">{currentPartials.mic.text}</p>
                     </div>
                   </div>
@@ -410,21 +410,21 @@ export default function ActiveRecordingView({
                 setIsAutoScrollEnabled(true);
                 transcriptScrollRef.current?.scrollTo({ top: transcriptScrollRef.current.scrollHeight, behavior: 'smooth' });
               }}
-              className="absolute bottom-16 left-1/2 -translate-x-1/2 flex items-center gap-2 px-4 py-2 rounded-full bg-[#4ea8dd] text-[#0C0C0C] text-xs font-medium shadow-lg hover:bg-[#3d96cb] transition"
+              className="absolute bottom-16 left-1/2 -translate-x-1/2 flex items-center gap-2 px-4 py-2 rounded-full bg-accent text-surface text-xs font-medium shadow-lg hover:bg-accent-hover transition"
             >
               <ChevronDown className="w-4 h-4" />
               New messages
             </button>
           )}
 
-          <div className="flex items-center justify-center gap-6 px-4 py-2.5 border-t border-[#1E1E1E] bg-[#0C0C0C] flex-shrink-0">
+          <div className="flex items-center justify-center gap-6 px-4 py-2.5 border-t border-edge-subtle bg-surface flex-shrink-0">
             <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-[#2A2A2A] border border-[#3A3A3A]"></div>
-              <span className="text-xs text-[#5C5750]">System Audio</span>
+              <div className="w-3 h-3 rounded-full bg-edge border border-edge-light"></div>
+              <span className="text-xs text-dim">System Audio</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-[#4ea8dd]/30 border border-[#4ea8dd]/20"></div>
-              <span className="text-xs text-[#5C5750]">Your Mic</span>
+              <div className="w-3 h-3 rounded-full bg-accent/30 border border-accent/20"></div>
+              <span className="text-xs text-dim">Your Mic</span>
             </div>
           </div>
         </div>

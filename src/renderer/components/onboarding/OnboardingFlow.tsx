@@ -39,7 +39,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   }
 
   return (
-    <div className="fixed inset-0 bg-[#0C0C0C] flex items-center justify-center z-50 animate-fade-in">
+    <div className="fixed inset-0 bg-surface flex items-center justify-center z-50 animate-fade-in">
       <div className="w-full max-w-2xl mx-auto px-6">
         {/* Progress indicator */}
         {currentStep !== 'welcome' && (
@@ -49,8 +49,8 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                 key={step}
                 className={`h-2 rounded-full transition-all duration-300 ease-out-expo ${
                   steps.indexOf(step) <= currentStepIndex
-                    ? 'w-8 bg-[#4ea8dd]'
-                    : 'w-2 bg-[#2A2A2A]'
+                    ? 'w-8 bg-accent'
+                    : 'w-2 bg-edge'
                 }`}
               />
             ))}
@@ -60,7 +60,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
         {/* Step content */}
         <div
           key={currentStep}
-          className="bg-[#161616] rounded-2xl p-8 shadow-xl border border-[#2A2A2A] animate-step-enter"
+          className="bg-card rounded-2xl p-8 shadow-xl border border-edge animate-step-enter"
         >
           {currentStep === 'welcome' && (
             <WelcomeStep onContinue={nextStep} />

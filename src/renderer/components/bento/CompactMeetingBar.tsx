@@ -40,7 +40,7 @@ export default function CompactMeetingBar({
       return null;
     }
     return (
-      <div className="w-full rounded-xl border border-[#2A2A2A] bg-[#161616] px-4 py-2 flex items-center justify-start">
+      <div className="w-full rounded-xl border border-edge bg-card px-4 py-2 flex items-center justify-start">
         <div className="flex items-center gap-3">
           <Calendar className="w-4 h-4 text-slate-400" />
           <div>
@@ -60,12 +60,12 @@ export default function CompactMeetingBar({
         const platform = getPlatformIcon(event.location);
 
         return (
-          <div key={event.id} className="rounded-xl border border-[#2A2A2A] bg-[#161616] px-4 py-2 flex items-center justify-between animate-stagger-in" style={{ animationDelay: `${index * 60}ms` }}>
+          <div key={event.id} className="rounded-xl border border-edge bg-card px-4 py-2 flex items-center justify-between animate-stagger-in" style={{ animationDelay: `${index * 60}ms` }}>
             <div className="flex items-center gap-3 flex-1 min-w-0">
               {isLive && (
-                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-[#4ea8dd]/15 border border-[#4ea8dd]/25">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#4ea8dd] animate-pulse" />
-                  <span className="text-[10px] font-semibold text-[#3d96cb] uppercase tracking-wider">Live</span>
+                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-accent/15 border border-accent/25">
+                  <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
+                  <span className="text-[10px] font-semibold text-accent-hover uppercase tracking-wider">Live</span>
                 </div>
               )}
               
@@ -73,7 +73,7 @@ export default function CompactMeetingBar({
                 <div className="flex items-center gap-2">
                   <h3 className="text-sm font-semibold text-white truncate">{event.title}</h3>
                   {platform && (
-                    <span className="px-1.5 py-0.5 text-[10px] font-medium rounded bg-[#2A2A2A]/80 text-slate-300">
+                    <span className="px-1.5 py-0.5 text-[10px] font-medium rounded bg-edge/80 text-slate-300">
                       {platform}
                     </span>
                   )}
@@ -97,7 +97,7 @@ export default function CompactMeetingBar({
               <button
                 onClick={() => onStartNotes(event)}
                 disabled={isRecording}
-                className="px-3 py-1.5 bg-[#4ea8dd] text-[#0C0C0C] text-sm font-semibold rounded-lg shadow-soft transition-all duration-200 hover:bg-[#3d96cb] hover:shadow-soft active:scale-[0.97] disabled:opacity-50 flex items-center gap-1.5"
+                className="px-3 py-1.5 bg-accent text-surface text-sm font-semibold rounded-lg shadow-soft transition-all duration-200 hover:bg-accent-hover hover:shadow-soft active:scale-[0.97] disabled:opacity-50 flex items-center gap-1.5"
               >
                 <FileText className="w-3.5 h-3.5" />
                 Start Notes
@@ -105,7 +105,7 @@ export default function CompactMeetingBar({
               {onPrep && (
                 <button
                   onClick={onPrep}
-                  className="px-3 py-1.5 bg-[#1E1E1E] text-[#9C9690] text-sm font-medium rounded-lg border border-[#2A2A2A] transition hover:bg-[#2A2A2A] hover:text-[#F0EBE3] flex items-center gap-1.5"
+                  className="px-3 py-1.5 bg-input text-muted text-sm font-medium rounded-lg border border-edge transition hover:bg-edge hover:text-cream flex items-center gap-1.5"
                 >
                   <Clipboard className="w-3.5 h-3.5" />
                   Prep

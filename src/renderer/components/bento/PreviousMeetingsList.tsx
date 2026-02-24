@@ -38,7 +38,7 @@ export default function PreviousMeetingsList({ meetings, onViewNotes, onViewCale
   };
 
   return (
-    <div className="h-full rounded-xl border border-[#2A2A2A] bg-[#161616] p-3 flex flex-col">
+    <div className="h-full rounded-xl border border-edge bg-card p-3 flex flex-col">
       <h3 className="text-xs uppercase tracking-widest font-semibold text-slate-400 mb-3 px-1">
         Previous Meetings
       </h3>
@@ -54,10 +54,10 @@ export default function PreviousMeetingsList({ meetings, onViewNotes, onViewCale
             <button
               key={meeting.id}
               onClick={() => handleMeetingClick(meeting)}
-              className="w-full px-3 py-2 rounded-lg bg-[#1E1E1E] border border-[#2A2A2A] hover:bg-[#2A2A2A] transition-all duration-200 text-left hover:shadow-elevated active:scale-[0.98]"
+              className="w-full px-3 py-2 rounded-lg bg-input border border-edge hover:bg-edge transition-all duration-200 text-left hover:shadow-elevated active:scale-[0.98]"
             >
               <div className="flex items-start gap-2.5">
-                <div className="flex-shrink-0 px-2 py-1 rounded bg-[#2A2A2A] border border-[#2A2A2A]">
+                <div className="flex-shrink-0 px-2 py-1 rounded bg-edge border border-edge">
                   <p className="text-[10px] font-bold text-slate-400 leading-tight">
                     {formatDate(meeting.start)}
                   </p>
@@ -73,12 +73,12 @@ export default function PreviousMeetingsList({ meetings, onViewNotes, onViewCale
                   
                   <div className="mt-2">
                     {meeting.hasTranscript ? (
-                      <span className="text-xs text-[#4ea8dd] font-medium flex items-center gap-1">
+                      <span className="text-xs text-accent font-medium flex items-center gap-1">
                         <FileText className="w-3 h-3" />
                         View Notes
                       </span>
                     ) : (
-                      <span className="text-xs text-[#4ea8dd] font-medium flex items-center gap-1">
+                      <span className="text-xs text-accent font-medium flex items-center gap-1">
                         <Plus className="w-3 h-3" />
                         Add notes
                       </span>
@@ -94,7 +94,7 @@ export default function PreviousMeetingsList({ meetings, onViewNotes, onViewCale
       {onViewMore && (
         <button
           onClick={onViewMore}
-          className="mt-3 w-full py-2 text-sm font-medium text-[#4ea8dd] hover:bg-[#2A2A2A] rounded-lg transition-colors"
+          className="mt-3 w-full py-2 text-sm font-medium text-accent hover:bg-edge rounded-lg transition-colors"
         >
           View more
         </button>

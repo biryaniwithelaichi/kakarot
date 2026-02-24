@@ -64,15 +64,15 @@ export default function Sidebar({ pillarTab, onPillarTabChange }: SidebarProps) 
   const showIndicator = settings?.showLiveMeetingIndicator ?? true;
 
   return (
-    <aside className="w-20 bg-[#0C0C0C] border-r border-[#1E1E1E] flex flex-col items-center pt-[52px] pb-4 drag-region">
+    <aside className="w-20 bg-surface border-r border-edge-subtle flex flex-col items-center pt-[52px] pb-4 drag-region">
       {/* Back button below traffic lights */}
       <button
         disabled={isOnHome}
         onClick={handleBack}
         className={`no-drag w-10 h-10 rounded-lg flex items-center justify-center mb-2 transition-all duration-200 ${
           isOnHome
-            ? 'text-[#2A2A2A] cursor-default'
-            : 'text-[#5C5750] hover:text-[#9C9690] hover:bg-white/[0.03] active:scale-95 cursor-pointer'
+            ? 'text-edge cursor-default'
+            : 'text-dim hover:text-muted hover:bg-white/[0.03] active:scale-95 cursor-pointer'
         }`}
         title="Back"
       >
@@ -87,16 +87,16 @@ export default function Sidebar({ pillarTab, onPillarTabChange }: SidebarProps) 
               onClick={() => handleClick(item)}
               className={`relative w-14 h-14 rounded-xl flex flex-col items-center justify-center gap-0.5 transition-all duration-200 ease-out-expo group ${
                 active
-                  ? 'text-[#3d96cb]'
-                  : 'text-[#5C5750] hover:text-[#9C9690] hover:bg-white/[0.03] active:scale-95'
+                  ? 'text-accent-hover'
+                  : 'text-dim hover:text-muted hover:bg-white/[0.03] active:scale-95'
               }`}
               title={item.label}
             >
               {active && (
-                <div className="absolute inset-0 rounded-xl bg-[#4ea8dd]/15 shadow-[inset_0_0_0_1px_rgba(78,168,221,0.2)] animate-nav-activate" />
+                <div className="absolute inset-0 rounded-xl bg-accent/15 shadow-[inset_0_0_0_1px_rgba(78,168,221,0.2)] animate-nav-activate" />
               )}
               <item.icon className={`relative w-5 h-5 transition-transform duration-200 ${active ? '' : 'group-hover:scale-110'}`} />
-              <span className={`relative text-[10px] mt-0.5 font-medium transition-colors duration-200 ${active ? 'text-[#3d96cb]/70' : 'text-[#5C5750]'}`}>{item.label}</span>
+              <span className={`relative text-[10px] mt-0.5 font-medium transition-colors duration-200 ${active ? 'text-accent-hover/70' : 'text-dim'}`}>{item.label}</span>
             </button>
           );
         })}
@@ -122,7 +122,7 @@ export default function Sidebar({ pillarTab, onPillarTabChange }: SidebarProps) 
               className="w-full h-full object-contain"
             />
           </div>
-          <span className="text-[10px] font-medium tracking-[0.15em] uppercase text-[#5C5750]">Treeto.</span>
+          <span className="text-[10px] font-medium tracking-[0.15em] uppercase text-dim">Treeto.</span>
         </div>
       </div>
 

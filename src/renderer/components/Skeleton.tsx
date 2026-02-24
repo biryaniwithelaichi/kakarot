@@ -6,7 +6,7 @@ interface SkeletonProps {
 export function Skeleton({ className = '' }: SkeletonProps) {
   return (
     <div
-      className={`relative overflow-hidden bg-[#1E1E1E] rounded ${className}`}
+      className={`relative overflow-hidden bg-input rounded ${className}`}
     >
       <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/[0.04] to-transparent animate-shimmer" style={{ backgroundSize: '200% 100%' }} />
     </div>
@@ -15,7 +15,7 @@ export function Skeleton({ className = '' }: SkeletonProps) {
 
 export function MeetingCardSkeleton() {
   return (
-    <div className="p-4 border-b border-[#2A2A2A]">
+    <div className="p-4 border-b border-edge">
       <div className="flex items-start justify-between">
         <div className="flex-1 min-w-0 space-y-2">
           <Skeleton className="h-4 w-3/4" />
@@ -37,17 +37,17 @@ export function MeetingCardSkeleton() {
 
 export function PersonCardSkeleton() {
   return (
-    <div className="p-4 border-b border-[#2A2A2A]">
+    <div className="p-4 border-b border-edge">
       <div className="flex items-center gap-3">
-        <Skeleton className="w-10 h-10 rounded-full bg-[#1E1E1E]" />
+        <Skeleton className="w-10 h-10 rounded-full bg-input" />
         <div className="flex-1 min-w-0 space-y-2">
-          <Skeleton className="h-4 w-2/3 bg-[#1E1E1E]" />
-          <Skeleton className="h-3 w-1/2 bg-[#1E1E1E]" />
+          <Skeleton className="h-4 w-2/3 bg-input" />
+          <Skeleton className="h-3 w-1/2 bg-input" />
         </div>
       </div>
       <div className="flex items-center gap-4 mt-2">
-        <Skeleton className="h-3 w-20 bg-[#1E1E1E]" />
-        <Skeleton className="h-3 w-16 bg-[#1E1E1E]" />
+        <Skeleton className="h-3 w-20 bg-input" />
+        <Skeleton className="h-3 w-16 bg-input" />
       </div>
     </div>
   );

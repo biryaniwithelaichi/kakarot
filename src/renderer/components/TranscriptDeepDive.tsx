@@ -80,7 +80,7 @@ export function TranscriptDeepDive({ segment, meetingId, className = '' }: Trans
       {isOpen && (
         <div
           ref={popoverRef}
-          className="absolute z-50 w-96 rounded-xl border border-[#2A2A2A] bg-[#2A2A2A] shadow-2xl"
+          className="absolute z-50 w-96 rounded-xl border border-edge bg-edge shadow-2xl"
           style={{
             bottom: '100%',
             left: '50%',
@@ -89,9 +89,9 @@ export function TranscriptDeepDive({ segment, meetingId, className = '' }: Trans
           }}
         >
           {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-[#2A2A2A]">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-edge">
             <div className="flex items-center gap-2">
-              <Search className="w-4 h-4 text-[#4ea8dd]" />
+              <Search className="w-4 h-4 text-accent" />
               <span className="text-sm font-medium text-white">Transcript Deep Dive</span>
             </div>
             <button
@@ -106,7 +106,7 @@ export function TranscriptDeepDive({ segment, meetingId, className = '' }: Trans
           <div className="p-4 max-h-80 overflow-y-auto">
             {isLoading ? (
               <div className="flex flex-col items-center justify-center py-8">
-                <Loader2 className="w-8 h-8 text-[#4ea8dd] animate-spin mb-3" />
+                <Loader2 className="w-8 h-8 text-accent animate-spin mb-3" />
                 <p className="text-sm text-slate-400">Analyzing transcript...</p>
               </div>
             ) : error ? (
@@ -114,7 +114,7 @@ export function TranscriptDeepDive({ segment, meetingId, className = '' }: Trans
                 <p className="text-sm text-red-400">{error}</p>
                 <button
                   onClick={handleDeepDive}
-                  className="mt-3 text-xs text-[#4ea8dd] hover:text-[#4ea8dd]"
+                  className="mt-3 text-xs text-accent hover:text-accent"
                 >
                   Try again
                 </button>
@@ -142,7 +142,7 @@ export function TranscriptDeepDive({ segment, meetingId, className = '' }: Trans
                       The Verbatim Quote
                     </span>
                   </div>
-                  <div className="bg-[#1E1E1E] border border-[#2A2A2A] rounded-lg p-3">
+                  <div className="bg-input border border-edge rounded-lg p-3">
                     <p className="text-sm text-white italic leading-relaxed">
                       "{result.verbatimQuote}"
                     </p>
@@ -167,7 +167,7 @@ export function TranscriptDeepDive({ segment, meetingId, className = '' }: Trans
 
           {/* Footer with timestamp */}
           {result && !isLoading && (
-            <div className="px-4 py-2 border-t border-[#2A2A2A] bg-[#151515] rounded-b-xl">
+            <div className="px-4 py-2 border-t border-edge bg-[#151515] rounded-b-xl">
               <p className="text-xs text-slate-500">
                 Timestamp: {Math.floor(result.timestamp / 60000)}:
                 {String(Math.floor((result.timestamp % 60000) / 1000)).padStart(2, '0')}
@@ -177,7 +177,7 @@ export function TranscriptDeepDive({ segment, meetingId, className = '' }: Trans
 
           {/* Arrow pointer */}
           <div
-            className="absolute w-3 h-3 bg-[#2A2A2A] border-r border-b border-[#2A2A2A] transform rotate-45"
+            className="absolute w-3 h-3 bg-edge border-r border-b border-edge transform rotate-45"
             style={{
               bottom: '-6px',
               left: '50%',

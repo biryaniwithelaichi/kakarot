@@ -170,11 +170,11 @@ export default function SearchPopup({ isOpen, onClose, initialQuery = '' }: Sear
       onClick={onClose}
     >
       <div
-        className="bg-[#161616] rounded-xl border border-[#2A2A2A] w-full max-w-lg mx-4 shadow-2xl overflow-hidden animate-modal-in"
+        className="bg-card rounded-xl border border-edge w-full max-w-lg mx-4 shadow-2xl overflow-hidden animate-modal-in"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Search Input */}
-        <div className="p-4 border-b border-[#2A2A2A]">
+        <div className="p-4 border-b border-edge">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
             <input
@@ -183,7 +183,7 @@ export default function SearchPopup({ isOpen, onClose, initialQuery = '' }: Sear
               placeholder="Search meetings, contacts, or companies..."
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              className="w-full bg-[#1E1E1E] border border-[#2A2A2A] text-[#F0EBE3] rounded-lg pl-11 pr-10 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-[#4ea8dd]/30 focus:border-[#4ea8dd]/20 placeholder:text-[#5C5750]"
+              className="w-full bg-input border border-edge text-cream rounded-lg pl-11 pr-10 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-accent/30 focus:border-accent/20 placeholder:text-dim"
             />
             {query && (
               <button
@@ -220,10 +220,10 @@ export default function SearchPopup({ isOpen, onClose, initialQuery = '' }: Sear
                   </h3>
                   <button
                     onClick={handleTranscriptClick}
-                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-[#2A2A2A] transition-colors text-left group"
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-edge transition-colors text-left group"
                   >
-                    <div className="w-8 h-8 rounded-lg bg-[#3d96cb]/20 flex items-center justify-center flex-shrink-0">
-                      <FileText className="w-4 h-4 text-[#3d96cb]" />
+                    <div className="w-8 h-8 rounded-lg bg-accent-hover/20 flex items-center justify-center flex-shrink-0">
+                      <FileText className="w-4 h-4 text-accent-hover" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm text-slate-200 truncate">
@@ -248,9 +248,9 @@ export default function SearchPopup({ isOpen, onClose, initialQuery = '' }: Sear
                     <button
                       key={person.email}
                       onClick={() => handleContactClick(person)}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-[#2A2A2A] transition-colors text-left"
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-edge transition-colors text-left"
                     >
-                      <div className="w-8 h-8 rounded-full bg-[#2A2A2A] flex items-center justify-center flex-shrink-0">
+                      <div className="w-8 h-8 rounded-full bg-edge flex items-center justify-center flex-shrink-0">
                         <User className="w-4 h-4 text-slate-400" />
                       </div>
                       <div className="flex-1 min-w-0">
@@ -260,7 +260,7 @@ export default function SearchPopup({ isOpen, onClose, initialQuery = '' }: Sear
                         <p className="text-xs text-slate-500 truncate">{person.email}</p>
                       </div>
                       {person.organization && (
-                        <span className="text-xs text-slate-500 bg-[#1E1E1E] px-2 py-0.5 rounded">
+                        <span className="text-xs text-slate-500 bg-input px-2 py-0.5 rounded">
                           {person.organization}
                         </span>
                       )}
@@ -279,10 +279,10 @@ export default function SearchPopup({ isOpen, onClose, initialQuery = '' }: Sear
                     <button
                       key={company.domain}
                       onClick={() => handleCompanyClick(company)}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-[#2A2A2A] transition-colors text-left"
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-edge transition-colors text-left"
                     >
-                      <div className="w-8 h-8 rounded-lg bg-[#4ea8dd]/10 flex items-center justify-center flex-shrink-0">
-                        <Building2 className="w-4 h-4 text-[#3d96cb]" />
+                      <div className="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center flex-shrink-0">
+                        <Building2 className="w-4 h-4 text-accent-hover" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm text-slate-200 truncate">{company.name}</p>
@@ -300,9 +300,9 @@ export default function SearchPopup({ isOpen, onClose, initialQuery = '' }: Sear
         </div>
 
         {/* Footer hint */}
-        <div className="px-4 py-3 border-t border-[#2A2A2A] text-center">
+        <div className="px-4 py-3 border-t border-edge text-center">
           <p className="text-xs text-slate-500">
-            Press <kbd className="px-1.5 py-0.5 bg-[#2A2A2A] rounded text-slate-400">Esc</kbd> to close
+            Press <kbd className="px-1.5 py-0.5 bg-edge rounded text-slate-400">Esc</kbd> to close
           </p>
         </div>
       </div>

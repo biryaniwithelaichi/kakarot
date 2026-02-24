@@ -88,12 +88,12 @@ function NoteLine({ content, meetingId, isListItem, listPrefix }: NoteLineProps)
               onClick={handleDeepDive}
               className={`inline-flex align-middle ml-2 p-1.5 rounded-full transition-all duration-200 ${
                 isHovered || isOpen
-                  ? 'opacity-100 bg-[#4ea8dd]/20 hover:bg-[#4ea8dd]/30'
+                  ? 'opacity-100 bg-accent/20 hover:bg-accent/30'
                   : 'opacity-0 pointer-events-none'
               }`}
               title="Deep dive into this note"
             >
-              <Search className="w-4 h-4 text-[#4ea8dd]" />
+              <Search className="w-4 h-4 text-accent" />
             </button>
           )}
         </span>
@@ -103,16 +103,16 @@ function NoteLine({ content, meetingId, isListItem, listPrefix }: NoteLineProps)
       {isOpen && (
         <div
           ref={popoverRef}
-          className="fixed z-[9999] w-[480px] max-h-[450px] rounded-xl border border-[#2A2A2A] bg-[#2A2A2A] shadow-2xl flex flex-col"
+          className="fixed z-[9999] w-[480px] max-h-[450px] rounded-xl border border-edge bg-edge shadow-2xl flex flex-col"
           style={{
             top: `${popoverPosition.top}px`,
             left: `${popoverPosition.left}px`,
           }}
         >
           {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-[#2A2A2A] flex-shrink-0">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-edge flex-shrink-0">
             <div className="flex items-center gap-2">
-              <Search className="w-4 h-4 text-[#4ea8dd]" />
+              <Search className="w-4 h-4 text-accent" />
               <span className="text-sm font-medium text-slate-200">Deep Dive</span>
             </div>
             <button
@@ -127,7 +127,7 @@ function NoteLine({ content, meetingId, isListItem, listPrefix }: NoteLineProps)
           <div className="flex-1 overflow-y-auto p-4 min-h-0">
             {isLoading ? (
               <div className="flex flex-col items-center justify-center py-12">
-                <Loader2 className="w-8 h-8 text-[#4ea8dd] animate-spin mb-3" />
+                <Loader2 className="w-8 h-8 text-accent animate-spin mb-3" />
                 <p className="text-sm text-slate-400">Analyzing transcript...</p>
               </div>
             ) : error ? (
@@ -135,7 +135,7 @@ function NoteLine({ content, meetingId, isListItem, listPrefix }: NoteLineProps)
                 <p className="text-sm text-red-400">{error}</p>
                 <button
                   onClick={handleDeepDive}
-                  className="mt-3 text-xs text-[#4ea8dd] hover:text-[#4ea8dd]"
+                  className="mt-3 text-xs text-accent hover:text-accent"
                 >
                   Try again
                 </button>
@@ -186,7 +186,7 @@ function NoteLine({ content, meetingId, isListItem, listPrefix }: NoteLineProps)
                       {result.notableQuotes.map((quote, idx) => (
                         <div
                           key={idx}
-                          className="bg-[#1E1E1E] border border-[#2A2A2A] rounded-lg p-3"
+                          className="bg-input border border-edge rounded-lg p-3"
                         >
                           <div className="flex items-center gap-2 mb-1.5">
                             <span className="text-xs font-medium text-slate-400">
@@ -211,7 +211,7 @@ function NoteLine({ content, meetingId, isListItem, listPrefix }: NoteLineProps)
 
           {/* Arrow pointer */}
           <div
-            className="absolute w-3 h-3 bg-[#2A2A2A] border-r border-b border-[#2A2A2A] transform rotate-45"
+            className="absolute w-3 h-3 bg-edge border-r border-b border-edge transform rotate-45"
             style={{
               bottom: '-6px',
               left: '20px',

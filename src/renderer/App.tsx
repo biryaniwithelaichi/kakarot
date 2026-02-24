@@ -279,7 +279,7 @@ export default function App() {
   const isFullWidthView = view === 'history' || view === 'people' || view === 'meeting-detail';
 
   return (
-    <div className="flex h-screen overflow-hidden min-w-[640px] bg-[#0C0C0C]">
+    <div className="flex h-screen overflow-hidden min-w-[640px] bg-surface">
       <Sidebar pillarTab={pillarTab} onPillarTabChange={setPillarTab} />
       <div className="flex-1 flex flex-col">
         {/* Content area with drag region at top for window dragging */}
@@ -299,7 +299,7 @@ export default function App() {
                 {renderContent()}
               </div>
             ) : (
-              <div className={`rounded-2xl border border-[#2A2A2A] bg-[#161616] ${needsFullHeight ? 'flex-1 min-h-0 flex flex-col' : ''}`}>
+              <div className={`rounded-2xl border border-edge bg-card ${needsFullHeight ? 'flex-1 min-h-0 flex flex-col' : ''}`}>
                 <div className={`${needsFullHeight ? 'h-full flex flex-col p-5' : 'p-5 sm:p-6'}`}>
                   {renderContent()}
                 </div>

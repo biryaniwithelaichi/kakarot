@@ -34,7 +34,7 @@ export function ConfirmDialog({
       onClick={onCancel}
     >
       <div
-        className="bg-[#161616] rounded-xl border border-[#2A2A2A] p-6 max-w-md w-full mx-4 shadow-xl animate-modal-in"
+        className="bg-card rounded-xl border border-edge p-6 max-w-md w-full mx-4 shadow-xl animate-modal-in"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start gap-4">
@@ -66,7 +66,7 @@ export function ConfirmDialog({
         <div className="flex justify-end gap-3 mt-6">
           <button
             onClick={onCancel}
-            className="px-4 py-2 text-sm text-slate-300 hover:text-white hover:bg-[#2A2A2A] rounded-lg transition-colors"
+            className="px-4 py-2 text-sm text-slate-300 hover:text-white hover:bg-edge rounded-lg transition-colors"
           >
             {cancelLabel}
           </button>

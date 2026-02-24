@@ -89,8 +89,8 @@ export default function SignInStep({ onSuccess, onBack }: SignInStepProps) {
       {missingScopes && (
         <div className="space-y-6">
           <div className="text-center space-y-2">
-            <h2 className="text-2xl font-sans font-bold text-[#F0EBE3]">Calendar Access Required</h2>
-            <p className="text-[#5C5750]">
+            <h2 className="text-2xl font-sans font-bold text-cream">Calendar Access Required</h2>
+            <p className="text-dim">
               To create meeting notes, Treeto requires access to your Calendar. You missed this permission during sign-in.
             </p>
           </div>
@@ -98,7 +98,7 @@ export default function SignInStep({ onSuccess, onBack }: SignInStepProps) {
           <button
             onClick={() => handleConnect(missingProvider || 'google')}
             disabled={isConnecting}
-            className="w-full flex items-center justify-center gap-3 py-3 px-6 bg-[#1E1E1E] hover:bg-[#2A2A2A] text-[#F0EBE3] border border-[#2A2A2A] rounded-xl font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full flex items-center justify-center gap-3 py-3 px-6 bg-input hover:bg-edge text-cream border border-edge rounded-xl font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isConnecting ? <span className="animate-pulse">Reconnecting...</span> : 'Grant Permission Again'}
           </button>
@@ -108,8 +108,8 @@ export default function SignInStep({ onSuccess, onBack }: SignInStepProps) {
       {!missingScopes && (
       <>
       <div className="text-center space-y-2">
-        <h2 className="text-2xl font-sans font-bold text-[#F0EBE3]">Sign in to get started</h2>
-        <p className="text-[#5C5750]">
+        <h2 className="text-2xl font-sans font-bold text-cream">Sign in to get started</h2>
+        <p className="text-dim">
           Sign in to sync your calendar and upcoming meetings
         </p>
       </div>
@@ -118,7 +118,7 @@ export default function SignInStep({ onSuccess, onBack }: SignInStepProps) {
         <button
           onClick={() => handleConnect('google')}
           disabled={isConnecting}
-          className="w-full flex items-center justify-center gap-3 py-3 px-6 bg-[#1E1E1E] hover:bg-[#2A2A2A] text-[#F0EBE3] border border-[#2A2A2A] rounded-xl font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full flex items-center justify-center gap-3 py-3 px-6 bg-input hover:bg-edge text-cream border border-edge rounded-xl font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24">
             <path
@@ -148,7 +148,7 @@ export default function SignInStep({ onSuccess, onBack }: SignInStepProps) {
         <button
           onClick={() => handleConnect('microsoft')}
           disabled={isConnecting}
-          className="w-full flex items-center justify-center gap-3 py-3 px-6 bg-[#1E1E1E] hover:bg-[#2A2A2A] text-[#F0EBE3] border border-[#2A2A2A] rounded-xl font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full flex items-center justify-center gap-3 py-3 px-6 bg-input hover:bg-edge text-cream border border-edge rounded-xl font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <svg className="w-5 h-5" viewBox="0 0 23 23">
             <path fill="#f35325" d="M0 0h11v11H0z" />
@@ -186,7 +186,7 @@ export default function SignInStep({ onSuccess, onBack }: SignInStepProps) {
       )}
 
       {onBack && (
-        <div className="pt-4 border-t border-[#2A2A2A]">
+        <div className="pt-4 border-t border-edge">
           <button
             onClick={onBack}
             className="w-full flex items-center justify-center gap-2 py-2 px-4 bg-white/5 hover:bg-white/10 text-gray-300 rounded-lg font-medium transition-colors"

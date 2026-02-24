@@ -71,9 +71,9 @@ export default function AudioPermissionsStep({ onSuccess }: AudioPermissionsStep
 
       <div className="space-y-3 pt-4">
         {/* Microphone Permission */}
-        <div className="flex items-center justify-between p-4 bg-[#161616] rounded-lg border border-[#2A2A2A]">
+        <div className="flex items-center justify-between p-4 bg-card rounded-lg border border-edge">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-[#2A2A2A] flex items-center justify-center">
+            <div className="w-10 h-10 rounded-lg bg-edge flex items-center justify-center">
               <Mic className="w-5 h-5 text-gray-400" />
             </div>
             <div>
@@ -83,7 +83,7 @@ export default function AudioPermissionsStep({ onSuccess }: AudioPermissionsStep
           </div>
           <div className="flex items-center gap-2">
             {micStatus === 'granted' && (
-              <div className="flex items-center gap-2 text-[#F0EBE3]">
+              <div className="flex items-center gap-2 text-cream">
                 <Check className="w-5 h-5" />
                 <span className="text-sm font-medium">Granted</span>
               </div>
@@ -97,7 +97,7 @@ export default function AudioPermissionsStep({ onSuccess }: AudioPermissionsStep
             {micStatus === 'pending' && (
               <button
                 onClick={requestMicPermission}
-                className="px-4 py-1.5 bg-[#4ea8dd] hover:bg-[#3d96cb] text-white rounded text-sm font-medium transition-colors"
+                className="px-4 py-1.5 bg-accent hover:bg-accent-hover text-white rounded text-sm font-medium transition-colors"
               >
                 Enable
               </button>
@@ -109,9 +109,9 @@ export default function AudioPermissionsStep({ onSuccess }: AudioPermissionsStep
         </div>
 
         {/* System Audio Permission */}
-        <div className="flex items-center justify-between p-4 bg-[#161616] rounded-lg border border-[#2A2A2A]">
+        <div className="flex items-center justify-between p-4 bg-card rounded-lg border border-edge">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-[#2A2A2A] flex items-center justify-center">
+            <div className="w-10 h-10 rounded-lg bg-edge flex items-center justify-center">
               <Monitor className="w-5 h-5 text-gray-400" />
             </div>
             <div>
@@ -121,7 +121,7 @@ export default function AudioPermissionsStep({ onSuccess }: AudioPermissionsStep
           </div>
           <div className="flex items-center gap-2">
             {systemStatus === 'granted' && (
-              <div className="flex items-center gap-2 text-[#F0EBE3]">
+              <div className="flex items-center gap-2 text-cream">
                 <Check className="w-5 h-5" />
                 <span className="text-sm font-medium">Granted</span>
               </div>
@@ -135,7 +135,7 @@ export default function AudioPermissionsStep({ onSuccess }: AudioPermissionsStep
             {systemStatus === 'pending' && (
               <button
                 onClick={requestSystemPermission}
-                className="px-4 py-1.5 bg-[#4ea8dd] hover:bg-[#3d96cb] text-white rounded text-sm font-medium transition-colors"
+                className="px-4 py-1.5 bg-accent hover:bg-accent-hover text-white rounded text-sm font-medium transition-colors"
               >
                 Enable
               </button>

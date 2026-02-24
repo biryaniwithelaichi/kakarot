@@ -58,7 +58,7 @@ export default function MeetingContextPreview({ meeting, onDismiss, onPrep, onTr
 
   return (
     <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-white dark:bg-[#1E1E1E] rounded-2xl shadow-2xl max-w-md w-full mx-4 p-6 border border-slate-200 dark:border-[#2A2A2A]">
+      <div className="bg-white dark:bg-input rounded-2xl shadow-2xl max-w-md w-full mx-4 p-6 border border-slate-200 dark:border-edge">
         {/* Header */}
         <div className="flex items-start justify-between mb-6">
           <div className="flex-1">
@@ -99,8 +99,8 @@ export default function MeetingContextPreview({ meeting, onDismiss, onPrep, onTr
           {/* Location */}
           {meeting.location && (
             <div className="flex items-start gap-3 text-sm">
-              <div className="p-2 rounded-lg bg-[#4ea8dd]/10 flex-shrink-0">
-                <MapPin className="w-4 h-4 text-[#4ea8dd] dark:text-[#4ea8dd]" />
+              <div className="p-2 rounded-lg bg-accent/10 flex-shrink-0">
+                <MapPin className="w-4 h-4 text-accent dark:text-accent" />
               </div>
               <p className="text-slate-700 dark:text-slate-300 break-all overflow-hidden flex-1">{meeting.location}</p>
             </div>
@@ -109,8 +109,8 @@ export default function MeetingContextPreview({ meeting, onDismiss, onPrep, onTr
           {/* Attendees */}
           {meeting.attendees && meeting.attendees.length > 0 && (
             <div className="flex items-start gap-3 text-sm">
-              <div className="p-2 rounded-lg bg-[#F0EBE3]/10 flex-shrink-0">
-                <Users className="w-4 h-4 text-green-600 dark:text-[#F0EBE3]" />
+              <div className="p-2 rounded-lg bg-cream/10 flex-shrink-0">
+                <Users className="w-4 h-4 text-green-600 dark:text-cream" />
               </div>
               <div className="flex-1">
                 <p className="text-slate-600 dark:text-slate-400 text-xs font-medium mb-1">
@@ -128,8 +128,8 @@ export default function MeetingContextPreview({ meeting, onDismiss, onPrep, onTr
                         disabled={disabled}
                         className={`inline-flex items-center px-2 py-1 rounded text-xs truncate transition-colors ${
                           disabled
-                            ? 'bg-[#1E1E1E] dark:bg-[#161616] text-slate-600 dark:text-slate-500 cursor-default'
-                            : 'bg-[#1E1E1E] dark:bg-[#161616] text-slate-700 dark:text-slate-300 hover:bg-[#2A2A2A] hover:text-white'
+                            ? 'bg-input dark:bg-card text-slate-600 dark:text-slate-500 cursor-default'
+                            : 'bg-input dark:bg-card text-slate-700 dark:text-slate-300 hover:bg-edge hover:text-white'
                         }`}
                         title={email || undefined}
                       >
@@ -161,7 +161,7 @@ export default function MeetingContextPreview({ meeting, onDismiss, onPrep, onTr
         </div>
 
         {/* Calendar Badge */}
-        <div className="flex items-center gap-2 p-3 rounded-lg bg-[#1E1E1E] dark:bg-[#161616] mb-6">
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-input dark:bg-card mb-6">
           <Calendar className="w-4 h-4 text-slate-500 dark:text-slate-400" />
           <p className="text-sm text-slate-600 dark:text-slate-400">
             {meeting.provider === 'google' && 'Google Calendar'}
@@ -178,7 +178,7 @@ export default function MeetingContextPreview({ meeting, onDismiss, onPrep, onTr
               onPrep?.(meeting);
               onDismiss?.();
             }}
-            className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg bg-[#4ea8dd]/10 border border-[#4ea8dd]/30 hover:bg-[#4ea8dd]/20 hover:border-[#4ea8dd]/50 transition-all text-[#4ea8dd] font-medium text-sm"
+            className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg bg-accent/10 border border-accent/30 hover:bg-accent/20 hover:border-accent/50 transition-all text-accent font-medium text-sm"
           >
             <Sparkles className="w-4 h-4" />
             Prep

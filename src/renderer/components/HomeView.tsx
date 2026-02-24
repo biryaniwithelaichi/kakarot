@@ -46,23 +46,23 @@ export default function HomeView({
 
   return (
     <>
-      <div className="flex-1 min-h-0 text-[#F0EBE3] flex flex-col">
+      <div className="flex-1 min-h-0 text-cream flex flex-col">
         <div className="w-full flex flex-col flex-1 min-h-0">
           {/* Greeting + Action Row */}
           <div className="flex-shrink-0 mx-auto w-full max-w-2xl px-4 sm:px-6 py-4 space-y-3 animate-view-enter">
             <div>
-              <h1 className="text-4xl font-sans font-bold text-[#F0EBE3]">
+              <h1 className="text-4xl font-sans font-bold text-cream">
                 {getGreeting()}
               </h1>
             </div>
 
             <div className="flex items-center gap-2">
               <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#5C5750]" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-dim" />
                 <input
                   type="text"
                   placeholder="Search meetings or notes"
-                  className="w-full pl-10 pr-4 py-2 bg-[#1E1E1E] border border-[#2A2A2A] rounded-xl text-sm text-[#F0EBE3] placeholder:text-[#5C5750] focus:outline-none focus:ring-1 focus:ring-[#4ea8dd]/30 focus:border-[#4ea8dd]/20 transition cursor-pointer"
+                  className="w-full pl-10 pr-4 py-2 bg-input border border-edge rounded-xl text-sm text-cream placeholder:text-dim focus:outline-none focus:ring-1 focus:ring-accent/30 focus:border-accent/20 transition cursor-pointer"
                   onClick={() => setShowSearchPopup(true)}
                   onFocus={() => setShowSearchPopup(true)}
                   readOnly
@@ -72,7 +72,7 @@ export default function HomeView({
               <button
                 onClick={() => onStartRecording()}
                 disabled={isRecording || isPaused || isGenerating}
-                className="px-4 py-2 bg-[#4ea8dd] text-[#0C0C0C] font-semibold rounded-xl flex items-center gap-1.5 shadow-soft transition-all duration-200 hover:bg-[#3d96cb] hover:shadow-soft active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 text-sm"
+                className="px-4 py-2 bg-accent text-surface font-semibold rounded-xl flex items-center gap-1.5 shadow-soft transition-all duration-200 hover:bg-accent-hover hover:shadow-soft active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 text-sm"
               >
                 <Mic className="w-3.5 h-3.5" />
                 Take Notes

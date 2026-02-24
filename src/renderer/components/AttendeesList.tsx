@@ -97,10 +97,10 @@ export default function AttendeesList({ attendeeEmails, organizationName }: Atte
   const getAvatarColor = (email: string) => {
     const colors = [
       'bg-blue-500',
-      'bg-[#F0EBE3]',
-      'bg-[#4ea8dd]',
+      'bg-cream',
+      'bg-accent',
       'bg-pink-500',
-      'bg-[#4ea8dd]',
+      'bg-accent',
       'bg-yellow-500',
       'bg-red-500',
       'bg-teal-500',
@@ -118,7 +118,7 @@ export default function AttendeesList({ attendeeEmails, organizationName }: Atte
           e.stopPropagation();
           setIsOpen(!isOpen);
         }}
-        className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/60 dark:bg-[#161616]/60 border border-slate-200 dark:border-[#2A2A2A] hover:bg-white/80 dark:hover:bg-[#2A2A2A]/80 transition text-slate-600 dark:text-slate-400 whitespace-nowrap"
+        className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/60 dark:bg-card/60 border border-slate-200 dark:border-edge hover:bg-white/80 dark:hover:bg-edge/80 transition text-slate-600 dark:text-slate-400 whitespace-nowrap"
       >
         <Users className="w-4 h-4 flex-shrink-0" />
         <span className="text-sm">
@@ -129,14 +129,14 @@ export default function AttendeesList({ attendeeEmails, organizationName }: Atte
       {isOpen && (
         <div
           ref={popoverRef}
-          className="absolute left-0 right-0 top-full mt-2 w-96 bg-[#0C0C0C] dark:bg-[#0C0C0C] rounded-xl border border-slate-800 dark:border-[#2A2A2A] shadow-2xl z-50 overflow-hidden"
+          className="absolute left-0 right-0 top-full mt-2 w-96 bg-surface dark:bg-surface rounded-xl border border-slate-800 dark:border-edge shadow-2xl z-50 overflow-hidden"
         >
           {/* Header */}
           <div className="p-4 border-b border-slate-800 flex items-center justify-between">
             <h3 className="text-base font-semibold text-white">Participants</h3>
             <button
               onClick={() => setIsOpen(false)}
-              className="p-1 text-slate-400 hover:text-slate-200 transition rounded hover:bg-[#1E1E1E]/50"
+              className="p-1 text-slate-400 hover:text-slate-200 transition rounded hover:bg-input/50"
               title="Close"
             >
               <X className="w-4 h-4" />
@@ -155,7 +155,7 @@ export default function AttendeesList({ attendeeEmails, organizationName }: Atte
             {isLoading ? (
               <div className="p-6 text-center">
                 <div className="inline-block animate-spin">
-                  <div className="w-5 h-5 border-2 border-slate-700 border-t-[#4ea8dd] rounded-full" />
+                  <div className="w-5 h-5 border-2 border-slate-700 border-t-accent rounded-full" />
                 </div>
                 <p className="text-slate-400 text-sm mt-2">Loading attendees...</p>
               </div>
@@ -166,7 +166,7 @@ export default function AttendeesList({ attendeeEmails, organizationName }: Atte
             ) : (
               <div className="divide-y divide-slate-800">
                 {attendees.map((person) => (
-                  <div key={person.email} className="p-4 hover:bg-[#1E1E1E]/50 transition flex items-center justify-between group">
+                  <div key={person.email} className="p-4 hover:bg-input/50 transition flex items-center justify-between group">
                     <div className="flex items-center gap-3 flex-1 min-w-0">
                       <div className={`w-10 h-10 rounded-full ${getAvatarColor(person.email)} flex items-center justify-center text-white font-semibold text-sm flex-shrink-0`}>
                         {getInitials(person)}
@@ -186,13 +186,13 @@ export default function AttendeesList({ attendeeEmails, organizationName }: Atte
                     <div className="flex items-center gap-2 ml-2 flex-shrink-0">
                       <button
                         title="Email"
-                        className="p-2 rounded hover:bg-[#2A2A2A] text-slate-400 hover:text-white transition opacity-0 group-hover:opacity-100"
+                        className="p-2 rounded hover:bg-edge text-slate-400 hover:text-white transition opacity-0 group-hover:opacity-100"
                       >
                         <Mail className="w-4 h-4" />
                       </button>
                       <button
                         title="LinkedIn"
-                        className="p-2 rounded hover:bg-[#2A2A2A] text-slate-400 hover:text-white transition opacity-0 group-hover:opacity-100"
+                        className="p-2 rounded hover:bg-edge text-slate-400 hover:text-white transition opacity-0 group-hover:opacity-100"
                       >
                         <Linkedin className="w-4 h-4" />
                       </button>
