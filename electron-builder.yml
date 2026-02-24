@@ -3,7 +3,7 @@ productName: Treeto
 directories:
   output: release
   buildResources: resources
-icon: resources/icon.png
+icon: resources/icon.icns
 
 files:
   - dist/**/*
@@ -14,7 +14,10 @@ mac:
   target:
     - target: dmg
       arch: [arm64]
+  # Set identity to null for local unsigned builds.
+  # In CI, CSC_LINK and CSC_KEY_PASSWORD env vars override this.
   identity: null
+  notarize: false
   extraResources:
     - from: node_modules/audiotee/bin/audiotee
       to: audiotee

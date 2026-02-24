@@ -13,6 +13,7 @@ import { showCalloutWindow } from '../windows/calloutWindow';
 import { AUDIO_CONFIG, matchesQuestionPattern, FEATURE_FLAGS } from '../config/constants';
 import { getDatabase, saveDatabase } from '../data/database';
 import { isMeetingApp } from '../utils/meetingAppDetection';
+import { markRecordingActive, clearRecoveryState } from '../services/RecoveryService';
 import type { CalendarAttendee, RecordingState } from '@shared/types';
 import type { IndicatorWindow } from '../windows/IndicatorWindow';
 
@@ -400,6 +401,7 @@ export function registerRecordingHandlers(
         setRecordingState('idle');
       }
 
+      clearRecoveryState();
       return meeting;
     } finally {
       stopInProgress = false;
@@ -424,9 +426,10 @@ export function registerRecordingHandlers(
     const meetingTitle = calendarContext?.calendarEventTitle;
     const attendeeEmails = calendarContext?.calendarEventAttendees;
     const meetingId = await meetingRepo.startNewMeeting(meetingTitle, attendeeEmails);
-    logger.info('Meeting started', { 
+    markRecordingActive(meetingId, meetingTitle || 'Untitled Meeting');
+    logger.info('Meeting started', {
       meetingId,
-      meetingTitle, 
+      meetingTitle,
       hadCalendarContext: !!calendarContext,
       attendeeCount: attendeeEmails?.length || 0,
       actualTitle: meetingTitle || 'will use default timestamp'
@@ -792,6 +795,7 @@ export function registerRecordingHandlers(
       meetingRepo.clearCurrentMeeting();
     }
 
+    clearRecoveryState();
     setRecordingState('idle');
     logger.info('Recording discarded successfully');
   });

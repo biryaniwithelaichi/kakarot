@@ -43,21 +43,21 @@ export default function UpcomingMeetingsList({ meetings, isCalendarConnected = f
         }
         onTakeNotes?.(meeting);
       }}
-      className="w-full px-3 py-2 rounded-lg bg-input border border-edge hover:bg-edge transition-all duration-200 text-left hover:shadow-elevated active:scale-[0.98]"
+      className="w-full px-3 py-2 rounded-md bg-input border border-edge hover:bg-edge transition-colors text-left active:scale-[0.98]"
     >
       <div className="flex items-start gap-2.5">
         <div className="flex-shrink-0 px-2 py-1 rounded bg-accent/10 border border-accent/15">
-          <p className="text-[10px] font-bold text-accent-hover leading-tight tracking-wider">
+          <p className="text-[10px] font-medium text-accent leading-tight tracking-wider">
             {formatDate(meeting.start)}
           </p>
         </div>
 
         <div className="flex-1 min-w-0">
-          <h4 className="text-sm font-medium text-slate-200 truncate">
+          <h4 className="text-sm font-medium text-cream truncate">
             {meeting.title}
           </h4>
-          <p className="text-xs text-slate-500 mt-1">
-            {formatTime(meeting.start)} – {formatTime(meeting.end)}
+          <p className="text-xs text-dim mt-1">
+            {formatTime(meeting.start)} -- {formatTime(meeting.end)}
           </p>
         </div>
       </div>
@@ -71,14 +71,14 @@ export default function UpcomingMeetingsList({ meetings, isCalendarConnected = f
     renderMeeting: (meeting: CalendarEvent) => JSX.Element;
   }): JSX.Element => (
     <div>
-      <h4 className="text-[10px] uppercase tracking-[0.2em] font-medium text-dim mb-2 px-1">
+      <h4 className="text-[10px] uppercase tracking-[0.15em] font-medium text-dim mb-2 px-1">
         {props.label}
       </h4>
       <div className="space-y-2">
         {props.meetings.length > 0 ? (
           props.meetings.map((meeting) => props.renderMeeting(meeting))
         ) : (
-          <p className="text-xs text-slate-500 px-1">{props.emptyMessage}</p>
+          <p className="text-xs text-dim px-1">{props.emptyMessage}</p>
         )}
       </div>
     </div>
@@ -87,30 +87,30 @@ export default function UpcomingMeetingsList({ meetings, isCalendarConnected = f
   // Limit total displayed meetings to 5
   const displayedMeetings = meetings.slice(0, 5);
   const hasMore = meetings.length > 5;
-  
+
   const displayedToday = displayedMeetings.filter(m => isToday(m.start));
   const displayedTomorrow = displayedMeetings.filter(m => isTomorrow(m.start));
   const displayedLater = displayedMeetings.filter(m => !isToday(m.start) && !isTomorrow(m.start));
 
   return (
-    <div className="h-full rounded-xl border border-edge bg-card p-3 flex flex-col">
-      <h3 className="text-xs uppercase tracking-[0.2em] font-medium text-dim mb-3 px-1 flex-shrink-0">
-        Upcoming Meetings
+    <div className="h-full rounded-lg border border-edge bg-card p-4 flex flex-col shadow-elevated">
+      <h3 className="text-[11px] uppercase tracking-[0.15em] font-medium text-dim mb-3 px-1 flex-shrink-0">
+        Upcoming meetings
       </h3>
 
       <div className="flex-1 overflow-y-auto space-y-2 pr-1">
         {meetings.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center py-8">
-            <Calendar className="w-8 h-8 text-slate-500 mb-2 opacity-50" />
+            <Calendar className="w-8 h-8 text-dim mb-2 opacity-50" />
             {isCalendarConnected ? (
               <>
-                <p className="text-sm text-slate-500">No upcoming meetings</p>
-                <p className="text-xs text-slate-500 mt-1">Your calendar is connected but there are no events scheduled</p>
+                <p className="text-sm text-dim">No upcoming meetings</p>
+                <p className="text-xs text-dim mt-1">Your calendar is connected but there are no events scheduled</p>
               </>
             ) : (
               <>
-                <p className="text-sm text-slate-500">No calendar connected</p>
-                <p className="text-xs text-slate-500 mt-1 mb-3">Connect your calendar to see upcoming meetings</p>
+                <p className="text-sm text-dim">No calendar connected</p>
+                <p className="text-xs text-dim mt-1 mb-3">Connect your calendar to see upcoming meetings</p>
                 {onNavigateSettings && (
                   <button
                     onClick={onNavigateSettings}
@@ -152,7 +152,7 @@ export default function UpcomingMeetingsList({ meetings, isCalendarConnected = f
           </>
         )}
       </div>
-      
+
       {hasMore && onViewMore && (
         <div className="mt-2 pt-2 border-t border-edge flex-shrink-0">
           <button

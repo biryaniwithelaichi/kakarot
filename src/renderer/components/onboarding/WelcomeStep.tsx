@@ -1,5 +1,4 @@
-import React from 'react';
-import logoImage from '../../assets/logo transparent copy.png';
+import logoImage from '../../assets/logo-transparent.png';
 
 interface WelcomeStepProps {
   onContinue: () => void;
@@ -11,30 +10,30 @@ export default function WelcomeStep({ onContinue }: WelcomeStepProps) {
       {/* Treeto Logo */}
       <div className="flex justify-center mb-8">
         <div className="flex flex-col items-center">
-          <div className="w-48 h-48">
+          <div className="w-40 h-40">
             <img
               src={logoImage}
               alt="Treeto"
               className="w-full h-full object-contain"
             />
           </div>
-          <span className="text-lg font-medium tracking-wide uppercase text-slate-300 -mt-16">Treeto.</span>
+          <span className="text-lg font-medium tracking-wide uppercase text-muted -mt-12">Treeto.</span>
         </div>
       </div>
 
       <div className="space-y-3">
-        <h1 className="text-4xl font-sans font-bold text-cream">
+        <h1 className="text-2xl font-medium tracking-tight text-cream">
           Never blank out in a meeting again.
         </h1>
-        <p className="text-lg text-dim max-w-xl mx-auto leading-relaxed">
-          Finally a meeting copilot that stays out of the participant list and surfaces relevant context exactly when you need it.
+        <p className="text-base text-dim max-w-md mx-auto leading-relaxed">
+          A meeting copilot that stays out of the participant list and surfaces context exactly when you need it.
         </p>
       </div>
 
       <div className="pt-8">
         <button
           onClick={onContinue}
-          className="w-full py-3 px-6 bg-accent hover:bg-accent-hover text-surface rounded-xl font-medium transition-colors shadow-soft"
+          className="w-full py-3 px-6 bg-accent hover:bg-accent-hover text-surface rounded-lg font-medium transition-colors shadow-soft active:scale-[0.98]"
         >
           Get Started
         </button>

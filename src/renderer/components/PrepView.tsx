@@ -39,10 +39,10 @@ import {
   Send,
   RefreshCw,
 } from 'lucide-react';
-import leadershipCoachingImage from '../assets/Leadership coaching Branch .png';
-import weeklyReportImage from '../assets/Weekly Report .png';
-import monthlyReportImage from '../assets/Monthly Report.png';
-import sortCalendarImage from '../assets/Sort my calendar branch.png';
+import leadershipCoachingImage from '../assets/leadership-coaching-branch.png';
+import weeklyReportImage from '../assets/weekly-report-branch.png';
+import monthlyReportImage from '../assets/monthly-report-branch.png';
+import sortCalendarImage from '../assets/sort-my-calendar-branch.png';
 import type {
   Person,
   Branch,

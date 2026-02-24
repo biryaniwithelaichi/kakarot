@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useLayoutEffect, useMemo, useRef } from 'react';
 import { useAppStore } from '../stores/appStore';
-import { Search, Trash2, Folder, Users, MessageCircle, Send, X } from 'lucide-react';
+import { Search, Trash2, Folder, Users, MessageCircle, Send, X, Mic } from 'lucide-react';
 import { formatDuration, getAvatarColor, getInitials } from '../lib/formatters';
 import { MeetingListSkeleton } from './Skeleton';
 import { toast } from '../stores/toastStore';
@@ -54,7 +54,7 @@ const MeetingRow = ({ index, style, data }: ListChildComponentProps<MeetingRowDa
     <div
       style={style}
       onClick={() => data.onSelect(meeting.id)}
-      className={`p-4 border-b border-edge cursor-pointer transition-colors ${
+      className={`group p-4 border-b border-edge cursor-pointer transition-colors ${
         isSelected ? 'bg-edge border-l-2 border-l-accent-hover' : 'hover:bg-input'
       }`}
     >
@@ -90,7 +90,7 @@ const MeetingRow = ({ index, style, data }: ListChildComponentProps<MeetingRowDa
         </div>
         <button
           onClick={(e) => data.onDelete(meeting.id, e)}
-          className="text-dim hover:text-status-error p-1 transition-colors"
+          className="text-dim hover:text-status-error p-1 transition-colors opacity-0 group-hover:opacity-100"
         >
           <Trash2 className="w-4 h-4" />
         </button>
@@ -114,6 +114,13 @@ export default function HistoryView() {
   });
   const [listRef, listSize] = useElementSize();
 
+  // Chat state
+  const [showChatPopover, setShowChatPopover] = useState(false);
+  const [chatMessages, setChatMessages] = useState<Array<{role: 'user' | 'assistant', content: string}>>([]);
+  const [chatInput, setChatInput] = useState('');
+  const [isChatLoading, setIsChatLoading] = useState(false);
+  const chatInputRef = useRef<HTMLInputElement>(null);
+
   const loadMeetings = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -123,6 +130,39 @@ export default function HistoryView() {
       setIsLoading(false);
     }
   }, [setMeetings]);
+
+  const handleSendMessage = useCallback(async () => {
+    if (!chatInput.trim() || isChatLoading) return;
+    const userMessage = chatInput.trim();
+    setChatInput('');
+    setChatMessages(prev => [...prev, { role: 'user', content: userMessage }]);
+    setIsChatLoading(true);
+    try {
+      const response = await window.kakarot.chat.sendMessage(userMessage, {
+        selectedMeetingId: selectedMeeting?.id,
+        context: 'history_view'
+      });
+      setChatMessages(prev => [...prev, { role: 'assistant', content: response }]);
+    } catch (error) {
+      console.error('Chat error:', error);
+      setChatMessages(prev => [...prev, { role: 'assistant', content: 'Sorry, I encountered an error. Please try again.' }]);
+    } finally {
+      setIsChatLoading(false);
+    }
+  }, [chatInput, isChatLoading, selectedMeeting]);
+
+  const handleChatKeyPress = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
+  }, [handleSendMessage]);
+
+  useEffect(() => {
+    if (showChatPopover && chatInputRef.current) {
+      chatInputRef.current.focus();
+    }
+  }, [showChatPopover]);
 
   const handleSearch = async () => {
     if (searchQuery.trim()) {
@@ -201,7 +241,15 @@ export default function HistoryView() {
           {isLoading ? (
             <MeetingListSkeleton count={6} />
           ) : meetings.length === 0 ? (
-            <div className="p-4 text-center text-dim">No meetings yet</div>
+            <div className="flex flex-col items-center justify-center h-full text-center py-16 px-6">
+              <div className="w-12 h-12 rounded-full bg-edge flex items-center justify-center mb-4">
+                <Mic className="w-6 h-6 text-dim" />
+              </div>
+              <p className="text-sm font-medium text-cream mb-1">No meetings yet</p>
+              <p className="text-xs text-dim max-w-[200px]">
+                Start your first recording from the home screen to see it here.
+              </p>
+            </div>
           ) : (
             <List
               height={listSize.height || 1}
@@ -236,6 +284,81 @@ export default function HistoryView() {
           </div>
         )}
 
+        {/* Floating Chat Button */}
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20">
+          <button
+            onClick={() => setShowChatPopover(!showChatPopover)}
+            className="flex items-center gap-2 px-4 py-2.5 bg-accent hover:bg-accent-hover text-surface rounded-lg shadow-elevated transition-colors active:scale-[0.96]"
+          >
+            <MessageCircle className="w-4 h-4" />
+            <span className="text-sm font-medium">Ask about meetings</span>
+          </button>
+        </div>
+
+        {/* Chat Popover */}
+        {showChatPopover && (
+          <div className="absolute bottom-20 left-1/2 -translate-x-1/2 w-96 max-h-96 bg-card border border-edge rounded-lg shadow-overlay z-20 flex flex-col animate-popover-in-up">
+            <div className="flex items-center justify-between p-4 border-b border-edge">
+              <h3 className="text-sm font-medium text-cream">AI Assistant</h3>
+              <button onClick={() => setShowChatPopover(false)} className="text-muted hover:text-cream transition-colors">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4 space-y-3 max-h-64">
+              {chatMessages.length === 0 ? (
+                <div className="text-center text-muted text-sm py-4">
+                  Ask me anything about your meetings
+                </div>
+              ) : (
+                chatMessages.map((message, index) => (
+                  <div key={index} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                    <div
+                      className={`max-w-[80%] rounded-lg px-3 py-2 text-sm ${
+                        message.role === 'user'
+                          ? 'bg-accent/15 text-cream border border-accent/10'
+                          : 'bg-input text-muted border border-edge'
+                      }`}
+                    >
+                      {message.content}
+                    </div>
+                  </div>
+                ))
+              )}
+              {isChatLoading && (
+                <div className="flex justify-start">
+                  <div className="bg-edge rounded-lg px-3 py-2 text-sm text-muted">
+                    <div className="flex items-center gap-2">
+                      <div className="w-1.5 h-1.5 bg-muted rounded-full animate-pulse"></div>
+                      <div className="w-1.5 h-1.5 bg-muted rounded-full animate-pulse" style={{ animationDelay: '0.1s' }}></div>
+                      <div className="w-1.5 h-1.5 bg-muted rounded-full animate-pulse" style={{ animationDelay: '0.2s' }}></div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="p-4 border-t border-edge">
+              <div className="flex gap-2">
+                <input
+                  ref={chatInputRef}
+                  type="text"
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  onKeyDown={handleChatKeyPress}
+                  placeholder="Ask about your meetings..."
+                  className="flex-1 bg-input border border-edge text-cream rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-accent/30 placeholder:text-dim"
+                  disabled={isChatLoading}
+                />
+                <button
+                  onClick={handleSendMessage}
+                  disabled={!chatInput.trim() || isChatLoading}
+                  className="px-3 py-2 bg-accent hover:bg-accent-hover disabled:bg-edge disabled:cursor-not-allowed text-surface rounded-md transition-colors"
+                >
+                  <Send className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       <ConfirmDialog

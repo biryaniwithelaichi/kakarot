@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { useAppStore, type AppView } from '../stores/appStore';
 import { Home, History, Users, Settings, Sparkles, ArrowLeft } from 'lucide-react';
-import logoImage from '../assets/logo transparent copy.png';
+import logoImage from '../assets/logo-transparent.png';
 import FeedbackPopover from './FeedbackPopover';
 import FeedbackModal from './FeedbackModal';
 
@@ -17,6 +17,8 @@ interface NavItem {
   view: AppView;
   pillar: 'notes' | 'prep' | null;
 }
+
+const isMac = /Macintosh|Mac OS/.test(navigator.userAgent);
 
 export default function Sidebar({ pillarTab, onPillarTabChange }: SidebarProps) {
   const { view, navigate, recordingState, settings, navStack, goBack } = useAppStore();
@@ -64,38 +66,41 @@ export default function Sidebar({ pillarTab, onPillarTabChange }: SidebarProps) 
   const showIndicator = settings?.showLiveMeetingIndicator ?? true;
 
   return (
-    <aside className="w-16 bg-surface border-r border-edge-subtle flex flex-col items-center pt-[52px] pb-4 drag-region">
+    <aside className={`w-20 bg-surface border-r border-edge flex flex-col items-center px-2 pb-4 drag-region ${isMac ? 'pt-[52px]' : 'pt-3'}`}>
       {/* Back button below traffic lights */}
       <button
         disabled={isOnHome}
         onClick={handleBack}
-        className={`no-drag w-9 h-9 rounded-lg flex items-center justify-center mb-1 transition-all duration-200 ${
+        className={`no-drag w-9 h-9 rounded-lg flex items-center justify-center mb-2 transition-colors duration-150 ${
           isOnHome
             ? 'text-edge cursor-default'
-            : 'text-dim hover:text-muted hover:bg-white/[0.03] active:scale-95 cursor-pointer'
+            : 'text-dim hover:text-muted hover:bg-white/[0.04] active:scale-95 cursor-pointer'
         }`}
         title="Back"
       >
         <ArrowLeft className="w-4 h-4" />
       </button>
-      <nav className="flex-1 flex flex-col gap-1 no-drag">
+      <nav className="flex-1 flex flex-col gap-1 no-drag w-full">
         {navItems.map((item) => {
           const active = isActive(item);
           return (
             <button
               key={item.id}
               onClick={() => handleClick(item)}
-              className={`relative w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-200 ease-out-expo group ${
+              className={`relative w-full py-2 rounded-lg flex flex-col items-center justify-center transition-colors duration-150 group ${
                 active
                   ? 'text-accent-hover'
-                  : 'text-dim hover:text-muted hover:bg-white/[0.03] active:scale-95'
+                  : 'text-dim hover:text-muted hover:bg-white/[0.04] active:scale-95'
               }`}
               title={item.label}
             >
               {active && (
-                <div className="absolute inset-0 rounded-xl bg-accent/15 shadow-[inset_0_0_0_1px_rgba(78,168,221,0.2)] animate-nav-activate" />
+                <div className="absolute inset-0 rounded-lg bg-accent/[0.10] border border-accent/[0.15] animate-nav-activate" />
               )}
-              <item.icon className={`relative w-5 h-5 transition-transform duration-200 ${active ? '' : 'group-hover:scale-110'}`} />
+              <item.icon className="relative w-[18px] h-[18px]" />
+              <span className={`relative text-[10px] font-medium mt-0.5 leading-none ${active ? 'text-accent-hover' : 'text-dim group-hover:text-muted'}`}>
+                {item.label}
+              </span>
             </button>
           );
         })}
@@ -103,25 +108,25 @@ export default function Sidebar({ pillarTab, onPillarTabChange }: SidebarProps) 
 
       {recordingState === 'recording' && showIndicator && (
         <div className="mt-auto no-drag">
-          <div className="w-3 h-3 rounded-full bg-red-500 recording-indicator" />
+          <div className="w-2.5 h-2.5 rounded-full bg-status-error recording-indicator" />
         </div>
       )}
 
       {/* Logo at Bottom */}
-      <div className="mt-auto no-drag pt-2">
+      <div className="mt-auto no-drag pt-3">
         <div
           ref={logoRef}
           onClick={() => setIsPopoverOpen(!isPopoverOpen)}
-          className="flex flex-col items-center gap-1 cursor-pointer hover:opacity-80 active:scale-95 transition-all duration-200"
+          className="flex flex-col items-center gap-0.5 cursor-pointer hover:opacity-80 active:scale-95 transition-opacity duration-150"
         >
-          <div className="w-24 h-24 -mb-8">
+          <div className="w-16 h-16 -mb-4">
             <img
               src={logoImage}
               alt="Treeto"
               className="w-full h-full object-contain"
             />
           </div>
-          <span className="text-[10px] font-medium tracking-[0.15em] uppercase text-dim">Treeto.</span>
+          <span className="text-[9px] font-semibold tracking-[0.15em] uppercase text-dim">Treeto</span>
         </div>
       </div>
 

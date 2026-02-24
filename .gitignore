@@ -35,3 +35,4 @@ npm-debug.log*
 resources/.env.production
 .env
 .env.*
+!.env.example

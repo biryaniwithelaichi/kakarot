@@ -8,8 +8,9 @@ import { initializeDatabase, closeDatabase } from './data/database';
 import { initializeContainer, getContainer } from './core/container';
 import { registerAllHandlers } from './handlers';
 import { registerSlackHandlers } from './handlers/SlackHandlers'; // ✅ This works if file is in handlers folder
-import { createLogger } from './core/logger';
+import { createLogger, initializeFileLogging } from './core/logger';
 import { initializeErrorHandler } from './core/errorHandler';
+import { checkForCrashRecovery, clearRecoveryState } from './services/RecoveryService';
 import { startPerformanceLogging, stopPerformanceLogging } from './utils/performance';
 import { showCalloutWindow } from './windows/calloutWindow';
 import { IPC_CHANNELS } from '@shared/ipcChannels';
@@ -111,8 +112,22 @@ async function createWindows() {
     }
   }
 
+  initializeFileLogging(app.getPath('userData'));
   await initializeDatabase();
   await initializeContainer();
+
+  // Check if a previous recording was interrupted by a crash
+  const crashState = checkForCrashRecovery();
+  if (crashState) {
+    logger.warn('Previous recording was interrupted', {
+      meetingId: crashState.meetingId,
+      title: crashState.title,
+    });
+    // The meeting data is already persisted in SQLite via saveDatabase() calls
+    // during recording. Clear the recovery marker -- the meeting is recoverable
+    // from the history view.
+    clearRecoveryState();
+  }
 
   mainWindow = createMainWindow();
   calloutWindow = createCalloutWindow();
