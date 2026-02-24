@@ -1,7 +1,6 @@
 import { createClient, LiveTranscriptionEvents, LiveClient } from '@deepgram/sdk';
 import { v4 as uuidv4 } from 'uuid';
 import { inspect } from 'util';
-import WebSocket from 'ws';
 import { BaseDualStreamProvider } from './BaseDualStreamProvider';
 import { createLogger } from '../../core/logger';
 
@@ -9,7 +8,7 @@ const logger = createLogger('Deepgram');
 
 // Log SDK version at load time
 try {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const pkg = require('@deepgram/sdk/package.json');
   logger.info('Deepgram SDK loaded', {
     version: pkg.version,
@@ -113,60 +112,6 @@ export class DeepgramProvider extends BaseDualStreamProvider {
     }
   }
 
-  /**
-   * Test direct WebSocket connection to verify token works
-   */
-  private async testDirectWebSocket(): Promise<void> {
-    logger.info('🧪 Testing direct WebSocket connection...');
-
-    return new Promise((resolve, reject) => {
-      const authHeader = this.useToken
-        ? `Bearer ${this.credential}`
-        : `Token ${this.credential}`;
-
-      const ws = new WebSocket(
-        'wss://api.deepgram.com/v1/listen?model=nova-2-general&language=en&encoding=linear16&sample_rate=16000',
-        {
-          headers: {
-            Authorization: authHeader,
-          },
-        }
-      );
-
-      const timeout = setTimeout(() => {
-        ws.close();
-        reject(new Error('Direct WebSocket test timeout after 5s'));
-      }, 5000);
-
-      ws.on('open', () => {
-        clearTimeout(timeout);
-        logger.info('✅ Direct WebSocket test successful - credentials valid');
-        ws.close();
-        resolve();
-      });
-
-      ws.on('error', (err: Error) => {
-        clearTimeout(timeout);
-        logger.error('❌ Direct WebSocket test failed', {
-          message: err.message,
-          code: (err as NodeJS.ErrnoException).code,
-        });
-        ws.close();
-        reject(err);
-      });
-
-      ws.on('unexpected-response', (_req: unknown, res: { statusCode?: number; statusMessage?: string }) => {
-        clearTimeout(timeout);
-        logger.error('❌ Direct WebSocket got unexpected response', {
-          statusCode: res.statusCode,
-          statusMessage: res.statusMessage,
-        });
-        ws.close();
-        reject(new Error(`WebSocket auth failed: ${res.statusCode} ${res.statusMessage}`));
-      });
-    });
-  }
-
   async connect(): Promise<void> {
     logger.info('Connecting to Deepgram WebSocket (low-latency streaming)', {
       authMethod: this.useToken ? 'JWT token (Bearer)' : 'API key (Token)',
@@ -175,14 +120,6 @@ export class DeepgramProvider extends BaseDualStreamProvider {
 
     // Validate credential before connecting
     this.validateAndLogConnectionDetails();
-
-    // Test direct WebSocket first to verify auth works
-    try {
-      await this.testDirectWebSocket();
-    } catch (error) {
-      logger.error('Direct WebSocket test failed - credentials may be invalid', { error });
-      throw error;
-    }
 
     // Create client with explicit auth configuration for JWT tokens
     const client = this.useToken

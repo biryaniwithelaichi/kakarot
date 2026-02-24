@@ -46,7 +46,7 @@ export const SlackIntegration = ({ showTitle = true }: SlackIntegrationProps) =>
   };
 
   return (
-    <div className="p-4 rounded-lg border border-[#2A2A2A] bg-[#161616]">
+    <div className="p-4 rounded-lg border border-edge bg-card">
       {showTitle && (
         <h3 className="text-lg font-medium text-white mb-3 flex items-center gap-2">
           <span className="text-2xl">💬</span> Slack Integration
@@ -62,12 +62,12 @@ export const SlackIntegration = ({ showTitle = true }: SlackIntegrationProps) =>
         </button>
       ) : (
         <div className="space-y-4">
-          <div className="text-sm text-[#F0EBE3] font-medium">✅ Connected</div>
+          <div className="text-sm text-cream font-medium">✅ Connected</div>
           
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-1">Select Channel</label>
             <select 
-              className="w-full p-2 border border-[#2A2A2A] rounded bg-[#1E1E1E] text-white"
+              className="w-full p-2 border border-edge rounded bg-input text-white"
               onChange={(e) => setSelectedChannel(e.target.value)}
               value={selectedChannel}
             >
@@ -85,8 +85,8 @@ export const SlackIntegration = ({ showTitle = true }: SlackIntegrationProps) =>
             disabled={!selectedChannel || isSending}
             className={`w-full py-2 px-4 rounded font-medium text-white transition-colors ${
               !selectedChannel || isSending 
-                ? 'bg-[#C17F3E] cursor-not-allowed' 
-                : 'bg-[#C17F3E] hover:bg-[#D4923F]'
+                ? 'bg-accent cursor-not-allowed' 
+                : 'bg-accent hover:bg-accent-hover'
             }`}
           >
             {isSending ? 'Sending...' : 'Send Test Note'}

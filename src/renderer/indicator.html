@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self' ws: wss:; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; worker-src 'self' blob:; connect-src 'self' ws: wss: http://localhost:*;" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' ws: wss:; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; worker-src 'self' blob:; connect-src 'self' ws: wss: http://localhost:*;" />
     <title>Live Meeting Indicator</title>
   </head>
   <body>
@@ -18,7 +18,7 @@
           <circle cx="10" cy="16" r="2" fill="rgba(255,255,255,0.3)"/>
         </svg>
       </div>
-      <img src="/assets/logo transparent cropped.png" class="logo" />
+      <img src="/assets/logo-transparent-cropped.png" class="logo" />
       <canvas id="waveform" width="100" height="40"></canvas>
     </div>
     <script type="module" src="/indicator.ts"></script>

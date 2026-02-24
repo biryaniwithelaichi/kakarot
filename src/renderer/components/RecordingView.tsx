@@ -4,15 +4,14 @@ import { useAudioCapture } from '../hooks/useAudioCapture';
 import ActiveRecordingView from './ActiveRecordingView';
 import ProcessingView from './ProcessingView';
 import CRMPromptModal from './CRMPromptModal';
-import ManualNotesView from './ManualNotesView';
-import MeetingContextPreview from './MeetingContextPreview';
 import type { CalendarEvent, AppSettings } from '@shared/types';
+import { toast } from '../stores/toastStore';
 
 interface RecordingViewProps {
   onSelectTab?: (tab: 'notes' | 'prep') => void;
 }
 
-export default function RecordingView({ onSelectTab }: RecordingViewProps) {
+export default function RecordingView({ onSelectTab: _onSelectTab }: RecordingViewProps) {
   const {
     recordingState,
     clearLiveTranscript,
@@ -25,14 +24,13 @@ export default function RecordingView({ onSelectTab }: RecordingViewProps) {
     navigate,
     currentMeetingId,
     setCurrentMeetingId,
-    setInitialPrepQuery,
   } = useAppStore();
 
   const { startCapture, stopCapture, pause: pauseCapture, resume: resumeCapture } = useAudioCapture();
 
   const [upcomingMeetingId, setUpcomingMeetingId] = React.useState<string | null>(null);
   type MeetingPhase = 'idle' | 'recording' | 'processing';
-  const [phase, setPhase] = React.useState<MeetingPhase>('idle');
+  const [phase, setPhase] = React.useState<MeetingPhase>(recordingState === 'recording' || recordingState === 'paused' ? 'recording' : 'idle');
   const [titleInput, setTitleInput] = React.useState('');
   const [notes, setNotes] = React.useState('');
   const [isSavingTitle, setIsSavingTitle] = React.useState(false);
@@ -44,6 +42,25 @@ export default function RecordingView({ onSelectTab }: RecordingViewProps) {
   const isIdle = recordingState === 'idle';
   const isRecording = recordingState === 'recording';
   const isPaused = recordingState === 'paused';
+
+  // Start audio capture if recording was initiated before mount (e.g., from HomeView)
+  const didStartCaptureRef = React.useRef(false);
+  React.useEffect(() => {
+    if (isRecording && !didStartCaptureRef.current) {
+      didStartCaptureRef.current = true;
+      setPhase('recording');
+      startCapture().catch(console.error);
+    }
+  }, [isRecording, startCapture]);
+
+  // Ensure title reflects calendar context when recording starts outside this view
+  React.useEffect(() => {
+    if (!recordingContext?.title) return;
+    setTitleInput((prev) => {
+      const trimmed = prev.trim();
+      return trimmed ? prev : recordingContext.title;
+    });
+  }, [recordingContext]);
 
   // Track previous recording state
   const prevRecordingStateRef = React.useRef<string>(recordingState);
@@ -86,7 +103,10 @@ export default function RecordingView({ onSelectTab }: RecordingViewProps) {
               return meetingId;
             });
         })
-        .catch((err) => console.error('[RecordingView] Failed initializing manual notes meeting:', err));
+        .catch((err) => {
+          console.error('[RecordingView] Failed initializing manual notes meeting:', err);
+          toast.error('Failed to initialize meeting notes');
+        });
     }
   }, [isIdle, recordingContext, calendarPreview, upcomingMeetingId]);
 
@@ -128,6 +148,7 @@ export default function RecordingView({ onSelectTab }: RecordingViewProps) {
         .catch((err) => {
           console.error('[RecordingView] Failed to load meeting after notes completion:', err);
           setRecordingContext(null);
+          toast.error('Failed to load completed meeting');
         });
 
       // Check CRM settings
@@ -140,7 +161,10 @@ export default function RecordingView({ onSelectTab }: RecordingViewProps) {
             );
             if (connectedProvider) {
               if (s.crmNotesBehavior === 'always') {
-                window.kakarot.crm.pushNotes(data.meetingId).catch(console.error);
+                window.kakarot.crm.pushNotes(data.meetingId).catch((err) => {
+                  console.error('[RecordingView] CRM push failed:', err);
+                  toast.error('Failed to push notes to CRM');
+                });
               } else if (s.crmNotesBehavior === 'ask') {
                 setPendingCRMMeetingId(data.meetingId);
                 setCRMProvider(connectedProvider);
@@ -211,11 +235,16 @@ export default function RecordingView({ onSelectTab }: RecordingViewProps) {
 
       const meetingId = await window.kakarot.recording.start(calendarContextData);
       setCurrentMeetingId(meetingId);
-      await startCapture();
+      startCapture().catch((error) => {
+        console.error('[RecordingView] Error starting mic capture:', error);
+        toast.error('Failed to start microphone capture');
+      });
       setCalendarPreview(null);
       navigate('recording', { replace: true });
     } catch (error) {
       console.error('[RecordingView] Error starting recording:', error);
+      setPhase('idle');
+      toast.error('Failed to start recording');
     }
   };
 
@@ -243,6 +272,7 @@ export default function RecordingView({ onSelectTab }: RecordingViewProps) {
         await window.kakarot.calendar.linkNotes(recordingContext.id, meeting.id, provider);
       } catch (err) {
         console.error('Failed to link notes to calendar event:', err);
+        toast.error('Failed to link notes to calendar event');
       }
     }
   };
@@ -270,53 +300,12 @@ export default function RecordingView({ onSelectTab }: RecordingViewProps) {
     }
   };
 
-  const handlePrepMeeting = async (meeting: CalendarEvent) => {
-    const settings = await window.kakarot.settings.get() as AppSettings;
-    const userEmail = settings.userProfile?.email?.toLowerCase();
-    const attendeeNamesList = meeting.attendees
-      ?.filter(a => {
-        const email = (typeof a === 'string' ? a : a.email || '').toLowerCase();
-        return email && email !== userEmail;
-      })
-      .map(a => typeof a === 'string' ? a : a.name || a.email)
-      .filter(Boolean) ?? [];
-
-    if (attendeeNamesList.length > 0) {
-      setInitialPrepQuery(`I have a meeting with ${attendeeNamesList.join(', ')}, help me prep.`);
-    } else {
-      setInitialPrepQuery(null);
-    }
-    onSelectTab?.('prep');
-  };
-
   // --- Render ---
 
   // Manual notes view for upcoming meetings (no recording)
   if (isIdle && calendarPreview && !recordingContext) {
-    return (
-      <>
-        <ManualNotesView
-          meetingId={upcomingMeetingId || undefined}
-          onSelectTab={onSelectTab}
-          onSaveNotes={() => {
-            setRecordingContext(null);
-            navigate('home', { replace: true });
-          }}
-          onStartRecording={() => {
-            const calEvent = calendarPreview;
-            if (calEvent) handleStartRecording(calEvent);
-          }}
-        />
-        {calendarPreview && isIdle && (
-          <MeetingContextPreview
-            meeting={calendarPreview}
-            onDismiss={() => setCalendarPreview(null)}
-            onPrep={handlePrepMeeting}
-            onTranscribeNow={(m) => handleStartRecording(m)}
-          />
-        )}
-      </>
-    );
+    navigate('home', { replace: true });
+    return null;
   }
 
   // Active recording

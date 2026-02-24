@@ -65,6 +65,9 @@ interface AppState {
   // Settings (always initialized with defaults)
   settings: AppSettings;
 
+  // People selection
+  selectedPersonEmail: string | null;
+
   // Navigation
   view: AppView;
   navStack: NavEntry[];
@@ -92,6 +95,7 @@ interface AppState {
   setSettings: (settings: AppSettings) => void;
   setCurrentMeetingId: (id: string | null) => void;
   setInitialPrepQuery: (query: string | null) => void;
+  setSelectedPersonEmail: (email: string | null) => void;
   // Dashboard data actions
   setLiveCalendarEvents: (events: CalendarEvent[]) => void;
   setUpcomingCalendarEvents: (events: CalendarEvent[]) => void;
@@ -134,6 +138,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   dashboardDataLoaded: false,
   lastCompletedNoteId: null,
   settings: DEFAULT_SETTINGS,
+  selectedPersonEmail: null,
   view: 'home',
   navStack: initialNavStack,
   initialPrepQuery: null,
@@ -225,6 +230,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   setCurrentMeetingId: (currentMeetingId) => set({ currentMeetingId }),
 
   setInitialPrepQuery: (initialPrepQuery) => set({ initialPrepQuery }),
+
+  setSelectedPersonEmail: (selectedPersonEmail) => set({ selectedPersonEmail }),
 
   // Dashboard data actions
   setLiveCalendarEvents: (liveCalendarEvents) => set({ liveCalendarEvents }),

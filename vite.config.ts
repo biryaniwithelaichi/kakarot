@@ -63,6 +63,10 @@ export default defineConfig({
   resolve: {
     alias: sharedAlias,
   },
+  server: {
+    port: 5173,
+    strictPort: true,
+  },
   root: resolve(__dirname, 'src/renderer'),
   build: {
     outDir: resolve(__dirname, 'dist/renderer'),

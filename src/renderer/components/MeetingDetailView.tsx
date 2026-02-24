@@ -116,6 +116,7 @@ export default function MeetingDetailView({ meeting, isNewlyCompleted, liveTrans
       setSelectedMeeting({ ...meeting, title: nextTitle });
     } catch (err) {
       console.error('Failed to update meeting title', err);
+      toast.error('Failed to save title');
     } finally {
       setIsSavingTitle(false);
       setIsEditingTitle(false);
@@ -133,6 +134,7 @@ export default function MeetingDetailView({ meeting, isNewlyCompleted, liveTrans
       if (updatedMeeting) setSelectedMeeting(updatedMeeting);
     } catch (error) {
       console.error('Failed to save manual notes:', error);
+      toast.error('Failed to save notes');
     } finally {
       setIsNoteSaving(false);
     }
@@ -156,6 +158,7 @@ export default function MeetingDetailView({ meeting, isNewlyCompleted, liveTrans
       setSelectedContacts(new Set(meeting.attendeeEmails || []));
     } catch (error) {
       console.error('Failed to load contacts:', error);
+      toast.error('Failed to load contacts');
     } finally {
       setIsLoadingContacts(false);
     }
@@ -183,8 +186,8 @@ export default function MeetingDetailView({ meeting, isNewlyCompleted, liveTrans
   return (
     <div className="flex-1 flex flex-col min-h-0">
       {/* Header */}
-      <div className={`flex-shrink-0 ${isNewlyCompleted ? '' : 'p-6 border-b border-[#2A2A2A] bg-[#161616]'}`}>
-        <div className="flex items-start justify-between gap-4 min-w-0">
+      <div className="flex-shrink-0 p-6 border-b border-edge bg-card">
+        <div className={`flex items-start justify-between gap-4 min-w-0 ${isNewlyCompleted ? 'mx-auto w-full max-w-3xl' : ''}`}>
           <div className="flex-1 space-y-3 min-w-0">
             {isNewlyCompleted ? (
               <div className="flex items-center gap-3 min-w-0" ref={titleContainerRef}>
@@ -195,10 +198,10 @@ export default function MeetingDetailView({ meeting, isNewlyCompleted, liveTrans
                   onBlur={handleTitleSave}
                   onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
                   style={{ fontSize: `${titleFontSize}px` }}
-                  className="flex-1 min-w-0 w-full font-bold text-white leading-tight bg-transparent border-b border-transparent focus:border-[#F0EBE3] focus:outline-none"
+                  className="flex-1 min-w-0 w-full font-bold text-white leading-tight bg-transparent border-b border-transparent focus:border-cream focus:outline-none"
                   placeholder="Untitled Meeting"
                 />
-                {isSavingTitle && <Loader2 className="w-5 h-5 animate-spin text-[#F0EBE3]" />}
+                {isSavingTitle && <Loader2 className="w-5 h-5 animate-spin text-cream" />}
               </div>
             ) : isEditingTitle ? (
               <input
@@ -210,7 +213,7 @@ export default function MeetingDetailView({ meeting, isNewlyCompleted, liveTrans
                   if (e.key === 'Escape') { setIsEditingTitle(false); setTitleDraft(meeting.title); }
                 }}
                 autoFocus
-                className="w-full bg-transparent border-b border-[#2A2A2A] focus:border-[#D4923F] focus:outline-none text-xl font-semibold text-white break-words"
+                className="w-full bg-transparent border-b border-edge focus:border-accent-hover focus:outline-none text-xl font-semibold text-white break-words"
               />
             ) : (
               <button
@@ -223,7 +226,7 @@ export default function MeetingDetailView({ meeting, isNewlyCompleted, liveTrans
             )}
 
             <div className="flex gap-3 items-stretch flex-wrap min-w-0 max-w-full">
-              <div className="flex flex-none items-center gap-2 rounded-lg border border-[#2A2A2A] bg-[#161616] px-3 py-1.5">
+              <div className="flex flex-none items-center gap-2 rounded-lg border border-edge bg-card px-3 py-1.5">
                 <CalendarIcon className="w-4 h-4 text-slate-400" />
                 <div className="text-sm text-slate-200">{formatMeetingDate(displayDate)}</div>
               </div>
@@ -236,7 +239,7 @@ export default function MeetingDetailView({ meeting, isNewlyCompleted, liveTrans
                 ) : (
                   <button
                     onClick={() => { setShowAttendeeModal(true); setShowAddAttendeesPopover(true); loadContactsForPopover(); }}
-                    className="flex flex-none items-center gap-2 rounded-lg border border-[#2A2A2A] bg-[#161616] px-3 py-1.5 hover:bg-[#1E1E1E] transition-colors cursor-pointer"
+                    className="flex flex-none items-center gap-2 rounded-lg border border-edge bg-card px-3 py-1.5 hover:bg-input transition-colors cursor-pointer"
                   >
                     <Users className="w-4 h-4 text-slate-400" />
                     <div className="text-sm text-slate-200">
@@ -247,7 +250,7 @@ export default function MeetingDetailView({ meeting, isNewlyCompleted, liveTrans
               ) : (
                 <button
                   onClick={() => { setShowAttendeeModal(true); setShowAddAttendeesPopover(true); loadContactsForPopover(); }}
-                  className="flex flex-none items-center gap-2 rounded-lg border border-[#2A2A2A] bg-[#161616] hover:bg-[#1E1E1E] text-slate-100 px-3 py-1.5 text-sm transition-colors"
+                  className="flex flex-none items-center gap-2 rounded-lg border border-edge bg-card hover:bg-input text-slate-100 px-3 py-1.5 text-sm transition-colors"
                 >
                   <Plus className="w-4 h-4" />
                   Add Attendees
@@ -257,7 +260,7 @@ export default function MeetingDetailView({ meeting, isNewlyCompleted, liveTrans
               {!showManualNotesInput && !manualNotes.trim() && !meeting.notesMarkdown && (
                 <button
                   onClick={() => setShowManualNotesInput(true)}
-                  className="flex flex-none items-center gap-2 rounded-lg border border-[#2A2A2A] bg-[#161616] hover:bg-[#1E1E1E] text-slate-100 px-3 py-1.5 text-sm transition-colors"
+                  className="flex flex-none items-center gap-2 rounded-lg border border-edge bg-card hover:bg-input text-slate-100 px-3 py-1.5 text-sm transition-colors"
                 >
                   <Plus className="w-4 h-4" />
                   Add Notes
@@ -275,99 +278,101 @@ export default function MeetingDetailView({ meeting, isNewlyCompleted, liveTrans
       </div>
 
       {/* Content */}
-      <div className={`flex-1 overflow-y-auto ${isNewlyCompleted ? 'pb-32' : 'p-6'} space-y-6 bg-[#0C0C0C] animate-view-enter`}>
-        {/* Overview */}
-        {meeting.overview && (
-          <div className="bg-[#161616] rounded-xl p-4 border border-[#2A2A2A]">
-            {!isNewlyCompleted && <h2 className="text-sm font-medium text-slate-200 mb-2">Overview</h2>}
-            <p className={`${isNewlyCompleted ? 'text-base' : 'text-sm'} leading-relaxed text-slate-100`}>{meeting.overview}</p>
-          </div>
-        )}
+      <div className="flex-1 overflow-y-auto bg-surface animate-view-enter">
+        <div className={`${isNewlyCompleted ? 'mx-auto w-full max-w-3xl px-6 pb-32 pt-4' : 'p-6'} space-y-6`}>
+          {/* Overview */}
+          {meeting.overview && (
+            <div className="bg-card rounded-xl p-4 border border-edge">
+              {!isNewlyCompleted && <h2 className="text-sm font-medium text-slate-200 mb-2">Overview</h2>}
+              <p className={`${isNewlyCompleted ? 'text-base' : 'text-sm'} leading-relaxed text-slate-100`}>{meeting.overview}</p>
+            </div>
+          )}
 
-        {/* Structured notes or markdown notes */}
-        {meeting.notes && typeof meeting.notes === 'object' &&
-         (meeting.notes as GeneratedStructuredNotes).topics?.length > 0 ? (
-          <div className="bg-[#161616] rounded-xl p-4 border border-[#2A2A2A] relative overflow-visible">
-            {!isNewlyCompleted && <h2 className="text-sm font-medium text-slate-200 mb-3">Notes</h2>}
-            <StructuredNotesView
-              notes={meeting.notes as GeneratedStructuredNotes}
-              meetingId={meeting.id}
-            />
-          </div>
-        ) : meeting.notesMarkdown ? (
-          <div className="bg-[#161616] rounded-xl p-4 border border-[#2A2A2A] relative overflow-visible">
-            {!isNewlyCompleted && <h2 className="text-sm font-medium text-slate-200 mb-3">Generated Notes</h2>}
-            <div className="text-lg text-slate-100">
-              <NotesWithDeepDive
-                notesMarkdown={meeting.notesMarkdown}
+          {/* Structured notes or markdown notes */}
+          {meeting.notes && typeof meeting.notes === 'object' &&
+           (meeting.notes as GeneratedStructuredNotes).topics?.length > 0 ? (
+            <div className="bg-card rounded-xl p-4 border border-edge relative overflow-visible">
+              {!isNewlyCompleted && <h2 className="text-sm font-medium text-slate-200 mb-3">Notes</h2>}
+              <StructuredNotesView
+                notes={meeting.notes as GeneratedStructuredNotes}
                 meetingId={meeting.id}
               />
             </div>
-          </div>
-        ) : null}
-
-        {/* Legacy Summary */}
-        {meeting.summary && !meeting.notesMarkdown && (
-          <div className="bg-[#161616] rounded-xl p-4 border border-[#2A2A2A]">
-            <h2 className="text-sm font-medium text-slate-200 mb-2">Summary</h2>
-            <p className="text-sm text-slate-100 whitespace-pre-wrap">{meeting.summary}</p>
-          </div>
-        )}
-
-        {/* Manual Notes */}
-        {(showManualNotesInput || manualNotes.trim()) && (
-          <div className="bg-[#161616] rounded-xl p-4 border border-[#2A2A2A]">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-medium text-slate-200">My Notes</h2>
-              <div className="flex items-center gap-2 text-xs">
-                {isNoteSaving && <span className="text-amber-400">Saving...</span>}
-                {!isNoteSaving && noteLastSaved && (
-                  <span className="text-emerald-400">
-                    Saved {noteLastSaved.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </span>
-                )}
+          ) : meeting.notesMarkdown ? (
+            <div className="bg-card rounded-xl p-4 border border-edge relative overflow-visible">
+              {!isNewlyCompleted && <h2 className="text-sm font-medium text-slate-200 mb-3">Generated Notes</h2>}
+              <div className="text-lg text-slate-100">
+                <NotesWithDeepDive
+                  notesMarkdown={meeting.notesMarkdown}
+                  meetingId={meeting.id}
+                />
               </div>
             </div>
-            <textarea
-              value={manualNotes}
-              onChange={(e) => setManualNotes(e.target.value)}
-              placeholder="Write your notes here..."
-              className="w-full min-h-[120px] bg-[#1E1E1E] border border-[#2A2A2A] text-slate-100 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-[#C17F3E]/30 focus:border-[#C17F3E]/20 placeholder:text-slate-500 resize-y"
-            />
-          </div>
-        )}
+          ) : null}
 
-        {/* Transcript */}
-        {transcript.length > 0 && (
-          <div className={isNewlyCompleted ? 'border-t border-[#2A2A2A] pt-6' : ''}>
-            <h2 className="text-sm font-medium text-slate-200 mb-3">Transcript</h2>
-            <div className="space-y-3">
-              {transcript.map((segment) => (
-                <div key={segment.id} className={`flex ${segment.source === 'mic' ? 'justify-end' : 'justify-start'}`}>
-                  <div
-                    className={`max-w-[80%] rounded-2xl px-4 py-3 group ${
-                      segment.source === 'mic'
-                        ? 'bg-[#C17F3E]/15 text-[#F0EBE3] border border-[#C17F3E]/10'
-                        : 'bg-[#1E1E1E] text-[#9C9690] border border-[#2A2A2A]'
-                    }`}
-                  >
-                    {!isNewlyCompleted && (
-                      <div className="text-xs opacity-80 mb-1">
-                        {getSpeakerLabel(segment.source)} - {formatTimestamp(segment.timestamp)}
-                      </div>
-                    )}
-                    <div className="flex items-start">
-                      <p className="text-sm leading-relaxed flex-1">{segment.text}</p>
+          {/* Legacy Summary */}
+          {meeting.summary && !meeting.notesMarkdown && (
+            <div className="bg-card rounded-xl p-4 border border-edge">
+              <h2 className="text-sm font-medium text-slate-200 mb-2">Summary</h2>
+              <p className="text-sm text-slate-100 whitespace-pre-wrap">{meeting.summary}</p>
+            </div>
+          )}
+
+          {/* Manual Notes */}
+          {(showManualNotesInput || manualNotes.trim()) && (
+            <div className="bg-card rounded-xl p-4 border border-edge">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-sm font-medium text-slate-200">My Notes</h2>
+                <div className="flex items-center gap-2 text-xs">
+                  {isNoteSaving && <span className="text-amber-400">Saving...</span>}
+                  {!isNoteSaving && noteLastSaved && (
+                    <span className="text-emerald-400">
+                      Saved {noteLastSaved.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <textarea
+                value={manualNotes}
+                onChange={(e) => setManualNotes(e.target.value)}
+                placeholder="Write your notes here..."
+                className="w-full min-h-[120px] bg-input border border-edge text-slate-100 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-accent/30 focus:border-accent/20 placeholder:text-slate-500 resize-y"
+              />
+            </div>
+          )}
+
+          {/* Transcript */}
+          {transcript.length > 0 && (
+            <div className={isNewlyCompleted ? 'border-t border-edge pt-6' : ''}>
+              <h2 className="text-sm font-medium text-slate-200 mb-3">Transcript</h2>
+              <div className="space-y-3">
+                {transcript.map((segment) => (
+                  <div key={segment.id} className={`flex ${segment.source === 'mic' ? 'justify-end' : 'justify-start'}`}>
+                    <div
+                      className={`max-w-[80%] rounded-2xl px-4 py-3 group ${
+                        segment.source === 'mic'
+                          ? 'bg-accent/15 text-cream border border-accent/10'
+                          : 'bg-input text-muted border border-edge'
+                      }`}
+                    >
                       {!isNewlyCompleted && (
-                        <TranscriptDeepDive segment={segment} meetingId={meeting.id} />
+                        <div className="text-xs opacity-80 mb-1">
+                          {getSpeakerLabel(segment.source)} - {formatTimestamp(segment.timestamp)}
+                        </div>
                       )}
+                      <div className="flex items-start">
+                        <p className="text-sm leading-relaxed flex-1">{segment.text}</p>
+                        {!isNewlyCompleted && (
+                          <TranscriptDeepDive segment={segment} meetingId={meeting.id} />
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* Ask Notes Bar */}
@@ -376,7 +381,7 @@ export default function MeetingDetailView({ meeting, isNewlyCompleted, liveTrans
       {/* AI Response Panel */}
       {aiResponse && (
         <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-19 max-w-2xl w-full max-h-[300px] overflow-y-auto pointer-events-auto">
-          <div className="mx-4 p-4 bg-[#1E1E1E] rounded-xl border border-[#2A2A2A] shadow-soft-card">
+          <div className="mx-4 p-4 bg-input rounded-xl border border-edge shadow-soft-card">
             <div className="flex items-start justify-between gap-2">
               <p className="flex-1 text-sm text-slate-200 whitespace-pre-wrap">{aiResponse}</p>
               <button onClick={() => setAiResponse('')} className="flex-shrink-0 text-slate-500 hover:text-slate-400">
@@ -393,7 +398,7 @@ export default function MeetingDetailView({ meeting, isNewlyCompleted, liveTrans
           className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 animate-backdrop-in"
           onClick={() => { setShowAttendeeModal(false); setShowAddAttendeesPopover(false); }}
         >
-          <div className="bg-[#161616] rounded-xl border border-[#2A2A2A] p-6 max-w-md w-full mx-4 shadow-xl animate-modal-in" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-card rounded-xl border border-edge p-6 max-w-md w-full mx-4 shadow-xl animate-modal-in" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-white">Attendees</h3>
               <button onClick={() => { setShowAttendeeModal(false); setShowAddAttendeesPopover(false); }} className="text-slate-400 hover:text-white transition-colors">
@@ -403,8 +408,8 @@ export default function MeetingDetailView({ meeting, isNewlyCompleted, liveTrans
             <div className="space-y-2 max-h-96 overflow-y-auto">
               {meeting.attendeeEmails && meeting.attendeeEmails.length > 0 ? (
                 meeting.attendeeEmails.map((email, idx) => (
-                  <div key={idx} className="flex items-center gap-3 p-3 rounded-lg bg-[#1E1E1E] border border-[#2A2A2A]">
-                    <div className="w-8 h-8 rounded-full bg-[#C17F3E] flex items-center justify-center text-white text-sm font-medium">
+                  <div key={idx} className="flex items-center gap-3 p-3 rounded-lg bg-input border border-edge">
+                    <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center text-white text-sm font-medium">
                       {email.charAt(0).toUpperCase()}
                     </div>
                     <p className="text-sm text-white truncate flex-1">{email}</p>
@@ -415,11 +420,11 @@ export default function MeetingDetailView({ meeting, isNewlyCompleted, liveTrans
               )}
             </div>
 
-            <div className="mt-4 pt-4 border-t border-[#2A2A2A]">
+            <div className="mt-4 pt-4 border-t border-edge">
               {!showAddAttendeesPopover ? (
                 <button
                   onClick={() => { setShowAddAttendeesPopover(true); loadContactsForPopover(); }}
-                  className="w-full flex items-center justify-center gap-2 rounded-lg border border-[#2A2A2A] bg-[#1E1E1E] hover:bg-[#2A2A2A] text-slate-100 px-3 py-2 text-sm transition-colors"
+                  className="w-full flex items-center justify-center gap-2 rounded-lg border border-edge bg-input hover:bg-edge text-slate-100 px-3 py-2 text-sm transition-colors"
                 >
                   <Plus className="w-4 h-4" />
                   Add Attendees
@@ -437,7 +442,7 @@ export default function MeetingDetailView({ meeting, isNewlyCompleted, liveTrans
                     placeholder="Search contacts..."
                     value={contactSearchQuery}
                     onChange={(e) => setContactSearchQuery(e.target.value)}
-                    className="w-full px-3 py-2 bg-[#1E1E1E] border border-[#2A2A2A] rounded-lg text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-[#C17F3E]/50"
+                    className="w-full px-3 py-2 bg-input border border-edge rounded-lg text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-accent/50"
                   />
                   <div className="space-y-2 max-h-48 overflow-y-auto">
                     {isLoadingContacts ? (
@@ -456,10 +461,10 @@ export default function MeetingDetailView({ meeting, isNewlyCompleted, liveTrans
                               if (next.has(person.email)) { next.delete(person.email); } else { next.add(person.email); }
                               setSelectedContacts(next);
                             }}
-                            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg bg-[#1E1E1E] hover:bg-[#2A2A2A] transition-colors text-left"
+                            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg bg-input hover:bg-edge transition-colors text-left"
                           >
                             <div className={`w-4 h-4 rounded border flex items-center justify-center ${
-                              selectedContacts.has(person.email) ? 'bg-[#C17F3E] border-[#C17F3E]' : 'border-slate-500'
+                              selectedContacts.has(person.email) ? 'bg-accent border-accent' : 'border-slate-500'
                             }`}>
                               {selectedContacts.has(person.email) && <Check className="w-3 h-3 text-white" />}
                             </div>
@@ -472,10 +477,10 @@ export default function MeetingDetailView({ meeting, isNewlyCompleted, liveTrans
                     )}
                   </div>
                   <div className="flex gap-2 pt-2">
-                    <button onClick={() => setShowAddAttendeesPopover(false)} className="flex-1 px-3 py-2 rounded-lg bg-[#1E1E1E] hover:bg-[#2A2A2A] text-white text-sm transition-colors">
+                    <button onClick={() => setShowAddAttendeesPopover(false)} className="flex-1 px-3 py-2 rounded-lg bg-input hover:bg-edge text-white text-sm transition-colors">
                       Cancel
                     </button>
-                    <button onClick={handleAddAttendees} className="flex-1 px-3 py-2 rounded-lg bg-[#C17F3E] hover:bg-[#D4923F] text-white text-sm font-medium transition-colors">
+                    <button onClick={handleAddAttendees} className="flex-1 px-3 py-2 rounded-lg bg-accent hover:bg-accent-hover text-white text-sm font-medium transition-colors">
                       Update
                     </button>
                   </div>

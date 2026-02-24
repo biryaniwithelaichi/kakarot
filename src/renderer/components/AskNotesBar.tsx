@@ -41,7 +41,7 @@ export default function AskNotesBar({ meeting, onResponse }: AskNotesBarProps) {
     <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-20 pointer-events-auto">
       <form
         onSubmit={handleSubmit}
-        className="px-4 py-2.5 rounded-full border border-white/30 dark:border-white/10 bg-white/70 dark:bg-[#0C0C0C]/70 backdrop-blur-md shadow-soft-card flex items-center gap-2 min-w-[320px]"
+        className="px-4 py-2.5 rounded-full border border-white/30 dark:border-white/10 bg-white/70 dark:bg-surface/70 backdrop-blur-md shadow-soft-card flex items-center gap-2 min-w-[320px]"
       >
         <input
           type="text"

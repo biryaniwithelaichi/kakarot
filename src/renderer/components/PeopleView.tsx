@@ -1,14 +1,103 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useLayoutEffect, useMemo, useRef } from 'react';
 import { Search, Mail, Building2, Calendar, Clock, FileText, Edit2, X, Check, RefreshCw, MessageSquare } from 'lucide-react';
 import type { Person, Meeting, GeneratedStructuredNotes } from '@shared/types';
 import { formatDuration, getAvatarColor, getInitials, formatLastMeeting } from '../lib/formatters';
 import { PersonListSkeleton } from './Skeleton';
+import { toast } from '../stores/toastStore';
 import { useAppStore } from '../stores/appStore';
 import { NotesWithDeepDive } from './NotesWithDeepDive';
 import { StructuredNotesView } from './StructuredNotesView';
+import { FixedSizeList as List, type ListChildComponentProps } from 'react-window';
+import { useShallow } from 'zustand/shallow';
+
+const CONTACT_ROW_HEIGHT = 96;
+
+const useElementSize = (): [React.RefObject<HTMLDivElement>, { width: number; height: number }] => {
+  const ref = useRef<HTMLDivElement>(null);
+  const [size, setSize] = useState({ width: 0, height: 0 });
+
+  useLayoutEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (!entry) return;
+      const { width, height } = entry.contentRect;
+      setSize((prev) => (prev.width === width && prev.height === height ? prev : { width, height }));
+    });
+
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+
+  return [ref, size];
+};
+
+type PeopleRowData = {
+  rows: Array<{
+    email: string;
+    name: string | null;
+    organization: string | null;
+    meetingCount: number;
+    durationLabel: string;
+    avatarColor: string;
+    initials: string;
+  }>;
+  selectedEmail: string | null;
+  onSelect: (email: string) => void;
+};
+
+
+const PeopleRow = React.memo(({ index, style, data }: ListChildComponentProps<PeopleRowData>) => {
+  const person = data.rows[index];
+  const isSelected = data.selectedEmail === person.email;
+  return (
+    <div
+      style={style}
+      onClick={() => data.onSelect(person.email)}
+      className={`p-4 border-b border-edge cursor-pointer transition-colors ${
+        isSelected ? 'bg-edge border-l-2 border-l-accent-hover' : 'hover:bg-input'
+      }`}
+    >
+      <div className="flex items-center gap-3">
+        <div className={`w-10 h-10 rounded-full ${person.avatarColor} flex items-center justify-center text-white font-medium text-sm flex-shrink-0`}>
+          {person.initials}
+        </div>
+        <div className="flex-1 min-w-0">
+          <h3 className="text-sm font-medium text-slate-100 truncate">
+            {person.name || person.email}
+          </h3>
+          {person.name && (
+            <p className="text-xs text-slate-500 truncate">{person.email}</p>
+          )}
+          {person.organization && (
+            <p className="text-xs text-slate-400 truncate mt-0.5">{person.organization}</p>
+          )}
+        </div>
+      </div>
+      <div className="flex items-center gap-4 mt-2 text-xs text-slate-500">
+        <span className="flex items-center gap-1">
+          <Calendar className="w-3 h-3" />
+          {person.meetingCount} {person.meetingCount === 1 ? 'meeting' : 'meetings'}
+        </span>
+        <span className="flex items-center gap-1">
+          <Clock className="w-3 h-3" />
+          {person.durationLabel}
+        </span>
+      </div>
+    </div>
+  );
+});
+
 
 export default function PeopleView() {
-  const { setSelectedMeeting, navigate } = useAppStore();
+  const { setSelectedMeeting, navigate, selectedPersonEmail, setSelectedPersonEmail } = useAppStore(useShallow((state) => ({
+    setSelectedMeeting: state.setSelectedMeeting,
+    navigate: state.navigate,
+    selectedPersonEmail: state.selectedPersonEmail,
+    setSelectedPersonEmail: state.setSelectedPersonEmail,
+  })));
   const [people, setPeople] = useState<Person[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
@@ -20,6 +109,7 @@ export default function PeopleView() {
   const [isLoadingMeetings, setIsLoadingMeetings] = useState(false);
   const [showNotesPopup, setShowNotesPopup] = useState(false);
   const [selectedMeetingForModal, setSelectedMeetingForModal] = useState<Meeting | null>(null);
+  const [listRef, listSize] = useElementSize();
 
   const loadPeople = useCallback(async () => {
     setIsLoading(true);
@@ -44,6 +134,7 @@ export default function PeopleView() {
       await loadPeople(); // Refresh the list after sync
     } catch (error) {
       console.error('Failed to sync contacts from calendar:', error);
+      toast.error('Failed to sync contacts');
     } finally {
       setIsSyncing(false);
     }
@@ -72,6 +163,37 @@ export default function PeopleView() {
     }
   }, []);
 
+  useEffect(() => {
+    if (!selectedPersonEmail) return;
+    const email = selectedPersonEmail.toLowerCase();
+    (async () => {
+      try {
+        const person = await window.kakarot.people.get(email);
+        if (person) {
+          setSelectedPerson(person);
+          setEditingField(null);
+          loadContactMeetings(person.email);
+          return;
+        }
+        const results = await window.kakarot.people.search(email);
+        setPeople(results);
+        if (results.length > 0) {
+          setSelectedPerson(results[0]);
+          setEditingField(null);
+          loadContactMeetings(results[0].email);
+        } else {
+          setSelectedPerson(null);
+        }
+        setSearchQuery(email);
+      } catch (error) {
+        console.error('Failed to open contact:', error);
+      toast.error('Failed to load contact');
+      } finally {
+        setSelectedPersonEmail(null);
+      }
+    })();
+  }, [selectedPersonEmail, loadContactMeetings, setSelectedPersonEmail]);
+
   const handleSearch = async () => {
     if (searchQuery.trim()) {
       const results = await window.kakarot.people.search(searchQuery);
@@ -81,11 +203,18 @@ export default function PeopleView() {
     }
   };
 
-  const handleSelectPerson = (person: Person) => {
+  const handleSelectPerson = useCallback((person: Person) => {
     setSelectedPerson(person);
     setEditingField(null);
     loadContactMeetings(person.email);
-  };
+  }, [loadContactMeetings]);
+
+  const handleSelectPersonEmail = useCallback((email: string) => {
+    const person = people.find((p) => p.email === email);
+    if (person) {
+      handleSelectPerson(person);
+    }
+  }, [people, handleSelectPerson]);
 
   const handleMeetingClick = (meeting: Meeting) => {
     // Switch to history view and select the meeting
@@ -139,6 +268,7 @@ export default function PeopleView() {
       setEditValue('');
     } catch (error) {
       console.error('Failed to update person:', error);
+      toast.error('Failed to save changes');
     }
   };
 
@@ -147,24 +277,37 @@ export default function PeopleView() {
     setEditValue('');
   };
 
-  const getPersonInitials = (person: Person): string => {
-    return getInitials(person.email, person.name);
-  };
+  const peopleRows = useMemo(() => people.map((person) => ({
+    email: person.email,
+    name: person.name || null,
+    organization: person.organization || null,
+    meetingCount: person.meetingCount,
+    durationLabel: formatDuration(person.totalDuration),
+    avatarColor: getAvatarColor(person.email),
+    initials: getInitials(person.email, person.name),
+  })), [people]);
+
+  const peopleItemData = useMemo(() => ({
+    rows: peopleRows,
+    selectedEmail: selectedPerson?.email ?? null,
+    onSelect: handleSelectPersonEmail,
+  }), [peopleRows, selectedPerson?.email, handleSelectPersonEmail]);
+
 
   return (
     <React.Fragment>
-      <div className="h-full flex bg-[#0C0C0C] text-slate-100 rounded-2xl border border-[#2A2A2A] shadow-[0_8px_30px_rgba(0,0,0,0.35)] overflow-hidden">
+      <div className="h-full flex bg-surface text-slate-100 rounded-2xl border border-edge shadow-[0_8px_30px_rgba(0,0,0,0.35)] overflow-hidden">
         {/* People list sidebar */}
-        <div className="w-64 lg:w-80 border-r border-[#2A2A2A] flex flex-col bg-[#161616] flex-shrink-0 overflow-hidden">
+        <div className="w-64 lg:w-80 border-r border-edge flex flex-col bg-card flex-shrink-0 overflow-hidden">
           {/* Search */}
-          <div className="p-4 border-b border-[#2A2A2A] flex-shrink-0">
+          <div className="p-4 border-b border-edge flex-shrink-0">
           <div className="mb-3">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold text-white">Contacts</h2>
               <button
                 onClick={syncFromCalendar}
                 disabled={isSyncing}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-slate-400 hover:text-slate-200 hover:bg-[#2A2A2A] rounded-lg transition-colors disabled:opacity-50"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-slate-400 hover:text-slate-200 hover:bg-edge rounded-lg transition-colors disabled:opacity-50"
                 title="Sync contacts from calendar events"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
@@ -182,14 +325,14 @@ export default function PeopleView() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-              className="w-full bg-[#1E1E1E] border border-[#2A2A2A] text-slate-100 rounded-lg px-4 py-2.5 pl-10 text-sm focus:outline-none focus:ring-1 focus:ring-[#C17F3E]/30 focus:border-[#C17F3E]/20 placeholder:text-slate-500"
+              className="w-full bg-input border border-edge text-slate-100 rounded-lg px-4 py-2.5 pl-10 text-sm focus:outline-none focus:ring-1 focus:ring-accent/30 focus:border-accent/20 placeholder:text-slate-500"
             />
             <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-500" />
           </div>
         </div>
 
         {/* People list */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-hidden" ref={listRef}>
           {isLoading ? (
             <PersonListSkeleton count={6} />
           ) : people.length === 0 ? (
@@ -203,57 +346,30 @@ export default function PeopleView() {
               </p>
             </div>
           ) : (
-            people.map((person) => (
-              <div
-                key={person.email}
-                onClick={() => handleSelectPerson(person)}
-                className={`p-4 border-b border-[#2A2A2A] cursor-pointer transition-colors ${
-                  selectedPerson?.email === person.email
-                    ? 'bg-[#2A2A2A] border-l-2 border-l-[#D4923F]'
-                    : 'hover:bg-[#1E1E1E]'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-full ${getAvatarColor(person.email)} flex items-center justify-center text-white font-medium text-sm flex-shrink-0`}>
-                    {getPersonInitials(person)}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-sm font-medium text-slate-100 truncate">
-                      {person.name || person.email}
-                    </h3>
-                    {person.name && (
-                      <p className="text-xs text-slate-500 truncate">{person.email}</p>
-                    )}
-                    {person.organization && (
-                      <p className="text-xs text-slate-400 truncate mt-0.5">{person.organization}</p>
-                    )}
-                  </div>
-                </div>
-                <div className="flex items-center gap-4 mt-2 text-xs text-slate-500">
-                  <span className="flex items-center gap-1">
-                    <Calendar className="w-3 h-3" />
-                    {person.meetingCount} {person.meetingCount === 1 ? 'meeting' : 'meetings'}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Clock className="w-3 h-3" />
-                    {formatDuration(person.totalDuration)}
-                  </span>
-                </div>
-              </div>
-            ))
+            <List
+              height={listSize.height || 1}
+              width={listSize.width || 1}
+              itemCount={peopleRows.length}
+              itemSize={CONTACT_ROW_HEIGHT}
+              itemData={peopleItemData}
+              itemKey={(index: number, data: { rows: Array<{ email: string }> }) => data.rows[index].email}
+              overscanCount={6}
+            >
+              {PeopleRow}
+            </List>
           )}
         </div>
       </div>
 
       {/* Contact detail panel */}
-      <div className="flex-1 flex flex-col bg-[#0C0C0C] overflow-hidden">
+      <div className="flex-1 flex flex-col bg-surface overflow-hidden">
         {selectedPerson ? (
           <>
             {/* Header */}
-            <div className="p-6 border-b border-[#2A2A2A] bg-[#161616] flex-shrink-0">
+            <div className="p-6 border-b border-edge bg-card flex-shrink-0">
               <div className="flex items-start gap-4">
                 <div className={`w-16 h-16 rounded-full ${getAvatarColor(selectedPerson.email)} flex items-center justify-center text-white font-medium text-xl flex-shrink-0`}>
-                  {getPersonInitials(selectedPerson)}
+                  {getInitials(selectedPerson.email, selectedPerson.name || undefined)}
                 </div>
                 <div className="flex-1 min-w-0">
                   {editingField === 'name' ? (
@@ -266,19 +382,19 @@ export default function PeopleView() {
                           if (e.key === 'Enter') saveEdit();
                           if (e.key === 'Escape') cancelEdit();
                         }}
-                        className="flex-1 px-3 py-1.5 text-xl font-semibold text-white bg-[#161616] border border-[#2A2A2A] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#C17F3E]/30 focus:border-[#C17F3E]/20"
+                        className="flex-1 px-3 py-1.5 text-xl font-semibold text-white bg-card border border-edge rounded-lg focus:outline-none focus:ring-1 focus:ring-accent/30 focus:border-accent/20"
                         autoFocus
                         placeholder="Enter name"
                       />
                       <button
                         onClick={saveEdit}
-                        className="p-1.5 text-[#F0EBE3] hover:bg-[#161616] rounded-lg transition-colors"
+                        className="p-1.5 text-cream hover:bg-card rounded-lg transition-colors"
                       >
                         <Check className="w-5 h-5" />
                       </button>
                       <button
                         onClick={cancelEdit}
-                        className="p-1.5 text-slate-400 hover:bg-[#161616] rounded-lg transition-colors"
+                        className="p-1.5 text-slate-400 hover:bg-card rounded-lg transition-colors"
                       >
                         <X className="w-5 h-5" />
                       </button>
@@ -290,7 +406,7 @@ export default function PeopleView() {
                       </h1>
                       <button
                         onClick={() => startEditing('name', selectedPerson.name)}
-                        className="p-1.5 text-slate-500 hover:text-slate-300 hover:bg-[#161616] rounded-lg transition-colors"
+                        className="p-1.5 text-slate-500 hover:text-slate-300 hover:bg-card rounded-lg transition-colors"
                       >
                         <Edit2 className="w-4 h-4" />
                       </button>
@@ -313,14 +429,14 @@ export default function PeopleView() {
                           if (e.key === 'Enter') saveEdit();
                           if (e.key === 'Escape') cancelEdit();
                         }}
-                        className="flex-1 px-3 py-1 text-sm text-slate-200 bg-[#161616] border border-[#2A2A2A] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#C17F3E]/30 focus:border-[#C17F3E]/20"
+                        className="flex-1 px-3 py-1 text-sm text-slate-200 bg-card border border-edge rounded-lg focus:outline-none focus:ring-1 focus:ring-accent/30 focus:border-accent/20"
                         autoFocus
                         placeholder="Enter organization"
                       />
-                      <button onClick={saveEdit} className="p-1 text-[#F0EBE3] hover:bg-[#161616] rounded">
+                      <button onClick={saveEdit} className="p-1 text-cream hover:bg-card rounded">
                         <Check className="w-4 h-4" />
                       </button>
-                      <button onClick={cancelEdit} className="p-1 text-slate-400 hover:bg-[#161616] rounded">
+                      <button onClick={cancelEdit} className="p-1 text-slate-400 hover:bg-card rounded">
                         <X className="w-4 h-4" />
                       </button>
                     </div>
@@ -332,7 +448,7 @@ export default function PeopleView() {
                       </span>
                       <button
                         onClick={() => startEditing('organization', selectedPerson.organization)}
-                        className="p-1 text-slate-500 hover:text-slate-300 hover:bg-[#161616] rounded transition-colors"
+                        className="p-1 text-slate-500 hover:text-slate-300 hover:bg-card rounded transition-colors"
                       >
                         <Edit2 className="w-3 h-3" />
                       </button>
@@ -343,14 +459,14 @@ export default function PeopleView() {
 
               {/* Stats */}
               <div className="grid grid-cols-3 gap-4 mt-6">
-                <div className="bg-[#161616] rounded-lg p-3 border border-[#2A2A2A]">
+                <div className="bg-card rounded-lg p-3 border border-edge">
                   <div className="flex items-center gap-2 text-slate-400 mb-1">
                     <Calendar className="w-4 h-4" />
                     <span className="text-xs font-medium">Meetings</span>
                   </div>
                   <div className="text-2xl font-semibold text-white">{selectedPerson.meetingCount}</div>
                 </div>
-                <div className="bg-[#161616] rounded-lg p-3 border border-[#2A2A2A]">
+                <div className="bg-card rounded-lg p-3 border border-edge">
                   <div className="flex items-center gap-2 text-slate-400 mb-1">
                     <Clock className="w-4 h-4" />
                     <span className="text-xs font-medium">Total Time</span>
@@ -359,7 +475,7 @@ export default function PeopleView() {
                     {formatDuration(selectedPerson.totalDuration)}
                   </div>
                 </div>
-                <div className="bg-[#161616] rounded-lg p-3 border border-[#2A2A2A]">
+                <div className="bg-card rounded-lg p-3 border border-edge">
                   <div className="flex items-center gap-2 text-slate-400 mb-1">
                     <Calendar className="w-4 h-4" />
                     <span className="text-xs font-medium">Last Met</span>
@@ -372,7 +488,7 @@ export default function PeopleView() {
             </div>
 
             {/* Notes section */}
-            <div className="flex-1 overflow-y-auto p-6 bg-[#0C0C0C]">
+            <div className="flex-1 overflow-y-auto p-6 bg-surface">
               <div className="max-w-3xl space-y-6">
                 {/* Notes */}
                 <div>
@@ -384,7 +500,7 @@ export default function PeopleView() {
                     {editingField !== 'notes' && (
                       <button
                         onClick={() => startEditing('notes', selectedPerson.notes)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-slate-400 hover:bg-[#161616] rounded-lg transition-colors"
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-slate-400 hover:bg-card rounded-lg transition-colors"
                       >
                         <Edit2 className="w-3.5 h-3.5" />
                         Edit
@@ -397,27 +513,27 @@ export default function PeopleView() {
                       <textarea
                         value={editValue}
                         onChange={(e) => setEditValue(e.target.value)}
-                        className="w-full h-64 px-4 py-3 text-sm text-slate-200 bg-[#161616] border border-[#2A2A2A] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C17F3E]/50 resize-none font-mono placeholder:text-slate-500"
+                        className="w-full h-64 px-4 py-3 text-sm text-slate-200 bg-card border border-edge rounded-lg focus:outline-none focus:ring-2 focus:ring-accent/50 resize-none font-mono placeholder:text-slate-500"
                         placeholder="Add notes about this contact..."
                         autoFocus
                       />
                       <div className="flex justify-end gap-2">
                         <button
                           onClick={cancelEdit}
-                          className="px-4 py-2 text-sm text-slate-400 hover:bg-[#161616] rounded-lg transition-colors"
+                          className="px-4 py-2 text-sm text-slate-400 hover:bg-card rounded-lg transition-colors"
                         >
                           Cancel
                         </button>
                         <button
                           onClick={saveEdit}
-                          className="px-4 py-2 text-sm text-white bg-[#C17F3E] hover:bg-[#D4923F] rounded-lg transition-colors"
+                          className="px-4 py-2 text-sm text-white bg-accent hover:bg-accent-hover rounded-lg transition-colors"
                         >
                           Save Notes
                         </button>
                       </div>
                     </div>
                   ) : (
-                    <div className="bg-[#161616] rounded-lg p-4 border border-[#2A2A2A]">
+                    <div className="bg-card rounded-lg p-4 border border-edge">
                       {selectedPerson.notes ? (
                         <p className="text-sm text-slate-300 whitespace-pre-wrap">{selectedPerson.notes}</p>
                       ) : (
@@ -436,8 +552,8 @@ export default function PeopleView() {
                   </div>
 
                   {isLoadingMeetings ? (
-                    <div className="bg-[#161616] rounded-lg p-8 border border-[#2A2A2A] flex items-center justify-center">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#C17F3E]"></div>
+                    <div className="bg-card rounded-lg p-8 border border-edge flex items-center justify-center">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent"></div>
                     </div>
                   ) : contactMeetings.length > 0 ? (
                     <div className="grid grid-cols-1 gap-3">
@@ -445,11 +561,11 @@ export default function PeopleView() {
                         <button
                           key={meeting.id}
                           onClick={() => handleMeetingClick(meeting)}
-                          className="bg-[#161616] rounded-lg p-4 border border-[#2A2A2A] hover:border-[#C17F3E]/50 hover:bg-[#161616] transition-all text-left"
+                          className="bg-card rounded-lg p-4 border border-edge hover:border-accent/50 hover:bg-card transition-all text-left"
                         >
                           <div className="flex items-start justify-between gap-4">
                             <div className="flex-1 min-w-0">
-                              <h3 className="text-base font-medium text-white mb-1 hover:text-[#C17F3E] transition-colors line-clamp-1">
+                              <h3 className="text-base font-medium text-white mb-1 hover:text-accent transition-colors line-clamp-1">
                                 {meeting.title}
                               </h3>
                               <div className="flex items-center gap-3 text-sm text-slate-400">
@@ -466,7 +582,7 @@ export default function PeopleView() {
                             {hasNotes(meeting) && (
                               <button
                                 onClick={(e) => handleViewNotes(e, meeting)}
-                                className="flex-shrink-0 px-3 py-1.5 text-sm font-medium text-[#C17F3E] border border-[#C17F3E]/50 hover:border-[#C17F3E] hover:bg-[#C17F3E]/10 rounded-lg transition-all"
+                                className="flex-shrink-0 px-3 py-1.5 text-sm font-medium text-accent border border-accent/50 hover:border-accent hover:bg-accent/10 rounded-lg transition-all"
                               >
                                 View Notes
                               </button>
@@ -476,7 +592,7 @@ export default function PeopleView() {
                       ))}
                     </div>
                   ) : (
-                    <div className="bg-[#161616] rounded-lg p-8 border border-[#2A2A2A] text-center">
+                    <div className="bg-card rounded-lg p-8 border border-edge text-center">
                       <MessageSquare className="w-12 h-12 mx-auto mb-3 text-slate-600" />
                       <p className="text-sm text-slate-500">No meetings recorded with this contact yet.</p>
                     </div>
@@ -511,28 +627,28 @@ export default function PeopleView() {
       {/* Notes Modal - Full Meeting View */}
       {showNotesPopup && selectedMeetingForModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-[#161616] border border-[#2A2A2A] rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+          <div className="bg-card border border-edge rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
             {/* Header */}
-            <div className="p-6 border-b border-[#2A2A2A] bg-[#161616] flex-shrink-0">
+            <div className="p-6 border-b border-edge bg-card flex-shrink-0">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1 space-y-3 min-w-0">
                   <h1 className="text-2xl font-semibold text-white truncate">{selectedMeetingForModal.title}</h1>
                   <div className="flex gap-3 items-stretch flex-wrap">
-                    <div className="flex flex-none items-center gap-2 rounded-lg border border-[#2A2A2A] bg-[#161616] px-3 py-2 whitespace-nowrap">
+                    <div className="flex flex-none items-center gap-2 rounded-lg border border-edge bg-card px-3 py-2 whitespace-nowrap">
                       <Calendar className="w-4 h-4 text-slate-400" />
                       <div className="text-sm text-slate-200 whitespace-nowrap">
                         {new Date(selectedMeetingForModal.createdAt).toLocaleDateString()}
                       </div>
                     </div>
                     {(selectedMeetingForModal.attendeeEmails && selectedMeetingForModal.attendeeEmails.length > 0) && (
-                      <div className="flex flex-none items-center gap-2 rounded-lg border border-[#2A2A2A] bg-[#161616] px-3 py-2 whitespace-nowrap">
+                      <div className="flex flex-none items-center gap-2 rounded-lg border border-edge bg-card px-3 py-2 whitespace-nowrap">
                         <MessageSquare className="w-4 h-4 text-slate-400" />
                         <div className="text-sm text-slate-200 whitespace-nowrap">
                           {selectedMeetingForModal.attendeeEmails.length} attendee{selectedMeetingForModal.attendeeEmails.length !== 1 ? 's' : ''}
                         </div>
                       </div>
                     )}
-                    <div className="flex flex-none items-center gap-2 rounded-lg border border-[#2A2A2A] bg-[#161616] px-3 py-2 whitespace-nowrap">
+                    <div className="flex flex-none items-center gap-2 rounded-lg border border-edge bg-card px-3 py-2 whitespace-nowrap">
                       <Clock className="w-4 h-4 text-slate-400" />
                       <div className="text-sm text-slate-200 whitespace-nowrap">
                         {formatDuration(selectedMeetingForModal.duration)}
@@ -548,7 +664,7 @@ export default function PeopleView() {
                     setShowNotesPopup(false);
                     setSelectedMeetingForModal(null);
                   }}
-                  className="p-2 text-slate-400 hover:text-white hover:bg-[#161616] rounded-lg transition-colors flex-shrink-0"
+                  className="p-2 text-slate-400 hover:text-white hover:bg-card rounded-lg transition-colors flex-shrink-0"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -556,10 +672,10 @@ export default function PeopleView() {
             </div>
             
             {/* Content - Notes and Transcript */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-[#0C0C0C]">
+            <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-surface">
               {/* Overview */}
               {selectedMeetingForModal.overview && (
-                <div className="bg-[#161616] rounded-xl p-4 border border-[#2A2A2A]">
+                <div className="bg-card rounded-xl p-4 border border-edge">
                   <h2 className="text-sm font-medium text-slate-200 mb-2">Overview</h2>
                   <p className="text-sm text-slate-100">{selectedMeetingForModal.overview}</p>
                 </div>
@@ -568,7 +684,7 @@ export default function PeopleView() {
               {/* Generated Notes - prefer structured view when available */}
               {selectedMeetingForModal.notes && typeof selectedMeetingForModal.notes === 'object' &&
                (selectedMeetingForModal.notes as GeneratedStructuredNotes).topics?.length > 0 ? (
-                <div className="bg-[#161616] rounded-xl p-4 border border-[#2A2A2A] relative overflow-visible">
+                <div className="bg-card rounded-xl p-4 border border-edge relative overflow-visible">
                   <h2 className="text-sm font-medium text-slate-200 mb-3">Notes</h2>
                   <StructuredNotesView
                     notes={selectedMeetingForModal.notes as GeneratedStructuredNotes}
@@ -576,7 +692,7 @@ export default function PeopleView() {
                   />
                 </div>
               ) : selectedMeetingForModal.notesMarkdown ? (
-                <div className="bg-[#161616] rounded-xl p-4 border border-[#2A2A2A] relative overflow-visible">
+                <div className="bg-card rounded-xl p-4 border border-edge relative overflow-visible">
                   <h2 className="text-sm font-medium text-slate-200 mb-3">Generated Notes</h2>
                   <div className="text-lg text-slate-100">
                     <NotesWithDeepDive
@@ -589,7 +705,7 @@ export default function PeopleView() {
 
               {/* Legacy Summary */}
               {selectedMeetingForModal.summary && !selectedMeetingForModal.notesMarkdown && (
-                <div className="bg-[#161616] rounded-xl p-4 border border-[#2A2A2A]">
+                <div className="bg-card rounded-xl p-4 border border-edge">
                   <h2 className="text-sm font-medium text-slate-200 mb-2">Summary</h2>
                   <p className="text-sm text-slate-100 whitespace-pre-wrap">
                     {selectedMeetingForModal.summary}
@@ -612,8 +728,8 @@ export default function PeopleView() {
                         <div
                           className={`max-w-[80%] rounded-2xl px-4 py-3 ${
                             segment.source === 'mic'
-                              ? 'bg-[#C17F3E]/15 text-[#F0EBE3] border border-[#C17F3E]/10'
-                              : 'bg-[#1E1E1E] text-[#9C9690] border border-[#2A2A2A]'
+                              ? 'bg-accent/15 text-cream border border-accent/10'
+                              : 'bg-input text-muted border border-edge'
                           }`}
                         >
                           <p className="text-sm leading-relaxed">{segment.text}</p>

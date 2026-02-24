@@ -40,12 +40,12 @@ export default function CompactMeetingBar({
       return null;
     }
     return (
-      <div className="w-full rounded-xl border border-[#2A2A2A] bg-[#161616] px-4 py-2 flex items-center justify-start">
+      <div className="w-full rounded-lg border border-edge bg-card px-4 py-3 flex items-center justify-start shadow-elevated">
         <div className="flex items-center gap-3">
-          <Calendar className="w-4 h-4 text-slate-400" />
+          <Calendar className="w-4 h-4 text-dim" />
           <div>
-            <p className="text-sm font-semibold text-white">No Meeting Going on</p>
-            <p className="text-[11px] text-slate-400">We'll surface your meeting here when it's live.</p>
+            <p className="text-sm font-medium text-cream">No meeting right now</p>
+            <p className="text-[11px] text-dim">We'll surface your meeting here when it's live.</p>
           </div>
         </div>
       </div>
@@ -54,32 +54,32 @@ export default function CompactMeetingBar({
 
   return (
     <div className="w-full space-y-2">
-      {events.map((event, index) => {
+      {events.map((event) => {
         const minutesUntil = getMinutesUntil(event.start);
         const isLive = minutesUntil <= 0 && new Date(event.end).getTime() - Date.now() > 0;
         const platform = getPlatformIcon(event.location);
 
         return (
-          <div key={event.id} className="rounded-xl border border-[#2A2A2A] bg-[#161616] px-4 py-2 flex items-center justify-between animate-stagger-in" style={{ animationDelay: `${index * 60}ms` }}>
+          <div key={event.id} className="rounded-lg border border-edge bg-card px-4 py-3 flex items-center justify-between shadow-elevated">
             <div className="flex items-center gap-3 flex-1 min-w-0">
               {isLive && (
-                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-[#C17F3E]/15 border border-[#C17F3E]/25">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#C17F3E] animate-pulse" />
-                  <span className="text-[10px] font-semibold text-[#D4923F] uppercase tracking-wider">Live</span>
+                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-accent/10 border border-accent/15">
+                  <span className="w-1.5 h-1.5 rounded-full bg-accent recording-indicator" />
+                  <span className="text-[10px] font-medium text-accent uppercase tracking-wider">Live</span>
                 </div>
               )}
-              
+
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <h3 className="text-sm font-semibold text-white truncate">{event.title}</h3>
+                  <h3 className="text-sm font-medium text-cream truncate">{event.title}</h3>
                   {platform && (
-                    <span className="px-1.5 py-0.5 text-[10px] font-medium rounded bg-[#2A2A2A]/80 text-slate-300">
+                    <span className="px-1.5 py-0.5 text-[10px] font-medium rounded bg-edge text-muted">
                       {platform}
                     </span>
                   )}
                 </div>
-                <p className="text-[11px] text-slate-400 mt-0.5">
-                  {formatTime(event.start)} – {formatTime(event.end)}
+                <p className="text-[11px] text-muted mt-0.5">
+                  {formatTime(event.start)} -- {formatTime(event.end)}
                 </p>
               </div>
             </div>
@@ -88,7 +88,7 @@ export default function CompactMeetingBar({
               {onDismiss && (
                 <button
                   onClick={() => onDismiss(event.id)}
-                  className="p-1.5 text-slate-500 text-slate-400 hover:text-red-400 transition-colors rounded-lg hover:bg-red-900/20"
+                  className="p-1.5 text-dim hover:text-status-error transition-colors rounded-md hover:bg-status-error/10"
                   title="Remove from live bar"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
@@ -97,15 +97,15 @@ export default function CompactMeetingBar({
               <button
                 onClick={() => onStartNotes(event)}
                 disabled={isRecording}
-                className="px-3 py-1.5 bg-[#C17F3E] text-[#0C0C0C] text-sm font-semibold rounded-lg shadow-copper-soft transition-all duration-200 hover:bg-[#D4923F] hover:shadow-copper-glow active:scale-[0.97] disabled:opacity-50 flex items-center gap-1.5"
+                className="px-3 py-1.5 bg-accent text-surface text-sm font-medium rounded-lg shadow-soft transition-colors hover:bg-accent-hover active:scale-[0.97] disabled:opacity-50 flex items-center gap-1.5"
               >
                 <FileText className="w-3.5 h-3.5" />
-                Start Notes
+                <span>Start Notes</span>
               </button>
               {onPrep && (
                 <button
                   onClick={onPrep}
-                  className="px-3 py-1.5 bg-[#1E1E1E] text-[#9C9690] text-sm font-medium rounded-lg border border-[#2A2A2A] transition hover:bg-[#2A2A2A] hover:text-[#F0EBE3] flex items-center gap-1.5"
+                  className="px-3 py-1.5 bg-input text-muted text-sm font-medium rounded-lg border border-edge transition-colors hover:bg-edge hover:text-cream flex items-center gap-1.5"
                 >
                   <Clipboard className="w-3.5 h-3.5" />
                   Prep

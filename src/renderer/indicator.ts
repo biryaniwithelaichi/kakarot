@@ -85,7 +85,7 @@ const onMouseMove = (event: MouseEvent) => {
   kakarot?.indicator?.dragMove?.(event.screenX, event.screenY);
 };
 
-const onMouseUp = (event: MouseEvent) => {
+const onMouseUp = (_event: MouseEvent) => {
   if (!dragging) return;
   dragging = false;
   window.removeEventListener('mousemove', onMouseMove);

@@ -143,9 +143,7 @@ export default function ActiveRecordingView({
 
   return (
     <>
-      <div className="relative flex-1 min-h-0 flex flex-col rounded-2xl bg-gradient-to-br from-[#141414] via-[#0C0C0C] to-[#080808] shadow-[0_20px_70px_rgba(0,0,0,0.65)] p-6 sm:p-7 overflow-hidden border border-[#1E1E1E] animate-modal-in">
-        <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_top,rgba(193,127,62,0.08),transparent_45%),radial-gradient(circle_at_bottom,rgba(240,235,227,0.03),transparent_40%)]" />
-        <div className="absolute inset-0 pointer-events-none rounded-2xl shadow-[inset_0_1px_0_rgba(255,255,255,0.03),inset_0_-1px_20px_rgba(0,0,0,0.45)]" />
+      <div className="relative flex-1 min-h-0 flex flex-col rounded-lg bg-surface border border-edge shadow-elevated p-6 sm:p-7 overflow-hidden animate-modal-in">
         <div className="relative flex-1 min-h-0 flex flex-col">
           {/* Recording Header */}
           <div className="flex-shrink-0 mb-5">
@@ -156,18 +154,16 @@ export default function ActiveRecordingView({
                   onChange={(e) => onTitleChange(e.target.value)}
                   onBlur={onTitleBlur}
                   onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
-                  className="text-2xl font-semibold text-white bg-transparent border-b border-transparent focus:border-[#C17F3E] focus:outline-none truncate max-w-[420px]"
+                  className="text-xl font-medium text-cream bg-transparent border-b border-transparent focus:border-accent/40 focus:outline-none truncate max-w-[420px]"
+                  style={{ boxShadow: 'none' }}
                   placeholder="Untitled Meeting"
                 />
                 <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-[#C17F3E]/10 text-[#D4923F] border border-[#C17F3E]/20 shadow-[0_0_20px_rgba(193,127,62,0.15)]">
-                    <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#C17F3E] opacity-60"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-[#C17F3E]"></span>
-                    </span>
+                  <div className="flex items-center gap-2 px-2.5 py-1 rounded-md text-xs font-medium bg-accent/10 text-accent border border-accent/15">
+                    <span className="w-1.5 h-1.5 rounded-full bg-accent recording-indicator" />
                     <span>{isRecording ? 'Transcribing' : 'Paused'}</span>
                   </div>
-                  {isSavingTitle && <Loader2 className="w-4 h-4 animate-spin text-[#C17F3E]" />}
+                  {isSavingTitle && <Loader2 className="w-4 h-4 animate-spin text-accent" />}
                 </div>
               </div>
               {/* Meta chips */}
@@ -176,7 +172,7 @@ export default function ActiveRecordingView({
                   <button
                     ref={timeButtonRef}
                     onClick={() => setShowTimePopover(!showTimePopover)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs text-slate-300 hover:bg-white/10 transition shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-input border border-edge text-xs text-muted hover:bg-edge-light/20 transition-colors"
                   >
                     <Clock className="w-3.5 h-3.5" />
                     <span>{displayDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
@@ -184,22 +180,22 @@ export default function ActiveRecordingView({
                   {showTimePopover && (
                     <div
                       ref={timePopoverRef}
-                      className="absolute top-full right-0 mt-2 bg-[#0C0C0C] rounded-xl border border-white/10 shadow-2xl z-50 overflow-hidden min-w-max animate-popover-in"
+                      className="absolute top-full right-0 mt-2 bg-card rounded-lg border border-edge shadow-overlay z-50 overflow-hidden min-w-max animate-popover-in"
                     >
-                      <div className="p-3 border-b border-white/10 flex items-center justify-between">
-                        <h3 className="text-sm font-semibold text-white">Meeting Time</h3>
-                        <button onClick={() => setShowTimePopover(false)} className="p-1 text-slate-400 hover:text-slate-200 transition rounded hover:bg-white/5">
+                      <div className="p-3 border-b border-edge flex items-center justify-between">
+                        <h3 className="text-sm font-medium text-cream">Meeting time</h3>
+                        <button onClick={() => setShowTimePopover(false)} className="p-1 text-muted hover:text-cream transition-colors rounded hover:bg-white/5">
                           <X className="w-3.5 h-3.5" />
                         </button>
                       </div>
                       <div className="p-3 space-y-2">
                         <div>
-                          <p className="text-[10px] text-slate-500 uppercase font-medium mb-0.5">Date</p>
-                          <p className="text-xs text-white">{displayDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</p>
+                          <p className="text-[10px] text-dim uppercase font-medium mb-0.5">Date</p>
+                          <p className="text-xs text-cream">{displayDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</p>
                         </div>
                         <div>
-                          <p className="text-[10px] text-slate-500 uppercase font-medium mb-0.5">Time</p>
-                          <p className="text-xs text-white">{displayDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                          <p className="text-[10px] text-dim uppercase font-medium mb-0.5">Time</p>
+                          <p className="text-xs text-cream">{displayDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                         </div>
                       </div>
                     </div>
@@ -210,7 +206,7 @@ export default function ActiveRecordingView({
                     <button
                       ref={participantsButtonRef}
                       onClick={() => setShowParticipantsPopover(!showParticipantsPopover)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs text-slate-300 hover:bg-white/10 transition shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
+                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-input border border-edge text-xs text-muted hover:bg-edge-light/20 transition-colors"
                     >
                       <Users className="w-3.5 h-3.5" />
                       <span>{displayAttendees.length}</span>
@@ -218,11 +214,11 @@ export default function ActiveRecordingView({
                     {showParticipantsPopover && (
                       <div
                         ref={participantsPopoverRef}
-                        className="absolute top-full right-0 mt-2 bg-[#0C0C0C] rounded-xl border border-white/10 shadow-2xl z-50 overflow-hidden min-w-[280px] animate-popover-in"
+                        className="absolute top-full right-0 mt-2 bg-card rounded-lg border border-edge shadow-overlay z-50 overflow-hidden min-w-[280px] animate-popover-in"
                       >
-                        <div className="p-3 border-b border-white/10 flex items-center justify-between">
-                          <h3 className="text-sm font-semibold text-white">Participants</h3>
-                          <button onClick={() => setShowParticipantsPopover(false)} className="p-1 text-slate-400 hover:text-slate-200 transition rounded hover:bg-white/5">
+                        <div className="p-3 border-b border-edge flex items-center justify-between">
+                          <h3 className="text-sm font-medium text-cream">Participants</h3>
+                          <button onClick={() => setShowParticipantsPopover(false)} className="p-1 text-muted hover:text-cream transition-colors rounded hover:bg-white/5">
                             <X className="w-3.5 h-3.5" />
                           </button>
                         </div>
@@ -230,10 +226,10 @@ export default function ActiveRecordingView({
                           <div className="space-y-2">
                             {displayAttendees.map((email, idx) => (
                               <div key={idx} className="flex items-center gap-2 text-xs">
-                                <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[#C17F3E] to-[#C17F3E] flex items-center justify-center text-white font-semibold text-[10px]">
+                                <div className="w-7 h-7 rounded-full bg-accent/20 flex items-center justify-center text-accent font-medium text-[10px]">
                                   {email.charAt(0).toUpperCase()}
                                 </div>
-                                <span className="text-slate-300 truncate">{email}</span>
+                                <span className="text-muted truncate">{email}</span>
                               </div>
                             ))}
                           </div>
@@ -247,11 +243,11 @@ export default function ActiveRecordingView({
           </div>
 
           {/* Full Notes Panel */}
-          <div className="flex-1 min-h-0 rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-xl p-6 flex flex-col overflow-hidden">
+          <div className="flex-1 min-h-0 rounded-lg border border-edge bg-card p-6 flex flex-col overflow-hidden">
             <div className="flex items-center justify-between mb-4 flex-shrink-0">
               <div>
-                <h3 className="text-xs uppercase tracking-[0.2em] font-medium text-[#9C9690]">Your Notes</h3>
-                <p className="text-xs text-[#5C5750] mt-1">Capture action items, decisions, and next steps.</p>
+                <h3 className="text-xs uppercase tracking-[0.15em] font-medium text-muted">Your notes</h3>
+                <p className="text-xs text-dim mt-1">Capture action items, decisions, and next steps.</p>
               </div>
               <div className="flex items-center gap-3">
                 <div className="w-28">
@@ -267,86 +263,83 @@ export default function ActiveRecordingView({
                 value={notes}
                 onChange={(e) => onNotesChange(e.target.value)}
                 placeholder="Take notes during your meeting..."
-                className="w-full h-full resize-none bg-transparent text-base text-slate-100 placeholder-slate-500 focus:outline-none leading-relaxed overflow-auto"
+                className="w-full h-full resize-none bg-transparent text-base text-cream placeholder:text-dim focus:outline-none leading-relaxed overflow-auto"
               />
             </div>
           </div>
 
           {/* Bottom Controls */}
-          <div className="flex-shrink-0 mt-3 flex items-center justify-end gap-2">
-            {isPaused && (
-              <>
-                <button
-                  onClick={onResume}
-                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-white/10 text-slate-100 border border-white/10 text-xs font-semibold hover:bg-white/15 transition-all duration-200 active:scale-[0.96]"
-                >
-                  <Play className="w-3.5 h-3.5" />
-                  Resume
-                </button>
-                <button
-                  onClick={onDiscard}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-700/80 text-white text-xs font-medium hover:bg-red-600/80 transition"
-                >
-                  <Trash2 className="w-3 h-3" />
-                  Discard
-                </button>
-              </>
-            )}
-            {isRecording && (
-              <button
-                onClick={onPause}
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-white/10 text-slate-100 border border-white/10 text-xs font-semibold hover:bg-white/15 transition-all duration-200 active:scale-[0.96]"
-              >
-                <Pause className="w-3.5 h-3.5" />
-                Pause
-              </button>
-            )}
-            <button
-              onClick={onStop}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-red-600/80 text-white text-xs font-semibold hover:bg-red-600 transition-all duration-200 shadow-[0_10px_30px_rgba(0,0,0,0.35)] active:scale-[0.96]"
-            >
-              <Square className="w-3.5 h-3.5" />
-              Stop
-            </button>
-          </div>
-
-          {/* Live Transcription Capsule */}
-          <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-10">
+          <div className="flex-shrink-0 mt-3 flex items-center justify-between gap-2">
+            {/* Live Transcription toggle - left side, in normal flow */}
             <button
               onClick={() => setShowTranscriptPopover((open) => !open)}
-              className={`flex items-center gap-2.5 rounded-full px-5 py-3 shadow-2xl transition-all duration-200 active:scale-[0.96] ${
+              className={`flex items-center gap-2.5 rounded-lg px-4 py-2.5 shadow-elevated transition-colors ${
                 showTranscriptPopover
-                  ? 'bg-[#C17F3E] text-[#0C0C0C] shadow-copper-glow'
-                  : 'bg-[#161616] border border-[#2A2A2A] text-[#9C9690] hover:text-[#F0EBE3] hover:border-[#3A3A3A] hover:shadow-elevated'
+                  ? 'bg-accent text-surface'
+                  : 'bg-card border border-edge text-muted hover:text-cream hover:border-edge-light'
               }`}
               aria-label="Toggle live transcript"
             >
               <Mic className="w-4 h-4" />
               <span className="text-sm font-medium">Live Transcription</span>
             </button>
+
+            <div className="flex items-center gap-2">
+              {isPaused && (
+                <>
+                  <button
+                    onClick={onResume}
+                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-input text-cream border border-edge text-xs font-medium hover:bg-edge transition-colors active:scale-[0.96]"
+                  >
+                    <Play className="w-3.5 h-3.5" />
+                    Resume
+                  </button>
+                  <button
+                    onClick={onDiscard}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-status-error/80 text-white text-xs font-medium hover:bg-status-error transition-colors"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                    Discard
+                  </button>
+                </>
+              )}
+              {isRecording && (
+                <button
+                  onClick={onPause}
+                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-input text-cream border border-edge text-xs font-medium hover:bg-edge transition-colors active:scale-[0.96]"
+                >
+                  <Pause className="w-3.5 h-3.5" />
+                  Pause
+                </button>
+              )}
+              <button
+                onClick={onStop}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-status-error/80 text-white text-xs font-medium hover:bg-status-error transition-colors shadow-soft active:scale-[0.96]"
+              >
+                <Square className="w-3.5 h-3.5" />
+                Stop
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Transcript Popover */}
       {showTranscriptPopover && (
-        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-40 w-[480px] max-h-[450px] rounded-2xl border border-[#2A2A2A] bg-[#0C0C0C] shadow-2xl shadow-black/50 overflow-hidden flex flex-col animate-popover-in-up">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 flex-shrink-0">
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-40 w-[480px] max-h-[450px] rounded-lg border border-edge bg-card shadow-overlay overflow-hidden flex flex-col animate-popover-in-up">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-edge flex-shrink-0">
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#C17F3E] opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-[#C17F3E]"></span>
-                </span>
-                <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">Live Transcript</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-accent recording-indicator" />
+                <span className="text-xs font-medium text-muted uppercase tracking-wider">Live transcript</span>
               </div>
             </div>
             <button
               onClick={() => setShowTranscriptPopover(false)}
-              className="p-1.5 rounded-lg hover:bg-white/5 transition"
+              className="p-1.5 rounded-md hover:bg-white/5 transition-colors"
               aria-label="Close transcript"
             >
-              <X className="w-4 h-4 text-slate-400" />
+              <X className="w-4 h-4 text-muted" />
             </button>
           </div>
 
@@ -367,19 +360,19 @@ export default function ActiveRecordingView({
           >
             {liveTranscript.length === 0 && !currentPartials.mic && !currentPartials.system ? (
               <div className="flex flex-col items-center justify-center py-12 text-center">
-                <Mic className="w-8 h-8 text-slate-600 mb-3" />
-                <p className="text-sm text-slate-500">Waiting for speech...</p>
-                <p className="text-xs text-slate-600 mt-1">Start talking and the transcript will appear here</p>
+                <Mic className="w-8 h-8 text-dim mb-3" />
+                <p className="text-sm text-dim">Waiting for speech...</p>
+                <p className="text-xs text-dim mt-1">Start talking and the transcript will appear here</p>
               </div>
             ) : (
               <>
                 {groupTranscriptSegments(liveTranscript).map((group) => (
                   <div key={group.id} className={`flex ${group.source === 'mic' ? 'justify-end' : 'justify-start'}`}>
                     <div
-                      className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm ${
+                      className={`max-w-[80%] rounded-lg px-4 py-2.5 text-sm ${
                         group.source === 'mic'
-                          ? 'bg-[#C17F3E]/20 text-[#F0EBE3] border border-[#C17F3E]/15 rounded-br-md'
-                          : 'bg-[#1E1E1E] text-[#9C9690] border border-[#2A2A2A] rounded-bl-md'
+                          ? 'bg-accent/15 text-cream border border-accent/10'
+                          : 'bg-input text-muted border border-edge'
                       }`}
                     >
                       <p className="leading-relaxed">{group.text}</p>
@@ -388,14 +381,14 @@ export default function ActiveRecordingView({
                 ))}
                 {currentPartials.system && (
                   <div className="flex justify-start">
-                    <div className="max-w-[80%] rounded-2xl px-4 py-2.5 text-sm opacity-50 bg-[#1E1E1E] text-[#9C9690] border border-[#2A2A2A] rounded-bl-md">
+                    <div className="max-w-[80%] rounded-lg px-4 py-2.5 text-sm opacity-50 bg-input text-muted border border-edge">
                       <p className="leading-relaxed">{currentPartials.system.text}</p>
                     </div>
                   </div>
                 )}
                 {currentPartials.mic && (
                   <div className="flex justify-end">
-                    <div className="max-w-[80%] rounded-2xl px-4 py-2.5 text-sm opacity-50 bg-[#C17F3E]/20 text-[#F0EBE3] border border-[#C17F3E]/15 rounded-br-md">
+                    <div className="max-w-[80%] rounded-lg px-4 py-2.5 text-sm opacity-50 bg-accent/15 text-cream border border-accent/10">
                       <p className="leading-relaxed">{currentPartials.mic.text}</p>
                     </div>
                   </div>
@@ -410,21 +403,21 @@ export default function ActiveRecordingView({
                 setIsAutoScrollEnabled(true);
                 transcriptScrollRef.current?.scrollTo({ top: transcriptScrollRef.current.scrollHeight, behavior: 'smooth' });
               }}
-              className="absolute bottom-16 left-1/2 -translate-x-1/2 flex items-center gap-2 px-4 py-2 rounded-full bg-[#C17F3E] text-[#0C0C0C] text-xs font-medium shadow-lg hover:bg-[#D4923F] transition"
+              className="absolute bottom-16 left-1/2 -translate-x-1/2 flex items-center gap-2 px-4 py-2 rounded-lg bg-accent text-surface text-xs font-medium shadow-elevated hover:bg-accent-hover transition-colors"
             >
               <ChevronDown className="w-4 h-4" />
               New messages
             </button>
           )}
 
-          <div className="flex items-center justify-center gap-6 px-4 py-2.5 border-t border-[#1E1E1E] bg-[#0C0C0C] flex-shrink-0">
+          <div className="flex items-center justify-center gap-6 px-4 py-2.5 border-t border-edge bg-surface flex-shrink-0">
             <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-[#2A2A2A] border border-[#3A3A3A]"></div>
-              <span className="text-xs text-[#5C5750]">System Audio</span>
+              <div className="w-3 h-3 rounded-full bg-edge border border-edge-light"></div>
+              <span className="text-xs text-dim">System audio</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-[#C17F3E]/30 border border-[#C17F3E]/20"></div>
-              <span className="text-xs text-[#5C5750]">Your Mic</span>
+              <div className="w-3 h-3 rounded-full bg-accent/20 border border-accent/15"></div>
+              <span className="text-xs text-dim">Your mic</span>
             </div>
           </div>
         </div>

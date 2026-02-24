@@ -17,11 +17,15 @@ export default function SignInStep({ onSuccess, onBack }: SignInStepProps) {
   const [isConnecting, setIsConnecting] = useState(false);
   const [connectingProvider, setConnectingProvider] = useState<AuthProvider | null>(null);
   const [error, setError] = useState('');
+  const [missingScopes, setMissingScopes] = useState<string[] | null>(null);
+  const [missingProvider, setMissingProvider] = useState<AuthProvider | null>(null);
 
   async function handleConnect(provider: AuthProvider): Promise<void> {
     setIsConnecting(true);
     setConnectingProvider(provider);
     setError('');
+    setMissingScopes(null);
+    setMissingProvider(null);
 
     try {
       if (provider === 'google' || provider === 'microsoft') {
@@ -55,6 +59,14 @@ export default function SignInStep({ onSuccess, onBack }: SignInStepProps) {
       let errorMessage = 'Connection failed. Please try again.';
       
       if (err instanceof Error) {
+        if (err.message.startsWith('MISSING_SCOPES:')) {
+          const scopes = err.message.replace('MISSING_SCOPES:', '').trim();
+          setMissingScopes(scopes ? scopes.split(' ') : []);
+          setMissingProvider(provider);
+          setIsConnecting(false);
+          setConnectingProvider(null);
+          return;
+        }
         if (err.message.includes('CLIENT_ID') || err.message.includes('CLIENT_SECRET')) {
           errorMessage = `${provider === 'microsoft' ? 'Microsoft' : 'Google'} Calendar is not configured yet. Please contact support.`;
         } else if (err.message.includes('OAuth callback')) {
@@ -74,9 +86,30 @@ export default function SignInStep({ onSuccess, onBack }: SignInStepProps) {
 
   return (
     <div className="space-y-6">
+      {missingScopes && (
+        <div className="space-y-6">
+          <div className="text-center space-y-2">
+            <h2 className="text-2xl font-sans font-bold text-cream">Calendar Access Required</h2>
+            <p className="text-dim">
+              To create meeting notes, Treeto requires access to your Calendar. You missed this permission during sign-in.
+            </p>
+          </div>
+
+          <button
+            onClick={() => handleConnect(missingProvider || 'google')}
+            disabled={isConnecting}
+            className="w-full flex items-center justify-center gap-3 py-3 px-6 bg-input hover:bg-edge text-cream border border-edge rounded-xl font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isConnecting ? <span className="animate-pulse">Reconnecting...</span> : 'Grant Permission Again'}
+          </button>
+        </div>
+      )}
+
+      {!missingScopes && (
+      <>
       <div className="text-center space-y-2">
-        <h2 className="text-2xl font-display text-[#F0EBE3]">Sign in to get started</h2>
-        <p className="text-[#5C5750]">
+        <h2 className="text-2xl font-sans font-bold text-cream">Sign in to get started</h2>
+        <p className="text-dim">
           Sign in to sync your calendar and upcoming meetings
         </p>
       </div>
@@ -85,7 +118,7 @@ export default function SignInStep({ onSuccess, onBack }: SignInStepProps) {
         <button
           onClick={() => handleConnect('google')}
           disabled={isConnecting}
-          className="w-full flex items-center justify-center gap-3 py-3 px-6 bg-[#1E1E1E] hover:bg-[#2A2A2A] text-[#F0EBE3] border border-[#2A2A2A] rounded-xl font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full flex items-center justify-center gap-3 py-3 px-6 bg-input hover:bg-edge text-cream border border-edge rounded-xl font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24">
             <path
@@ -115,7 +148,7 @@ export default function SignInStep({ onSuccess, onBack }: SignInStepProps) {
         <button
           onClick={() => handleConnect('microsoft')}
           disabled={isConnecting}
-          className="w-full flex items-center justify-center gap-3 py-3 px-6 bg-[#1E1E1E] hover:bg-[#2A2A2A] text-[#F0EBE3] border border-[#2A2A2A] rounded-xl font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full flex items-center justify-center gap-3 py-3 px-6 bg-input hover:bg-edge text-cream border border-edge rounded-xl font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <svg className="w-5 h-5" viewBox="0 0 23 23">
             <path fill="#f35325" d="M0 0h11v11H0z" />
@@ -153,7 +186,7 @@ export default function SignInStep({ onSuccess, onBack }: SignInStepProps) {
       )}
 
       {onBack && (
-        <div className="pt-4 border-t border-[#2A2A2A]">
+        <div className="pt-4 border-t border-edge">
           <button
             onClick={onBack}
             className="w-full flex items-center justify-center gap-2 py-2 px-4 bg-white/5 hover:bg-white/10 text-gray-300 rounded-lg font-medium transition-colors"
@@ -162,6 +195,8 @@ export default function SignInStep({ onSuccess, onBack }: SignInStepProps) {
             Back
           </button>
         </div>
+      )}
+      </>
       )}
     </div>
   );

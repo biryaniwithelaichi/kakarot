@@ -1,25 +1,13 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <!-- CSP relaxed for development - Vite needs ws: for HMR, blob: for modules -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self' ws: wss:; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; worker-src 'self' blob:; connect-src 'self' ws: wss: http://localhost:* https://fonts.googleapis.com https://fonts.gstatic.com;" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' ws: wss:; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; worker-src 'self' blob:; connect-src 'self' ws: wss: http://localhost:* https://fonts.googleapis.com https://fonts.gstatic.com;" />
     <title>Kakarot - AI Note Taker</title>
-    <!-- Apply dark mode before first render to prevent flash -->
-    <script>
-      (function() {
-        var theme = localStorage.getItem('kakarot-theme');
-        if (theme === 'dark' ||
-            (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-          document.documentElement.classList.add('dark');
-        } else {
-          document.documentElement.classList.remove('dark');
-        }
-      })();
-    </script>
   </head>
-  <body class="bg-[#0C0C0C] text-[#F0EBE3] dark:bg-[#0C0C0C]">
+  <body class="bg-surface text-cream">
     <div id="root"></div>
     <script type="module" src="./main.tsx"></script>
   </body>

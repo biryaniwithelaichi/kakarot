@@ -2,6 +2,7 @@ import { getDatabase, saveDatabase } from '../database';
 import type { AppSettings, CustomMeetingType } from '@shared/types';
 import { DEFAULT_SETTINGS } from '../../config/constants';
 import { createLogger } from '../../core/logger';
+import { SENSITIVE_SETTINGS_KEYS, encryptTokenFields, decryptTokenFields } from '../../core/credentialStore';
 
 const logger = createLogger('SettingsRepository');
 
@@ -29,7 +30,12 @@ export class SettingsRepository {
     for (let i = 0; i < result[0].values.length; i++) {
       const key = result[0].values[i][0] as string;
       const value = result[0].values[i][1] as string;
-      settings[key] = JSON.parse(value);
+      let parsed = JSON.parse(value);
+      // Decrypt sensitive fields on read
+      if (SENSITIVE_SETTINGS_KEYS.has(key) && typeof parsed === 'object' && parsed !== null) {
+        parsed = decryptTokenFields(parsed);
+      }
+      settings[key] = parsed;
     }
 
     const merged = { ...DEFAULT_SETTINGS, ...settings } as AppSettings;
@@ -69,9 +75,14 @@ export class SettingsRepository {
   updateSettings(updates: Partial<AppSettings>): void {
     const db = getDatabase();
     for (const [key, value] of Object.entries(updates)) {
+      // Encrypt sensitive fields before storing
+      let toStore: unknown = value;
+      if (SENSITIVE_SETTINGS_KEYS.has(key) && typeof value === 'object' && value !== null) {
+        toStore = encryptTokenFields(value);
+      }
       db.run('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', [
         key,
-        JSON.stringify(value),
+        JSON.stringify(toStore),
       ]);
     }
     saveDatabase();

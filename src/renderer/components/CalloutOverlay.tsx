@@ -41,16 +41,16 @@ export default function CalloutOverlay() {
         }
         .animate-shake { animation: shake 0.6s ease-in-out !important; }
       `}</style>
-      <div className={`bg-[#161616]/95 backdrop-blur-sm rounded-xl shadow-2xl border border-[#2A2A2A] flex flex-col flex-1 overflow-hidden ${isShaking ? 'animate-shake' : ''}`}>
+      <div className={`bg-card/95 backdrop-blur-sm rounded-xl shadow-2xl border border-edge flex flex-col flex-1 overflow-hidden ${isShaking ? 'animate-shake' : ''}`}>
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-2 bg-[#C17F3E]/20 border-b border-[#2A2A2A]">
+        <div className="flex items-center justify-between px-4 py-2 bg-accent/20 border-b border-edge">
           <div className="flex items-center gap-2">
-            <Lightbulb className="w-4 h-4 text-[#F0EBE3]" />
-            <span className="text-xs font-medium text-[#F0EBE3]/70">Question Detected</span>
+            <Lightbulb className="w-4 h-4 text-cream" />
+            <span className="text-xs font-medium text-cream/70">Question Detected</span>
           </div>
           <button
             onClick={handleDismiss}
-            className="text-[#C17F3E] hover:text-[#F0EBE3] transition-colors"
+            className="text-accent hover:text-cream transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
@@ -59,21 +59,21 @@ export default function CalloutOverlay() {
         {/* Content - scrollable */}
         <div className="px-4 py-3 flex-1 overflow-y-auto">
           {/* Question */}
-          <p className="text-xs text-[#C17F3E] mb-1">Question:</p>
-          <p className="text-sm text-[#F0EBE3] mb-3">{callout.question}</p>
+          <p className="text-xs text-accent mb-1">Question:</p>
+          <p className="text-sm text-cream mb-3">{callout.question}</p>
 
           {/* Suggested response */}
-          <p className="text-xs text-[#C17F3E] mb-1">Suggested Response:</p>
-          <p className="text-sm text-[#F0EBE3] leading-relaxed">
+          <p className="text-xs text-accent mb-1">Suggested Response:</p>
+          <p className="text-sm text-cream leading-relaxed">
             {callout.suggestedResponse}
           </p>
         </div>
 
         {/* Footer */}
-        <div className="px-4 py-2 bg-[#0C0C0C]/50 border-t border-[#2A2A2A]">
+        <div className="px-4 py-2 bg-surface/50 border-t border-edge">
           <button
             onClick={handleDismiss}
-            className="w-full text-xs text-[#C17F3E] hover:text-[#F0EBE3] transition-colors"
+            className="w-full text-xs text-accent hover:text-cream transition-colors"
           >
             Click to dismiss
           </button>

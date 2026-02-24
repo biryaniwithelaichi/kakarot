@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Search, Mic } from 'lucide-react';
 import { useAppStore } from '../stores/appStore';
 import BentoDashboard from './bento/BentoDashboard';
@@ -21,7 +21,7 @@ export default function HomeView({
   onBackToMeeting,
   onSelectTab,
 }: HomeViewProps) {
-  const { recordingState } = useAppStore();
+  const { recordingState, upcomingCalendarEvents, liveCalendarEvents } = useAppStore();
   const [showSearchPopup, setShowSearchPopup] = useState(false);
   const [userFirstName, setUserFirstName] = useState('User');
 
@@ -37,32 +37,65 @@ export default function HomeView({
     });
   }, []);
 
-  const getGreeting = () => {
-    const hour = new Date().getHours();
-    if (hour >= 5 && hour < 12) return `Good Morning, ${userFirstName}`;
-    if (hour >= 12 && hour < 22) return `Good Afternoon, ${userFirstName}`;
-    return `Good Evening, ${userFirstName}`;
-  };
+  const statusLine = useMemo(() => {
+    // Live meeting takes priority
+    if (liveCalendarEvents.length > 0) {
+      const live = liveCalendarEvents[0];
+      return `${live.title} is live now`;
+    }
+
+    // Count today's upcoming meetings
+    const now = new Date();
+    const todayEnd = new Date(now);
+    todayEnd.setHours(23, 59, 59, 999);
+
+    const todayEvents = upcomingCalendarEvents.filter(
+      (e) => new Date(e.start).getTime() <= todayEnd.getTime()
+    );
+
+    if (todayEvents.length > 0) {
+      const next = todayEvents[0];
+      const minutesUntil = Math.floor(
+        (new Date(next.start).getTime() - now.getTime()) / 60000
+      );
+
+      if (minutesUntil <= 0) {
+        return `${next.title} starting now`;
+      }
+      if (minutesUntil < 60) {
+        const more = todayEvents.length > 1
+          ? ` -- ${todayEvents.length - 1} more today`
+          : '';
+        return `${next.title} in ${minutesUntil} min${more}`;
+      }
+
+      const count = todayEvents.length;
+      return `${count} meeting${count > 1 ? 's' : ''} today, next in ${minutesUntil} min`;
+    }
+
+    return 'No meetings scheduled today';
+  }, [liveCalendarEvents, upcomingCalendarEvents]);
 
   return (
     <>
-      <div className="flex-1 min-h-0 text-[#F0EBE3] flex flex-col">
+      <div className="flex-1 min-h-0 text-cream flex flex-col">
         <div className="w-full flex flex-col flex-1 min-h-0">
           {/* Greeting + Action Row */}
-          <div className="flex-shrink-0 mx-auto w-full max-w-2xl px-4 sm:px-6 py-4 space-y-3 animate-view-enter">
+          <div className="flex-shrink-0 mx-auto w-full max-w-2xl px-4 sm:px-6 py-6 space-y-4 animate-view-enter">
             <div>
-              <h1 className="text-4xl font-display text-[#F0EBE3]">
-                {getGreeting()}
+              <p className="text-sm text-muted">{statusLine}</p>
+              <h1 className="text-2xl font-medium tracking-tight text-cream mt-1">
+                What are you working on, {userFirstName}?
               </h1>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#5C5750]" />
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-dim" />
                 <input
                   type="text"
                   placeholder="Search meetings or notes"
-                  className="w-full pl-10 pr-4 py-2 bg-[#1E1E1E] border border-[#2A2A2A] rounded-xl text-sm text-[#F0EBE3] placeholder:text-[#5C5750] focus:outline-none focus:ring-1 focus:ring-[#C17F3E]/30 focus:border-[#C17F3E]/20 transition cursor-pointer"
+                  className="w-full pl-10 pr-4 py-2.5 bg-input border border-edge rounded-md text-sm text-cream placeholder:text-dim focus:outline-none focus:border-accent/30 transition-colors cursor-pointer"
                   onClick={() => setShowSearchPopup(true)}
                   onFocus={() => setShowSearchPopup(true)}
                   readOnly
@@ -72,10 +105,10 @@ export default function HomeView({
               <button
                 onClick={() => onStartRecording()}
                 disabled={isRecording || isPaused || isGenerating}
-                className="px-4 py-2 bg-[#C17F3E] text-[#0C0C0C] font-semibold rounded-xl flex items-center gap-1.5 shadow-copper-soft transition-all duration-200 hover:bg-[#D4923F] hover:shadow-copper-glow active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 text-sm"
+                className="px-4 py-2.5 bg-accent text-surface font-medium rounded-lg flex items-center gap-2 shadow-soft transition-colors duration-150 hover:bg-accent-hover active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 text-sm"
               >
                 <Mic className="w-3.5 h-3.5" />
-                Start Recording
+                Take Notes
               </button>
             </div>
           </div>

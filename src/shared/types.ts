@@ -252,6 +252,8 @@ export interface AppSettings {
   openOnLogin?: boolean;
   // Auto-sync timestamps
   lastCalendarContactsSync?: number; // epoch ms of last auto/manual sync
+  // Onboarding
+  onboardingCompleted?: boolean;
 }
 
 // Default settings for renderer (without process.env dependencies)

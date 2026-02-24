@@ -2,36 +2,33 @@ appId: com.treeto.app
 productName: Treeto
 directories:
   output: release
-  buildResources: build
-icon: build/icon.icns
+  buildResources: resources
+icon: resources/icon.icns
 
 files:
   - dist/**/*
   - package.json
-
-# Platform-specific audio capture binaries
-# macOS: audiotee binary
-# Windows: FFmpeg for WASAPI loopback
-# Linux: Uses system pw-record (PipeWire)
 
 mac:
   category: public.app-category.productivity
   target:
     - target: dmg
       arch: [arm64]
+  # Set identity to null for local unsigned builds.
+  # In CI, CSC_LINK and CSC_KEY_PASSWORD env vars override this.
+  identity: null
+  notarize: false
   extraResources:
     - from: node_modules/audiotee/bin/audiotee
       to: audiotee
-    - from: build/.env.production
+    - from: resources/.env.production
       to: .env
-  # Required for system audio capture
   extendInfo:
     NSMicrophoneUsageDescription: "Treeto needs microphone access to transcribe your voice during meetings."
     NSAudioCaptureUsageDescription: "Treeto needs system audio access to transcribe meeting participants."
     NSScreenCaptureUsageDescription: "Treeto may need screen recording permission for audio capture."
-  # Entitlements for audio capture
-  entitlements: build/entitlements.mac.plist
-  entitlementsInherit: build/entitlements.mac.plist
+  entitlements: resources/entitlements.mac.plist
+  entitlementsInherit: resources/entitlements.mac.plist
 
 dmg:
   contents:

@@ -577,7 +577,7 @@ export class HubSpotService {
             body: metadata.body || metadata.text || undefined,
             direction: metadata.direction || undefined,
           });
-        } catch (err) {
+        } catch {
           // Skip failed engagements
         }
       }
@@ -698,7 +698,7 @@ export class HubSpotService {
 
       const stage = response.data.results?.find((s: { id: string }) => s.id === stageId);
       return stage?.label || stageId;
-    } catch (error) {
+    } catch {
       return stageId; // Return raw ID if lookup fails
     }
   }

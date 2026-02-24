@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useAppStore } from '../stores/appStore';
 import type { AppSettings } from '@shared/types';
-import { Calendar } from 'lucide-react';
+import { Calendar, X } from 'lucide-react';
 import { ConfirmDialog } from './ConfirmDialog';
 import { toast } from '../stores/toastStore';
-import salesforceLogo from '../assets/salesforce logo.png';
+import salesforceLogo from '../assets/salesforce-logo.png';
 import hubspotLogo from '../assets/hubspotlogo.png';
 import { SlackIntegration } from './SlackIntegration';
+import { SettingsSkeleton } from './Skeleton';
 
 export default function SettingsView() {
   const { settings, setSettings } = useAppStore();
@@ -15,22 +16,6 @@ export default function SettingsView() {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [connectingProvider, setConnectingProvider] = useState<'google' | 'outlook' | 'icloud' | null>(null);
   const [connectingCRM, setConnectingCRM] = useState<'salesforce' | 'hubspot' | null>(null);
-  const [connectedCalendars, setConnectedCalendars] = useState<{
-    google: boolean;
-    outlook: boolean;
-    icloud: boolean;
-  }>({
-    google: false,
-    outlook: false,
-    icloud: false,
-  });
-  const [connectedCRMs, setConnectedCRMs] = useState<{
-    salesforce: boolean;
-    hubspot: boolean;
-  }>({
-    salesforce: false,
-    hubspot: false,
-  });
   const [googleCalendars, setGoogleCalendars] = useState<Array<{ id: string; name: string }>>([]);
   const [visibleGoogleIds, setVisibleGoogleIds] = useState<string[]>([]);
   const [disconnectConfirm, setDisconnectConfirm] = useState<{
@@ -39,19 +24,27 @@ export default function SettingsView() {
     provider: string | null;
     label: string;
   }>({ isOpen: false, type: null, provider: null, label: '' });
+  const [icloudModal, setIcloudModal] = useState<{
+    isOpen: boolean;
+    appleId: string;
+    appPassword: string;
+  }>({ isOpen: false, appleId: '', appPassword: '' });
+
+  // Derive connection state from localSettings -- single source of truth,
+  // no sync effects or regression guards needed.
+  const connectedCalendars = {
+    google: !!localSettings?.calendarConnections?.google,
+    outlook: !!localSettings?.calendarConnections?.outlook,
+    icloud: !!localSettings?.calendarConnections?.icloud,
+  };
+  const connectedCRMs = {
+    salesforce: !!localSettings?.crmConnections?.salesforce,
+    hubspot: !!localSettings?.crmConnections?.hubspot,
+  };
 
   useEffect(() => {
     if (settings) {
       setLocalSettings({ ...settings });
-      setConnectedCalendars({
-        google: !!settings.calendarConnections?.google,
-        outlook: !!settings.calendarConnections?.outlook,
-        icloud: !!settings.calendarConnections?.icloud,
-      });
-      setConnectedCRMs({
-        salesforce: !!settings.crmConnections?.salesforce,
-        hubspot: !!settings.crmConnections?.hubspot,
-      });
       setVisibleGoogleIds(settings.visibleCalendars?.google || []);
     }
   }, [settings]);
@@ -94,32 +87,51 @@ export default function SettingsView() {
   const handleConnectCalendar = async (provider: 'google' | 'outlook' | 'icloud') => {
     if (!localSettings) return;
 
+    // iCloud needs credentials -- show modal instead of connecting directly
+    if (provider === 'icloud') {
+      setIcloudModal({ isOpen: true, appleId: '', appPassword: '' });
+      return;
+    }
+
     setConnectingProvider(provider);
 
     try {
-      let payload: { appleId: string; appPassword: string } | undefined;
-      if (provider === 'icloud') {
-        const appleId = prompt('Enter your Apple ID email for iCloud Calendar:');
-        const appPassword = prompt('Enter your iCloud app-specific password:');
-        if (!appleId || !appPassword) {
-          throw new Error('Apple ID and app-specific password are required');
-        }
-        payload = { appleId, appPassword };
-      }
-
-      const connections = await window.kakarot.calendar.connect(provider, payload);
+      const connections = await window.kakarot.calendar.connect(provider);
       const nextSettings = { ...localSettings, calendarConnections: connections };
       setLocalSettings(nextSettings);
       setSettings(nextSettings);
-      setConnectedCalendars({
-        google: !!connections.google,
-        outlook: !!connections.outlook,
-        icloud: !!connections.icloud,
-      });
       toast.success(`${providerLabels[provider]} connected`);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
       toast.error(`Failed to connect ${providerLabels[provider]}: ${message}`);
+    } finally {
+      setConnectingProvider(null);
+    }
+  };
+
+  const handleIcloudConnect = async () => {
+    if (!localSettings) return;
+    const { appleId, appPassword } = icloudModal;
+    if (!appleId.trim() || !appPassword.trim()) {
+      toast.error('Apple ID and app-specific password are required');
+      return;
+    }
+
+    setIcloudModal(prev => ({ ...prev, isOpen: false }));
+    setConnectingProvider('icloud');
+
+    try {
+      const connections = await window.kakarot.calendar.connect('icloud', {
+        appleId: appleId.trim(),
+        appPassword: appPassword.trim(),
+      });
+      const nextSettings = { ...localSettings, calendarConnections: connections };
+      setLocalSettings(nextSettings);
+      setSettings(nextSettings);
+      toast.success(`${providerLabels.icloud} connected`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      toast.error(`Failed to connect ${providerLabels.icloud}: ${message}`);
     } finally {
       setConnectingProvider(null);
     }
@@ -138,11 +150,6 @@ export default function SettingsView() {
       const nextSettings = { ...localSettings, calendarConnections: connections };
       setLocalSettings(nextSettings);
       setSettings(nextSettings);
-      setConnectedCalendars({
-        google: !!connections.google,
-        outlook: !!connections.outlook,
-        icloud: !!connections.icloud,
-      });
       toast.success(`${providerLabels[provider]} disconnected`);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
@@ -195,10 +202,6 @@ export default function SettingsView() {
         const nextSettings = { ...localSettings, crmConnections: nextConnections };
         setLocalSettings(nextSettings);
         setSettings(nextSettings);
-        setConnectedCRMs({
-          ...connectedCRMs,
-          [provider]: true,
-        });
         toast.success(`${provider.charAt(0).toUpperCase() + provider.slice(1)} connected`);
       }
     } catch (err) {
@@ -221,10 +224,6 @@ export default function SettingsView() {
       const nextSettings = { ...localSettings, crmConnections: nextConnections };
       setLocalSettings(nextSettings);
       setSettings(nextSettings);
-      setConnectedCRMs({
-        ...connectedCRMs,
-        [provider]: false,
-      });
       toast.success(`${provider.charAt(0).toUpperCase() + provider.slice(1)} disconnected`);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
@@ -235,37 +234,33 @@ export default function SettingsView() {
   };
 
   if (!localSettings) {
-    return (
-      <div className="h-full flex items-center justify-center text-slate-500">
-        Loading settings...
-      </div>
-    );
+    return <SettingsSkeleton />;
   }
 
   return (
     <div className="h-full overflow-y-auto">
       <div className="max-w-2xl mx-auto p-6 space-y-8">
         <div>
-          <h1 className="text-3xl font-display text-[#F0EBE3]">Settings</h1>
-          <p className="text-[#5C5750] text-sm mt-1">
+          <h1 className="text-2xl font-medium tracking-tight text-cream">Settings</h1>
+          <p className="text-dim text-sm mt-1.5">
             Configure your preferences and integrations
           </p>
         </div>
 
         {/* UI Preferences */}
         <section className="space-y-4">
-          <h2 className="text-lg font-medium text-white border-b border-[#2A2A2A] pb-2">
+          <h2 className="text-xs font-semibold uppercase tracking-[0.1em] text-muted border-b border-edge pb-2">
             General
           </h2>
 
           <div className="space-y-3">
             {/* Live Meeting Indicator */}
-            <div className="flex items-start justify-between px-4 py-3 rounded-lg border border-[#2A2A2A] bg-[#1E1E1E]">
+            <div className="flex items-start justify-between px-4 py-3 rounded-lg border border-edge bg-input shadow-soft">
               <div className="flex-1 pr-4">
-                <h3 className="text-sm font-medium text-white mb-1">
+                <h3 className="text-sm font-medium text-cream mb-1">
                   Show the live meeting indicator
                 </h3>
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-muted">
                   The meeting indicator sits on the right of your screen, and shows when you're transcribing
                 </p>
               </div>
@@ -276,12 +271,12 @@ export default function SettingsView() {
             </div>
 
             {/* Open on Login */}
-            <div className="flex items-start justify-between px-4 py-3 rounded-lg border border-[#2A2A2A] bg-[#1E1E1E]">
+            <div className="flex items-start justify-between px-4 py-3 rounded-lg border border-edge bg-input shadow-soft">
               <div className="flex-1 pr-4">
-                <h3 className="text-sm font-medium text-white mb-1">
+                <h3 className="text-sm font-medium text-cream mb-1">
                   Open Treeto when you log in
                 </h3>
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-muted">
                   Treeto will open automatically when you log in
                 </p>
               </div>
@@ -302,16 +297,16 @@ export default function SettingsView() {
 
         {/* Transcription */}
         <section className="space-y-4">
-          <h2 className="text-lg font-medium text-white border-b border-[#2A2A2A] pb-2">
+          <h2 className="text-xs font-semibold uppercase tracking-[0.1em] text-muted border-b border-edge pb-2">
             Transcription
           </h2>
 
           <div>
-            <label className="block text-sm text-slate-300 mb-2">Language</label>
+            <label className="block text-sm text-muted mb-2">Language</label>
             <select
               value={localSettings.transcriptionLanguage}
               onChange={(e) => handleChange('transcriptionLanguage', e.target.value)}
-              className="w-full bg-[#1E1E1E] border border-[#2A2A2A] text-[#F0EBE3] rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-[#C17F3E]/30 focus:border-[#C17F3E]/20"
+              className="w-full bg-input border border-edge text-cream rounded-md px-4 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-accent/30 focus:border-accent/30"
             >
               <option value="auto">Auto-detect</option>
               <optgroup label="Common Languages">
@@ -358,7 +353,7 @@ export default function SettingsView() {
                 <option value="gu">Gujarati</option>
               </optgroup>
             </select>
-            <p className="text-xs text-slate-500 mt-1">
+            <p className="text-xs text-dim mt-1">
               Language availability depends on transcription provider
             </p>
           </div>
@@ -366,10 +361,10 @@ export default function SettingsView() {
 
         {/* Calendar Integrations */}
         <section className="space-y-4">
-          <h2 className="text-lg font-medium text-white border-b border-[#2A2A2A] pb-2">
-            Calendar Integrations
+          <h2 className="text-xs font-semibold uppercase tracking-[0.1em] text-muted border-b border-edge pb-2">
+            Calendar integrations
           </h2>
-          <p className="text-sm text-slate-400">
+          <p className="text-sm text-muted">
             Connect your calendars to automatically prepare for upcoming meetings
           </p>
 
@@ -381,7 +376,7 @@ export default function SettingsView() {
               isLoading={connectingProvider === 'google'}
               onConnect={() => handleConnectCalendar('google')}
               onDisconnect={() => showDisconnectConfirm('calendar', 'google', 'Google Calendar')}
-              icon={<Calendar className="w-5 h-5 text-slate-400" />}
+              icon={<Calendar className="w-5 h-5 text-muted" />}
             />
             <CalendarConnectionButton
               provider="outlook"
@@ -390,7 +385,7 @@ export default function SettingsView() {
               isLoading={connectingProvider === 'outlook'}
               onConnect={() => handleConnectCalendar('outlook')}
               onDisconnect={() => showDisconnectConfirm('calendar', 'outlook', 'Outlook Calendar')}
-              icon={<Calendar className="w-5 h-5 text-slate-400" />}
+              icon={<Calendar className="w-5 h-5 text-muted" />}
             />
           </div>
         </section>
@@ -398,20 +393,20 @@ export default function SettingsView() {
         {/* Visible Calendars */}
         {connectedCalendars.google && (
           <section className="space-y-4">
-            <h2 className="text-lg font-medium text-white border-b border-[#2A2A2A] pb-2">
-              Visible Calendars
+            <h2 className="text-xs font-semibold uppercase tracking-[0.1em] text-muted border-b border-edge pb-2">
+              Visible calendars
             </h2>
             <div className="space-y-2">
               {googleCalendars.length === 0 && (
-                <p className="text-sm text-slate-400">No calendars found</p>
+                <p className="text-sm text-muted">No calendars found</p>
               )}
               {googleCalendars.map((cal) => {
                 const enabled = visibleGoogleIds.includes(cal.id);
                 return (
-                  <div key={cal.id} className="flex items-center justify-between px-4 py-3 rounded-lg border border-[#2A2A2A] bg-[#1E1E1E]">
+                  <div key={cal.id} className="flex items-center justify-between px-4 py-3 rounded-lg border border-edge bg-input shadow-soft">
                     <div className="flex items-center gap-3">
-                      <span className="w-3 h-3 rounded-sm bg-[#F0EBE3]" />
-                      <p className="text-sm text-white">{cal.name}</p>
+                      <span className="w-3 h-3 rounded-sm bg-cream" />
+                      <p className="text-sm text-cream">{cal.name}</p>
                     </div>
                     <ToggleSwitch
                       enabled={enabled}
@@ -423,7 +418,11 @@ export default function SettingsView() {
                         const nextSettings = { ...localSettings!, visibleCalendars: { ...(localSettings!.visibleCalendars || {}), google: next } };
                         setLocalSettings(nextSettings);
                         // Update visible calendars - settings change event will trigger automatic refresh
-                        window.kakarot.calendar.setVisibleCalendars('google', next).catch(() => {});
+                        window.kakarot.calendar.setVisibleCalendars('google', next).catch((err) => {
+                          console.error('Failed to update visible calendars:', err);
+                          setVisibleGoogleIds(visibleGoogleIds);
+                          toast.error('Failed to update calendar visibility');
+                        });
                       }}
                     />
                   </div>
@@ -435,10 +434,10 @@ export default function SettingsView() {
 
         {/* Slack Integration */}
         <section className="space-y-4">
-          <h2 className="text-lg font-medium text-white border-b border-[#2A2A2A] pb-2">
-            Slack Integration
+          <h2 className="text-xs font-semibold uppercase tracking-[0.1em] text-muted border-b border-edge pb-2">
+            Slack integration
           </h2>
-          <p className="text-sm text-slate-400">
+          <p className="text-sm text-muted">
             Connect Slack to send notes directly to channels.
           </p>
           <SlackIntegration showTitle={false} />
@@ -446,10 +445,10 @@ export default function SettingsView() {
 
         {/* CRM Integrations */}
         <section className="space-y-4">
-          <h2 className="text-lg font-medium text-white border-b border-[#2A2A2A] pb-2">
-            CRM Integrations
+          <h2 className="text-xs font-semibold uppercase tracking-[0.1em] text-muted border-b border-edge pb-2">
+            CRM integrations
           </h2>
-          <p className="text-sm text-slate-400">
+          <p className="text-sm text-muted">
             Connect your CRM to automatically push meeting notes to contact records.
           </p>
 
@@ -462,29 +461,29 @@ export default function SettingsView() {
                   : handleConnectCRM('salesforce')
               }
               disabled={connectingCRM === 'salesforce'}
-              className={`w-full flex items-center justify-between px-4 py-3 rounded-lg border transition-all ${
+              className={`w-full flex items-center justify-between px-4 py-3 rounded-lg border transition-colors ${
                 connectedCRMs.salesforce
-                  ? 'border-[#F0EBE3]/50 bg-[#F0EBE3]/10'
-                  : 'border-[#2A2A2A] bg-[#1E1E1E] hover:border-[#2A2A2A]'
+                  ? 'border-cream/50 bg-cream/10'
+                  : 'border-edge bg-input hover:border-edge-light'
               }`}
             >
               <div className="flex items-center gap-3">
                 <img src={salesforceLogo} alt="Salesforce" className="w-5 h-5 object-contain" />
                 <div className="text-left">
-                  <p className="text-sm font-medium text-white">
+                  <p className="text-sm font-medium text-cream">
                     {connectedCRMs.salesforce ? 'Salesforce Connected' : 'Connect Salesforce'}
                   </p>
                   {connectedCRMs.salesforce && (
-                    <p className="text-xs text-slate-500">Notes will be synced to contact records</p>
+                    <p className="text-xs text-dim">Notes will be synced to contact records</p>
                   )}
                 </div>
               </div>
               {connectedCRMs.salesforce ? (
-                <span className="text-sm text-[#F0EBE3]">
+                <span className="text-sm text-cream">
                   {connectingCRM === 'salesforce' ? 'Disconnecting...' : 'Disconnect'}
                 </span>
               ) : (
-                <span className="text-sm text-primary-400">
+                <span className="text-sm text-accent">
                   {connectingCRM === 'salesforce' ? 'Connecting...' : '+ Connect'}
                 </span>
               )}
@@ -498,29 +497,29 @@ export default function SettingsView() {
                   : handleConnectCRM('hubspot')
               }
               disabled={connectingCRM === 'hubspot'}
-              className={`w-full flex items-center justify-between px-4 py-3 rounded-lg border transition-all ${
+              className={`w-full flex items-center justify-between px-4 py-3 rounded-lg border transition-colors ${
                 connectedCRMs.hubspot
-                  ? 'border-[#F0EBE3]/50 bg-[#F0EBE3]/10'
-                  : 'border-[#2A2A2A] bg-[#1E1E1E] hover:border-[#2A2A2A]'
+                  ? 'border-cream/50 bg-cream/10'
+                  : 'border-edge bg-input hover:border-edge-light'
               }`}
             >
               <div className="flex items-center gap-3">
                 <img src={hubspotLogo} alt="HubSpot" className="w-5 h-5 object-contain" />
                 <div className="text-left">
-                  <p className="text-sm font-medium text-white">
+                  <p className="text-sm font-medium text-cream">
                     {connectedCRMs.hubspot ? 'HubSpot Connected' : 'Connect HubSpot'}
                   </p>
                   {connectedCRMs.hubspot && (
-                    <p className="text-xs text-slate-500">Notes will be synced to contact records</p>
+                    <p className="text-xs text-dim">Notes will be synced to contact records</p>
                   )}
                 </div>
               </div>
               {connectedCRMs.hubspot ? (
-                <span className="text-sm text-[#F0EBE3]">
+                <span className="text-sm text-cream">
                   {connectingCRM === 'hubspot' ? 'Disconnecting...' : 'Disconnect'}
                 </span>
               ) : (
-                <span className="text-sm text-primary-400">
+                <span className="text-sm text-accent">
                   {connectingCRM === 'hubspot' ? 'Connecting...' : '+ Connect'}
                 </span>
               )}
@@ -530,11 +529,11 @@ export default function SettingsView() {
           {/* CRM Notes Behavior */}
           {(connectedCRMs.salesforce || connectedCRMs.hubspot) && (
             <div>
-              <label className="block text-sm text-slate-300 mb-3">
+              <label className="block text-sm text-muted mb-3">
                 When sending notes to CRM
               </label>
               <div className="space-y-2">
-                <label className="flex items-center gap-3 px-4 py-3 rounded-lg border border-[#2A2A2A] bg-[#1E1E1E] cursor-pointer hover:border-[#2A2A2A] transition">
+                <label className="flex items-center gap-3 px-4 py-3 rounded-lg border border-edge bg-input shadow-soft cursor-pointer hover:border-edge-light transition-colors">
                   <input
                     type="radio"
                     name="crmNotes"
@@ -544,11 +543,11 @@ export default function SettingsView() {
                     className="w-4 h-4 cursor-pointer"
                   />
                   <div>
-                    <p className="text-sm font-medium text-white">Send All Notes Automatically</p>
-                    <p className="text-xs text-slate-500">Notes are always pushed to participant records</p>
+                    <p className="text-sm font-medium text-cream">Send all notes automatically</p>
+                    <p className="text-xs text-dim">Notes are always pushed to participant records</p>
                   </div>
                 </label>
-                <label className="flex items-center gap-3 px-4 py-3 rounded-lg border border-[#2A2A2A] bg-[#1E1E1E] cursor-pointer hover:border-[#2A2A2A] transition">
+                <label className="flex items-center gap-3 px-4 py-3 rounded-lg border border-edge bg-input shadow-soft cursor-pointer hover:border-edge-light transition-colors">
                   <input
                     type="radio"
                     name="crmNotes"
@@ -558,8 +557,8 @@ export default function SettingsView() {
                     className="w-4 h-4 cursor-pointer"
                   />
                   <div>
-                    <p className="text-sm font-medium text-white">Ask Before Sending</p>
-                    <p className="text-xs text-slate-500">You'll be prompted after each meeting</p>
+                    <p className="text-sm font-medium text-cream">Ask before sending</p>
+                    <p className="text-xs text-dim">You'll be prompted after each meeting</p>
                   </div>
                 </label>
               </div>
@@ -576,7 +575,7 @@ export default function SettingsView() {
           <button
             onClick={handleSave}
             disabled={isSaving}
-            className="px-6 py-3 bg-[#C17F3E] hover:bg-[#D4923F] disabled:opacity-50 text-[#0C0C0C] rounded-xl font-medium transition-all shadow-copper-soft hover:shadow-copper-glow"
+            className="px-6 py-3 bg-accent hover:bg-accent-hover disabled:opacity-50 text-surface rounded-lg font-medium transition-colors shadow-elevated active:scale-[0.97]"
           >
             {isSaving ? 'Saving...' : 'Save Settings'}
           </button>
@@ -593,6 +592,65 @@ export default function SettingsView() {
         onConfirm={confirmDisconnect}
         onCancel={() => setDisconnectConfirm({ isOpen: false, type: null, provider: null, label: '' })}
       />
+
+      {/* iCloud credentials modal */}
+      {icloudModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center animate-backdrop-in" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <div className="bg-card border border-edge rounded-lg shadow-overlay w-full max-w-sm mx-4 animate-modal-in">
+            <div className="flex items-center justify-between p-4 border-b border-edge">
+              <h3 className="text-sm font-medium text-cream">Connect iCloud Calendar</h3>
+              <button
+                onClick={() => setIcloudModal({ isOpen: false, appleId: '', appPassword: '' })}
+                className="p-1 text-muted hover:text-cream transition-colors rounded hover:bg-white/5"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-4 space-y-4">
+              <div>
+                <label className="block text-xs text-muted mb-1.5">Apple ID email</label>
+                <input
+                  type="email"
+                  value={icloudModal.appleId}
+                  onChange={(e) => setIcloudModal(prev => ({ ...prev, appleId: e.target.value }))}
+                  placeholder="you@icloud.com"
+                  className="w-full bg-input border border-edge text-cream rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-accent/30 focus:border-accent/30 placeholder:text-dim"
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-muted mb-1.5">App-specific password</label>
+                <input
+                  type="password"
+                  value={icloudModal.appPassword}
+                  onChange={(e) => setIcloudModal(prev => ({ ...prev, appPassword: e.target.value }))}
+                  placeholder="xxxx-xxxx-xxxx-xxxx"
+                  className="w-full bg-input border border-edge text-cream rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-accent/30 focus:border-accent/30 placeholder:text-dim"
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleIcloudConnect(); }}
+                />
+                <p className="text-[11px] text-dim mt-1.5">
+                  Generate one at appleid.apple.com under Sign-In and Security.
+                </p>
+              </div>
+              <div className="flex justify-end gap-2 pt-1">
+                <button
+                  onClick={() => setIcloudModal({ isOpen: false, appleId: '', appPassword: '' })}
+                  className="px-3 py-2 text-sm text-muted hover:text-cream transition-colors rounded-lg"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleIcloudConnect}
+                  disabled={!icloudModal.appleId.trim() || !icloudModal.appPassword.trim()}
+                  className="px-4 py-2 bg-accent hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed text-surface text-sm font-medium rounded-lg transition-colors"
+                >
+                  Connect
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -607,7 +665,7 @@ function ToggleSwitch({ enabled, onChange }: ToggleSwitchProps) {
     <button
       onClick={() => onChange(!enabled)}
       className={`relative w-11 h-6 rounded-full transition-colors ${
-        enabled ? 'bg-[#C17F3E]' : 'bg-[#2A2A2A]'
+        enabled ? 'bg-accent' : 'bg-edge'
       }`}
     >
       <div
@@ -659,24 +717,24 @@ function CalendarConnectionButton({
     <button
       onClick={handleClick}
       disabled={isLoading}
-      className={`w-full flex items-center justify-between px-4 py-3 rounded-lg border transition-all ${
+      className={`w-full flex items-center justify-between px-4 py-3 rounded-lg border transition-colors ${
         isConnected
-          ? 'border-[#F0EBE3]/50 bg-[#F0EBE3]/10'
-          : 'border-[#2A2A2A] bg-[#1E1E1E] hover:border-[#2A2A2A]'
+          ? 'border-cream/50 bg-cream/10'
+          : 'border-edge bg-input hover:border-edge-light'
       }`}
     >
       <div className="flex items-center gap-3">
         {icon}
         <div className="text-left">
-          <p className="text-sm font-medium text-white">
+          <p className="text-sm font-medium text-cream">
             {isConnected ? `${label} Connected` : `Connect Your ${label}`}
           </p>
           {isConnected && (
-            <p className="text-xs text-slate-500">Syncing your {provider.charAt(0).toUpperCase() + provider.slice(1)} events</p>
+            <p className="text-xs text-dim">Syncing your {provider.charAt(0).toUpperCase() + provider.slice(1)} events</p>
           )}
         </div>
       </div>
-      <span className={`text-sm ${isConnected ? 'text-[#F0EBE3]' : 'text-[#C17F3E]'}`}>
+      <span className={`text-sm ${isConnected ? 'text-cream' : 'text-accent'}`}>
         {getActionLabel()}
       </span>
     </button>

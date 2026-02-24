@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { X, Loader2 } from 'lucide-react';
+import { toast } from '../stores/toastStore';
 
 interface CRMPromptModalProps {
   meetingId: string;
@@ -20,6 +21,7 @@ export default function CRMPromptModal({ meetingId, provider, onConfirm, onDismi
       onConfirm();
     } catch (err) {
       console.error('[CRMPromptModal] Failed to push notes to CRM:', err);
+      toast.error('Failed to push notes to CRM');
       onDismiss();
     } finally {
       setIsPushing(false);
@@ -28,7 +30,7 @@ export default function CRMPromptModal({ meetingId, provider, onConfirm, onDismi
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-backdrop-in">
-      <div className="bg-[#161616] rounded-xl shadow-lg max-w-sm w-full border border-[#2A2A2A] animate-modal-in">
+      <div className="bg-card rounded-xl shadow-lg max-w-sm w-full border border-edge animate-modal-in">
         <div className="p-6">
           <div className="flex items-start justify-between mb-4">
             <h3 className="text-lg font-semibold text-white">
@@ -54,14 +56,14 @@ export default function CRMPromptModal({ meetingId, provider, onConfirm, onDismi
             <button
               onClick={onDismiss}
               disabled={isPushing}
-              className="flex-1 px-4 py-2 rounded-lg border border-[#2A2A2A] text-slate-200 font-medium hover:bg-[#2A2A2A]/50 disabled:opacity-50 transition"
+              className="flex-1 px-4 py-2 rounded-lg border border-edge text-slate-200 font-medium hover:bg-edge/50 disabled:opacity-50 transition"
             >
               No
             </button>
             <button
               onClick={handleConfirm}
               disabled={isPushing}
-              className="flex-1 px-4 py-2 rounded-lg bg-[#C17F3E] text-[#0C0C0C] font-medium hover:bg-[#D4923F] disabled:opacity-50 transition flex items-center justify-center gap-2"
+              className="flex-1 px-4 py-2 rounded-lg bg-accent text-surface font-medium hover:bg-accent-hover disabled:opacity-50 transition flex items-center justify-center gap-2"
             >
               {isPushing && <Loader2 className="w-4 h-4 animate-spin" />}
               Yes

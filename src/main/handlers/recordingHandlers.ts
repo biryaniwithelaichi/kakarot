@@ -12,6 +12,8 @@ import { AECSync } from '../audio/AECSync';
 import { showCalloutWindow } from '../windows/calloutWindow';
 import { AUDIO_CONFIG, matchesQuestionPattern, FEATURE_FLAGS } from '../config/constants';
 import { getDatabase, saveDatabase } from '../data/database';
+import { isMeetingApp } from '../utils/meetingAppDetection';
+import { markRecordingActive, clearRecoveryState } from '../services/RecoveryService';
 import type { CalendarAttendee, RecordingState } from '@shared/types';
 import type { IndicatorWindow } from '../windows/IndicatorWindow';
 
@@ -35,6 +37,7 @@ let isPaused = false;
 let lastMicApps: string[] = [];
 let meetingAppSeen = false;
 let autoStopTimer: NodeJS.Timeout | null = null;
+let maxDurationTimer: NodeJS.Timeout | null = null;
 let indicatorAmplitudeTimer: NodeJS.Timeout | null = null;
 let latestSystemAmplitude = 0;
 let latestMicAmplitude = 0;
@@ -63,28 +66,34 @@ export function registerRecordingHandlers(
     .filter(Boolean)
     .map((token) => token.toLowerCase());
   const AUTO_STOP_GRACE_MS = 5000;
-  const MEETING_APP_BUNDLE_IDS = new Set([
-    'com.google.chrome',
-    'com.google.chrome.canary',
-    'com.microsoft.edgemac',
-    'com.microsoft.edge',
-    'com.brave.browser',
-    'com.vivaldi.vivaldi',
-    'company.thebrowser.browser', // Arc
-    'org.mozilla.firefox',
-    'com.apple.safari',
-    'us.zoom.xos',
-    'com.microsoft.teams',
-    'com.microsoft.teams2',
-    'com.webex.meetingmanager',
-    'com.cisco.webexmeetingsapp',
-  ]);
+  const MAX_TRANSCRIPTION_DURATION_MS = 2 * 60 * 60 * 1000; // 2 hours
 
   const clearAutoStopTimer = (): void => {
     if (autoStopTimer) {
       clearTimeout(autoStopTimer);
       autoStopTimer = null;
     }
+  };
+
+  const clearMaxDurationTimer = (): void => {
+    if (maxDurationTimer) {
+      clearTimeout(maxDurationTimer);
+      maxDurationTimer = null;
+    }
+  };
+
+  const startMaxDurationTimer = (): void => {
+    clearMaxDurationTimer();
+    maxDurationTimer = setTimeout(() => {
+      maxDurationTimer = null;
+      if (stopInProgress) {
+        return;
+      }
+      logger.info('Auto-stopping recording (max duration reached)', {
+        maxDurationMs: MAX_TRANSCRIPTION_DURATION_MS,
+      });
+      void stopRecording('auto');
+    }, MAX_TRANSCRIPTION_DURATION_MS);
   };
 
   const startIndicatorAmplitudeLoop = (): void => {
@@ -115,21 +124,6 @@ export function registerRecordingHandlers(
   const isSelfApp = (appIdOrName: string): boolean => {
     const lower = appIdOrName.toLowerCase();
     return selfAppTokens.some((token) => lower.includes(token));
-  };
-
-  const normalizeAppId = (entry: string): string => {
-    const trimmed = entry.trim();
-    const colonIndex = trimmed.indexOf(':');
-    const value = colonIndex >= 0 ? trimmed.slice(colonIndex + 1) : trimmed;
-    return value.toLowerCase();
-  };
-
-  const isMeetingApp = (entry: string): boolean => {
-    const normalized = normalizeAppId(entry);
-    if (MEETING_APP_BUNDLE_IDS.has(normalized)) {
-      return true;
-    }
-    return false;
   };
 
   const getMicEntries = (apps: string[]): string[] => {
@@ -210,6 +204,7 @@ export function registerRecordingHandlers(
     }
     stopInProgress = true;
     clearAutoStopTimer();
+    clearMaxDurationTimer();
     stopIndicatorAmplitudeLoop();
     stopMicActivityMonitor();
     if (reason === 'auto') {
@@ -406,6 +401,7 @@ export function registerRecordingHandlers(
         setRecordingState('idle');
       }
 
+      clearRecoveryState();
       return meeting;
     } finally {
       stopInProgress = false;
@@ -414,8 +410,7 @@ export function registerRecordingHandlers(
 
   ipcMain.handle(IPC_CHANNELS.RECORDING_START, async (_, calendarContext?: any) => {
     logger.info('Recording start requested', { hasCalendarContext: !!calendarContext });
-    const { meetingRepo, settingsRepo } = getContainer();
-    const settings = settingsRepo.getSettings();
+    const { meetingRepo } = getContainer();
     logger.debug('Using transcription provider', { provider: 'Deepgram (WebSocket streaming, low-latency)' });
 
     // Store calendar context for later linking
@@ -431,9 +426,10 @@ export function registerRecordingHandlers(
     const meetingTitle = calendarContext?.calendarEventTitle;
     const attendeeEmails = calendarContext?.calendarEventAttendees;
     const meetingId = await meetingRepo.startNewMeeting(meetingTitle, attendeeEmails);
-    logger.info('Meeting started', { 
+    markRecordingActive(meetingId, meetingTitle || 'Untitled Meeting');
+    logger.info('Meeting started', {
       meetingId,
-      meetingTitle, 
+      meetingTitle,
       hadCalendarContext: !!calendarContext,
       attendeeCount: attendeeEmails?.length || 0,
       actualTitle: meetingTitle || 'will use default timestamp'
@@ -442,230 +438,236 @@ export function registerRecordingHandlers(
     setRecordingState('recording');
     startMicActivityMonitor();
     startIndicatorAmplitudeLoop();
+    startMaxDurationTimer();
 
-    // Initialize AEC processor for echo cancellation
-    try {
-      aecProcessor = new AECProcessor({
-        enableAec: true,
-        enableNs: true,
-        enableAgc: true,  // ✅ ENABLED: Automatically boosts mic volume (important for built-in mics)
-        frameDurationMs: 10,
-        sampleRate: AUDIO_CONFIG.SAMPLE_RATE,
-      });
-      logger.info('✅ AEC processor initialized for recording session');
-
-      // Initialize AECSync for render/capture synchronization
+    // Kick off provider setup asynchronously so UI can navigate immediately.
+    void (async () => {
+      // Initialize AEC processor for echo cancellation
       try {
-        aecSync = new AECSync(aecProcessor);
-        logger.info('✅ AECSync initialized for recording session');
+        aecProcessor = new AECProcessor({
+          enableAec: true,
+          enableNs: true,
+          enableAgc: true,  // ✅ ENABLED: Automatically boosts mic volume (important for built-in mics)
+          frameDurationMs: 10,
+          sampleRate: AUDIO_CONFIG.SAMPLE_RATE,
+        });
+        logger.info('✅ AEC processor initialized for recording session');
+
+        // Initialize AECSync for render/capture synchronization
+        try {
+          aecSync = new AECSync(aecProcessor);
+          logger.info('✅ AECSync initialized for recording session');
+        } catch (error) {
+          logger.error('Failed to initialize AECSync', { error: (error as Error).message });
+          aecSync = null;
+        }
       } catch (error) {
-        logger.error('Failed to initialize AECSync', { error: (error as Error).message });
+        logger.error('Failed to initialize AEC processor', { error: (error as Error).message });
+        aecProcessor = null;
         aecSync = null;
+        // Continue without AEC if initialization fails
       }
-    } catch (error) {
-      logger.error('Failed to initialize AEC processor', { error: (error as Error).message });
-      aecProcessor = null;
-      aecSync = null;
-      // Continue without AEC if initialization fails
-    }
 
-    // Fetch temporary Deepgram token from backend (API key stays secure on server)
-    const tokenService = getDeepgramTokenService();
-    const tokenResponse = await tokenService.getTemporaryToken();
-    logger.info('Deepgram temporary token acquired', {
-      expiresIn: tokenResponse.expires_in,
-    });
-
-    // Create transcription provider with token (no local API key - fully secure)
-    transcriptionProvider = createTranscriptionProvider({ token: tokenResponse.access_token });
-    logger.info('Using transcription provider', {
-      name: transcriptionProvider.name,
-      authMethod: 'JWT token (secure)',
-    });
-
-    // Set up transcript forwarding
-    transcriptionProvider.onTranscript((segment, isFinal) => {
-      logger.debug('Transcript received', {
-        source: segment.source,
-        isFinal,
-        textPreview: segment.text.slice(0, 30),
+      // Fetch temporary Deepgram token from backend (API key stays secure on server)
+      const tokenService = getDeepgramTokenService();
+      const tokenResponse = await tokenService.getTemporaryToken();
+      logger.info('Deepgram temporary token acquired', {
+        expiresIn: tokenResponse.expires_in,
       });
 
-      const channel = isFinal ? IPC_CHANNELS.TRANSCRIPT_FINAL : IPC_CHANNELS.TRANSCRIPT_UPDATE;
-
-      mainWindow.webContents.send(channel, {
-        segment,
-        meetingId: meetingRepo.getCurrentMeetingId(),
+      // Create transcription provider with token (no local API key - fully secure)
+      transcriptionProvider = createTranscriptionProvider({ token: tokenResponse.access_token });
+      logger.info('Using transcription provider', {
+        name: transcriptionProvider.name,
+        authMethod: 'JWT token (secure)',
       });
 
-      // Store final segments and process callout logic
-      if (isFinal) {
-        meetingRepo.addTranscriptSegment(segment);
+      // Set up transcript forwarding
+      transcriptionProvider.onTranscript((segment, isFinal) => {
+        logger.debug('Transcript received', {
+          source: segment.source,
+          isFinal,
+          textPreview: segment.text.slice(0, 30),
+        });
 
-        if (calloutService) {
-          // Add to callout service sliding window for context
-          calloutService.addTranscriptSegment(segment);
+        const channel = isFinal ? IPC_CHANNELS.TRANSCRIPT_FINAL : IPC_CHANNELS.TRANSCRIPT_UPDATE;
 
-          // Check for questions from system audio (other speakers)
-          if (segment.source === 'system' && matchesQuestionPattern(segment.text)) {
-            calloutService.scheduleCallout(segment.text, (callout) => {
-              calloutWindow.webContents.send(IPC_CHANNELS.CALLOUT_SHOW, callout);
-              showCalloutWindow();
-            });
-          }
+        mainWindow.webContents.send(channel, {
+          segment,
+          meetingId: meetingRepo.getCurrentMeetingId(),
+        });
 
-          // Check if mic response should cancel pending callout
-          if (segment.source === 'mic') {
-            calloutService.checkForMicResponse(segment.text);
+        // Store final segments and process callout logic
+        if (isFinal) {
+          meetingRepo.addTranscriptSegment(segment);
+
+          if (calloutService) {
+            // Add to callout service sliding window for context
+            calloutService.addTranscriptSegment(segment);
+
+            // Check for questions from system audio (other speakers)
+            if (segment.source === 'system' && matchesQuestionPattern(segment.text)) {
+              calloutService.scheduleCallout(segment.text, (callout) => {
+                calloutWindow.webContents.send(IPC_CHANNELS.CALLOUT_SHOW, callout);
+                showCalloutWindow();
+              });
+            }
+
+            // Check if mic response should cancel pending callout
+            if (segment.source === 'mic') {
+              calloutService.checkForMicResponse(segment.text);
+            }
           }
         }
-      }
-    });
+      });
 
-    transcriptionProvider
-      .connect()
-      .then(() => {
-        logger.info('Transcription provider connected');
+      transcriptionProvider
+        .connect()
+        .then(() => {
+          logger.info('Transcription provider connected');
 
-        if (transcriptionProvider) {
-          systemAudioService = new SystemAudioService();
+          if (transcriptionProvider) {
+            systemAudioService = new SystemAudioService();
 
-          // Pass shared AEC processor
-          if (aecProcessor) {
-            systemAudioService.setAECProcessor(aecProcessor);
-          }
+            // Pass shared AEC processor
+            if (aecProcessor) {
+              systemAudioService.setAECProcessor(aecProcessor);
+            }
 
-          // Feed system audio to AECSync for synchronization
-          if (aecSync) {
-            systemAudioService.onSystemAudio((samples, timestamp) => {
-              // Null-safety check: aecSync might be cleaned up during shutdown
-              if (aecSync) {
-                aecSync.addRenderAudio(samples, timestamp);
-              }
-            });
-          }
-
-          systemAudioService.onAudioLevel((level) => {
-            latestSystemAmplitude = level;
-            mainWindow.webContents.send(IPC_CHANNELS.AUDIO_LEVELS, { system: level });
-          });
-
-          systemAudioService
-            .start(transcriptionProvider)
-            .then(() => {
-              logger.info('System audio capture started');
-
-              // ✅ OPTIMIZED: Start native microphone capture with IMMEDIATE streaming
-              if (aecProcessor && transcriptionProvider) {
-                const tp = transcriptionProvider; // Capture in closure
-                
-                const success = aecProcessor.startMicrophoneCapture((samples, timestamp) => {
-                  // This callback runs in main process with native timestamps!
-                  micAudioDataCount++;
-                  if (micAudioDataCount % AUDIO_CONFIG.PACKET_LOG_INTERVAL === 1) {
-                    logger.debug('Native mic audio received', {
-                      size: samples.length,
-                      timestamp,
-                      count: micAudioDataCount,
-                    });
-                  }
-
-                  // Skip if paused
-                  if (isPaused || !tp) {
-                    return;
-                  }
-
-                  // Process mic audio through AEC with synchronized timestamps
-                  let cleanFloat32: Float32Array | null = null;
-
-                  if (aecSync) {
-                    // Use synchronized AEC processing with native timestamp!
-                    cleanFloat32 = aecSync.processCaptureWithSync(samples, timestamp);
-                    
-                    // Log sync stats occasionally
-                    if (micAudioDataCount % 100 === 0) {
-                      const stats = aecSync.getStats();
-                      logger.debug('AEC sync performance', {
-                        syncRate: `${stats.syncRate.toFixed(1)}%`,
-                        bufferSize: stats.bufferSize,
-                        packet: micAudioDataCount
-                      });
-                    }
-                  } else if (aecProcessor && aecProcessor.isReady()) {
-                    // Fallback: direct AEC without sync
-                    cleanFloat32 = aecProcessor.processCaptureAudio(samples);
-                  }
-
-                  // Update mic amplitude for indicator (use clean audio if available)
-                  const micSamples = cleanFloat32 ?? samples;
-                  let micSumSquares = 0;
-                  for (let i = 0; i < micSamples.length; i++) {
-                    const sample = micSamples[i];
-                    micSumSquares += sample * sample;
-                  }
-                  const micRms = Math.sqrt(micSumSquares / micSamples.length);
-                  latestMicAmplitude = Math.min(1, micRms * 3);
-
-                  // ✅ CRITICAL CHANGE: Send audio IMMEDIATELY without buffering
-                  if (cleanFloat32 && cleanFloat32.length > 0) {
-                    // Convert echo-cancelled audio to Int16
-                    const cleanInt16 = new Int16Array(cleanFloat32.length);
-                    for (let i = 0; i < cleanFloat32.length; i++) {
-                      cleanInt16[i] = Math.max(-32768, Math.min(32767, cleanFloat32[i] * 32768));
-                    }
-                    
-                    // 🚀 SEND IMMEDIATELY - No buffering, no delays
-                    // This allows Deepgram's VAD to naturally detect speech boundaries
-                    tp.sendAudio(cleanInt16.buffer as ArrayBuffer, 'mic');
-                    
-                    // Log occasionally for debugging
-                    if (micAudioDataCount % 100 === 1) {
-                      logger.debug('📤 Mic audio sent to Deepgram (AEC - immediate streaming)', { 
-                        samples: cleanInt16.length,
-                        bytes: cleanInt16.buffer.byteLength,
-                        packet: micAudioDataCount
-                      });
-                    }
-                  } else {
-                    // Fallback to raw audio if AEC processing fails
-                    if (micAudioDataCount % 100 === 1) {
-                      logger.warn('AEC processing returned empty, using raw mic audio', { micAudioDataCount });
-                    }
-                    
-                    const rawInt16 = new Int16Array(samples.length);
-                    for (let i = 0; i < samples.length; i++) {
-                      rawInt16[i] = Math.max(-32768, Math.min(32767, samples[i] * 32768));
-                    }
-                    
-                    // 🚀 SEND IMMEDIATELY - No buffering
-                    tp.sendAudio(rawInt16.buffer as ArrayBuffer, 'mic');
-                    
-                    if (micAudioDataCount % 100 === 1) {
-                      logger.debug('📤 Mic audio sent to Deepgram (raw - immediate streaming)', { 
-                        samples: rawInt16.length,
-                        bytes: rawInt16.buffer.byteLength,
-                        packet: micAudioDataCount
-                      });
-                    }
-                  }
-                });
-
-                if (success) {
-                  logger.info('✅ Native microphone capture started with immediate streaming (no buffering)');
-                  logger.info('🎯 Audio packets are sent directly to Deepgram for optimal VAD and sentence formation');
-                } else {
-                  logger.error('❌ Failed to start native microphone capture');
+            // Feed system audio to AECSync for synchronization
+            if (aecSync) {
+              systemAudioService.onSystemAudio((samples, timestamp) => {
+                // Null-safety check: aecSync might be cleaned up during shutdown
+                if (aecSync) {
+                  aecSync.addRenderAudio(samples, timestamp);
                 }
-              }
-            })
-            .catch((error) => {
-              logger.error('System audio capture failed', error);
+              });
+            }
+
+            systemAudioService.onAudioLevel((level) => {
+              latestSystemAmplitude = level;
+              mainWindow.webContents.send(IPC_CHANNELS.AUDIO_LEVELS, { system: level });
             });
-        }
-      })
-      .catch((error) => {
-        logger.error('Transcription provider connection failed', error);
-      });
+
+            systemAudioService
+              .start(transcriptionProvider)
+              .then(() => {
+                logger.info('System audio capture started');
+
+                // ✅ OPTIMIZED: Start native microphone capture with IMMEDIATE streaming
+                if (aecProcessor && transcriptionProvider) {
+                  const tp = transcriptionProvider; // Capture in closure
+                  
+                  const success = aecProcessor.startMicrophoneCapture((samples, timestamp) => {
+                    // This callback runs in main process with native timestamps!
+                    micAudioDataCount++;
+                    if (micAudioDataCount % AUDIO_CONFIG.PACKET_LOG_INTERVAL === 1) {
+                      logger.debug('Native mic audio received', {
+                        size: samples.length,
+                        timestamp,
+                        count: micAudioDataCount,
+                      });
+                    }
+
+                    // Skip if paused
+                    if (isPaused || !tp) {
+                      return;
+                    }
+
+                    // Process mic audio through AEC with synchronized timestamps
+                    let cleanFloat32: Float32Array | null = null;
+
+                    if (aecSync) {
+                      // Use synchronized AEC processing with native timestamp!
+                      cleanFloat32 = aecSync.processCaptureWithSync(samples, timestamp);
+                      
+                      // Log sync stats occasionally
+                      if (micAudioDataCount % 100 === 0) {
+                        const stats = aecSync.getStats();
+                        logger.debug('AEC sync performance', {
+                          syncRate: `${stats.syncRate.toFixed(1)}%`,
+                          bufferSize: stats.bufferSize,
+                          packet: micAudioDataCount
+                        });
+                      }
+                    } else if (aecProcessor && aecProcessor.isReady()) {
+                      // Fallback: direct AEC without sync
+                      cleanFloat32 = aecProcessor.processCaptureAudio(samples);
+                    }
+
+                    // Update mic amplitude for indicator (use clean audio if available)
+                    const micSamples = cleanFloat32 ?? samples;
+                    let micSumSquares = 0;
+                    for (let i = 0; i < micSamples.length; i++) {
+                      const sample = micSamples[i];
+                      micSumSquares += sample * sample;
+                    }
+                    const micRms = Math.sqrt(micSumSquares / micSamples.length);
+                    latestMicAmplitude = Math.min(1, micRms * 3);
+
+                    // ✅ CRITICAL CHANGE: Send audio IMMEDIATELY without buffering
+                    if (cleanFloat32 && cleanFloat32.length > 0) {
+                      // Convert echo-cancelled audio to Int16
+                      const cleanInt16 = new Int16Array(cleanFloat32.length);
+                      for (let i = 0; i < cleanFloat32.length; i++) {
+                        cleanInt16[i] = Math.max(-32768, Math.min(32767, cleanFloat32[i] * 32768));
+                      }
+                      
+                      // 🚀 SEND IMMEDIATELY - No buffering, no delays
+                      // This allows Deepgram's VAD to naturally detect speech boundaries
+                      tp.sendAudio(cleanInt16.buffer as ArrayBuffer, 'mic');
+                      
+                      // Log occasionally for debugging
+                      if (micAudioDataCount % 100 === 1) {
+                        logger.debug('📤 Mic audio sent to Deepgram (AEC - immediate streaming)', { 
+                          samples: cleanInt16.length,
+                          bytes: cleanInt16.buffer.byteLength,
+                          packet: micAudioDataCount
+                        });
+                      }
+                    } else {
+                      // Fallback to raw audio if AEC processing fails
+                      if (micAudioDataCount % 100 === 1) {
+                        logger.warn('AEC processing returned empty, using raw mic audio', { micAudioDataCount });
+                      }
+                      
+                      const rawInt16 = new Int16Array(samples.length);
+                      for (let i = 0; i < samples.length; i++) {
+                        rawInt16[i] = Math.max(-32768, Math.min(32767, samples[i] * 32768));
+                      }
+                      
+                      // 🚀 SEND IMMEDIATELY - No buffering
+                      tp.sendAudio(rawInt16.buffer as ArrayBuffer, 'mic');
+                      
+                      if (micAudioDataCount % 100 === 1) {
+                        logger.debug('📤 Mic audio sent to Deepgram (raw - immediate streaming)', { 
+                          samples: rawInt16.length,
+                          bytes: rawInt16.buffer.byteLength,
+                          packet: micAudioDataCount
+                        });
+                      }
+                    }
+                  });
+
+                  if (success) {
+                    logger.info('✅ Native microphone capture started with immediate streaming (no buffering)');
+                    logger.info('🎯 Audio packets are sent directly to Deepgram for optimal VAD and sentence formation');
+                  } else {
+                    logger.error('❌ Failed to start native microphone capture');
+                  }
+                }
+              })
+              .catch((error) => {
+                logger.error('System audio capture failed', error);
+              });
+          }
+        })
+        .catch((error) => {
+          logger.error('Transcription provider connection failed', error);
+        });
+    })().catch((error) => {
+      logger.error('Recording startup failed', error);
+    });
 
     return meetingId;
   });
@@ -793,6 +795,7 @@ export function registerRecordingHandlers(
       meetingRepo.clearCurrentMeeting();
     }
 
+    clearRecoveryState();
     setRecordingState('idle');
     logger.info('Recording discarded successfully');
   });

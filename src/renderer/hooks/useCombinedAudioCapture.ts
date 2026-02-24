@@ -12,6 +12,7 @@ import { useSystemAudioStream, type SystemAudioSourcePreference } from "@rendere
 import { PcmChunker, type PcmChunk } from "@renderer/audio/pcmChunker";
 import { NoiseEstimator } from "@renderer/audio/noiseEstimator";
 import { SilenceDetector, type ClassifiedChunk } from "@renderer/audio/silenceDetector";
+import { createLogger } from "@renderer/lib/logger";
 
 export interface CombinedAudioCaptureOptions {
   /** Target sample rate for output (default: 16000 for transcription) */
@@ -46,6 +47,8 @@ export interface CombinedAudioCaptureResult {
   /** Toggle echo cancellation */
   setAecEnabled: (enabled: boolean) => Promise<void>;
 }
+
+const logger = createLogger("CombinedAudioCapture");
 
 /**
  * Combined audio capture hook with automatic AEC selection
@@ -146,10 +149,10 @@ export function useCombinedAudioCapture(
   // Create a dummy micStream object for compatibility
   const _micStream = {
     start: async () => {
-      console.log("[CombinedAudio] Renderer mic capture is disabled - using native mic instead");
+      logger.debug("Renderer mic capture is disabled - using native mic instead");
     },
     stop: () => {
-      console.log("[CombinedAudio] Renderer mic capture is disabled");
+      logger.debug("Renderer mic capture is disabled");
     },
   };
   void _micStream;
@@ -163,38 +166,38 @@ export function useCombinedAudioCapture(
     try {
       // Try native first if available
       if (nativeAudio.isAvailable) {
-        console.log("[CombinedAudio] Starting native audio capture");
-        console.log("[CombinedAudio] Native state:", nativeAudio.state);
-        console.log("[CombinedAudio] Native error:", nativeAudio.error);
+        logger.info("Starting native audio capture");
+        logger.debug("Native state", { state: nativeAudio.state });
+        logger.debug("Native error", { error: nativeAudio.error });
         
         try {
           const success = await nativeAudio.start();
           if (success) {
             setUsingNative(true);
             setIsCapturing(true);
-            console.log("[CombinedAudio] ✅ Native audio capture started");
+            logger.info("Native audio capture started");
             return;
           }
-          console.error("[CombinedAudio] ❌ Native capture returned false, error:", nativeAudio.error);
+          logger.error("Native capture returned false", new Error(String(nativeAudio.error || "Unknown error")));
         } catch (nativeErr) {
-          console.error("[CombinedAudio] ❌ Native capture threw error:", nativeErr);
+          logger.error("Native capture threw error", nativeErr);
         }
-        console.warn("[CombinedAudio] Falling back to web audio");
+        logger.warn("Falling back to web audio");
       } else {
-        console.log("[CombinedAudio] Native audio not available, using web audio");
+        logger.info("Native audio not available, using web audio");
       }
 
       // Fall back to web audio (system only, mic is native)
-      console.log("[CombinedAudio] Starting web audio capture (system audio only)");
+      logger.info("Starting web audio capture (system audio only)");
       setUsingNative(false);
       // Only start system stream - mic is handled natively
       await systemStream.start();
       setIsCapturing(true);
-      console.log("[CombinedAudio] Web audio capture started (system audio only)");
+      logger.info("Web audio capture started (system audio only)");
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to start audio capture";
       setError(message);
-      console.error("[CombinedAudio] Error starting:", err);
+      logger.error("Error starting", err);
     }
   }, [nativeAudio, systemStream]);
 
@@ -212,7 +215,7 @@ export function useCombinedAudioCapture(
     systemChunkerRef.current?.flush();
 
     setIsCapturing(false);
-    console.log("[CombinedAudio] Capture stopped");
+    logger.info("Capture stopped");
   }, [usingNative, nativeAudio, systemStream]);
 
   // Toggle AEC
